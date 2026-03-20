@@ -262,6 +262,15 @@ export default function PlayerProfilePage() {
             </div>
           )}
 
+          {/* Betting accuracy */}
+          {tournament.betting_enabled && (
+            <BettingAccuracy
+              playerId={profilePlayer.id}
+              tournamentId={tournament.id}
+              showDecimals={showDecimals}
+            />
+          )}
+
           {/* Credit Ledger - always visible */}
           <PlayerLedger
             playerId={profilePlayer.id}
