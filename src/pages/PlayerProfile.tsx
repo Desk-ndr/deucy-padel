@@ -14,6 +14,7 @@ import type { Player, PledgeItem, Round } from '@/lib/types';
 import { ArrowLeft, Camera } from 'lucide-react';
 import { formatEuros } from '@/lib/euros';
 import { PlayerLedger } from '@/components/profile/PlayerLedger';
+import { BettingAccuracy } from '@/components/profile/BettingAccuracy';
 
 export default function PlayerProfilePage() {
   const { playerId } = useParams<{ playerId: string }>();
@@ -259,6 +260,15 @@ export default function PlayerProfilePage() {
               <div className="text-3xl mb-2">📦</div>
               <p className="text-sm text-muted-foreground">No pledges yet</p>
             </div>
+          )}
+
+          {/* Betting accuracy */}
+          {tournament.betting_enabled && (
+            <BettingAccuracy
+              playerId={profilePlayer.id}
+              tournamentId={tournament.id}
+              showDecimals={showDecimals}
+            />
           )}
 
           {/* Credit Ledger - always visible */}
