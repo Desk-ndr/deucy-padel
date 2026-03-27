@@ -22,6 +22,8 @@ import CompleteEntry from "./pages/CompleteEntry";
 import PlayerProfile from "./pages/PlayerProfile";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import BlitzList from "./pages/BlitzList";
+import BlitzTournament from "./pages/BlitzTournament";
 
 // Admin Pages
 import AdminLogin from "./pages/admin/AdminLogin";
@@ -61,6 +63,10 @@ const App = () => (
             <Route path="/pledges" element={<Pledges />} />
             <Route path="/player/:playerId" element={<PlayerProfile />} />
             <Route path="/profile" element={<Profile />} />
+            
+            {/* Blitz routes */}
+            <Route path="/blitz" element={<BlitzList />} />
+            <Route path="/blitz/:id" element={<BlitzTournament />} />
             
             {/* Admin routes */}
             <Route path="/admin" element={<AdminLogin />} />
