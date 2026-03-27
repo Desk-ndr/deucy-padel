@@ -13,7 +13,7 @@ import { TournamentStartedDialog } from '@/components/onboarding/TournamentStart
 import { useWaitlist } from '@/hooks/useWaitlist';
 import { useToast } from '@/hooks/use-toast';
 import type { Tournament, Round } from '@/lib/types';
-import { Trophy, LogOut, Clock } from 'lucide-react';
+import { Trophy, LogOut, Clock, Zap } from 'lucide-react';
 
 interface TournamentWithMeta {
   tournament: Tournament;
