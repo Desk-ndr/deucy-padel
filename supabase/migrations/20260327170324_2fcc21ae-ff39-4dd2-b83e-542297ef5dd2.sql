@@ -1,0 +1,2 @@
+CREATE POLICY "Anyone can delete blitz rounds" ON public.blitz_rounds FOR DELETE TO anon, authenticated USING (true);
+CREATE POLICY "Anyone can delete blitz bets" ON public.blitz_bets FOR DELETE TO anon, authenticated USING (true);
