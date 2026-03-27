@@ -164,6 +164,141 @@ export type Database = {
           },
         ]
       }
+      blitz_bets: {
+        Row: {
+          bettor_index: number
+          created_at: string
+          id: string
+          predicted_winner: string
+          round_index: number
+          status: string
+          tournament_id: string
+        }
+        Insert: {
+          bettor_index: number
+          created_at?: string
+          id?: string
+          predicted_winner: string
+          round_index: number
+          status?: string
+          tournament_id: string
+        }
+        Update: {
+          bettor_index?: number
+          created_at?: string
+          id?: string
+          predicted_winner?: string
+          round_index?: number
+          status?: string
+          tournament_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blitz_bets_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "blitz_tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blitz_pledges: {
+        Row: {
+          created_at: string
+          id: string
+          item_text: string
+          player_index: number
+          tournament_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_text: string
+          player_index: number
+          tournament_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_text?: string
+          player_index?: number
+          tournament_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blitz_pledges_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "blitz_tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blitz_rounds: {
+        Row: {
+          created_at: string
+          id: string
+          round_index: number
+          status: string
+          team_a_score: number | null
+          team_b_score: number | null
+          tournament_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          round_index: number
+          status?: string
+          team_a_score?: number | null
+          team_b_score?: number | null
+          tournament_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          round_index?: number
+          status?: string
+          team_a_score?: number | null
+          team_b_score?: number | null
+          tournament_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blitz_rounds_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "blitz_tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blitz_tournaments: {
+        Row: {
+          created_at: string
+          current_round: number
+          id: string
+          name: string
+          players: Json
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          current_round?: number
+          id?: string
+          name?: string
+          players?: Json
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          current_round?: number
+          id?: string
+          name?: string
+          players?: Json
+          status?: string
+        }
+        Relationships: []
+      }
       credit_ledger_entries: {
         Row: {
           amount: number
