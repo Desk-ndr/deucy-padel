@@ -416,7 +416,7 @@ export default function BlitzTournament() {
 
           {/* ── LEADERBOARD TAB ── */}
           <TabsContent value="leaderboard" className="mt-4">
-            <LeaderboardTable players={sortedPlayers} rounds={rounds} bets={bets} allPlayers={tournament.players} />
+            <LeaderboardTable players={sortedPlayers} rounds={rounds} bets={bets} />
           </TabsContent>
 
           {/* ── BETS TAB ── */}
