@@ -92,7 +92,7 @@ export default function BlitzList() {
         ))}
 
         <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => navigate('/tournaments')}>
-          ← Back to main tournaments
+          ← Back to Tournaments
         </Button>
       </div>
     </div>
