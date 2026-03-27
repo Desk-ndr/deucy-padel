@@ -265,6 +265,20 @@ export default function TournamentsPage() {
         }
       >
         <div className="space-y-3">
+          {/* Blitz tournament link */}
+          <div 
+            className="rounded-xl border border-primary/30 bg-primary/10 p-3 flex items-center justify-between cursor-pointer hover:bg-primary/15 transition-colors"
+            onClick={() => navigate('/blitz')}
+          >
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-semibold text-sm">Blitz Tournaments</p>
+                <p className="text-xs text-muted-foreground">Quick 2-hour side quests</p>
+              </div>
+            </div>
+            <span className="text-xs text-primary font-medium">View →</span>
+          </div>
           {/* Global waitlist banner when no open slots and not already on waitlist and not enrolled */}
           {!loading && showGlobalWaitlist && !enrolledTournament && !waitlistEntry && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center space-y-2">
