@@ -16,4 +16,4 @@ export const BLITZ_SCHEDULE = [
 ];
 
 export const TOTAL_ROUNDS = 12;
-export const ROUND_DURATION_SECONDS = 10 * 60; // 10 minutes
+export const ROUND_DURATION_SECONDS = 9 * 60; // 9 minutes
