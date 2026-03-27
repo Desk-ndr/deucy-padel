@@ -171,6 +171,7 @@ export type Database = {
           id: string
           predicted_winner: string
           round_index: number
+          stake: number
           status: string
           tournament_id: string
         }
@@ -180,6 +181,7 @@ export type Database = {
           id?: string
           predicted_winner: string
           round_index: number
+          stake?: number
           status?: string
           tournament_id: string
         }
@@ -189,6 +191,7 @@ export type Database = {
           id?: string
           predicted_winner?: string
           round_index?: number
+          stake?: number
           status?: string
           tournament_id?: string
         }
