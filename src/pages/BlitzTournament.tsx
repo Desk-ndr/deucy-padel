@@ -20,6 +20,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Zap, Play, Pause, RotateCcw, Trophy, Users, Clock, ChevronLeft, Dice1, Share2, Trash2 } from 'lucide-react';
 import { BLITZ_SCHEDULE, TOTAL_ROUNDS, ROUND_DURATION_SECONDS } from '@/lib/blitz-schedule';
 import { cn } from '@/lib/utils';
+import { ChevronDown } from 'lucide-react';
+import { useState as useLocalState } from 'react';
 
 const EUROS_PER_GAME = 3;
 const MAX_BET = 3;
@@ -415,36 +417,7 @@ export default function BlitzTournament() {
 
           {/* ── LEADERBOARD TAB ── */}
           <TabsContent value="leaderboard" className="mt-4">
-            <Card>
-              <CardContent className="p-0">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-3 text-xs text-muted-foreground">#</th>
-                      <th className="text-left p-3 text-xs text-muted-foreground">Player</th>
-                      <th className="text-right p-3 text-xs text-muted-foreground">Balance</th>
-                      <th className="text-right p-3 text-xs text-muted-foreground">Rounds</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedPlayers.map((p, rank) => {
-                      const roundsPlayed = rounds.filter(r => r.status === 'completed').filter(r => {
-                        const s = BLITZ_SCHEDULE[r.round_index - 1];
-                        return [...s.teamA, ...s.teamB].includes(p.index);
-                      }).length;
-                      return (
-                        <tr key={p.index} className={cn('border-b last:border-0', rank === 0 && 'bg-primary/5')}>
-                          <td className="p-3 font-bold">{rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : rank + 1}</td>
-                          <td className="p-3 font-medium">{p.name}</td>
-                          <td className="p-3 text-right font-bold text-primary">€{p.balance}</td>
-                          <td className="p-3 text-right text-sm text-muted-foreground">{roundsPlayed}/6</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+            <LeaderboardTable players={sortedPlayers} rounds={rounds} bets={bets} allPlayers={tournament.players} />
           </TabsContent>
 
           {/* ── BETS TAB ── */}
