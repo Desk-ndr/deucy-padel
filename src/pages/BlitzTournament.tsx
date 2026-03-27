@@ -76,7 +76,7 @@ export default function BlitzTournament() {
     if (names.length !== 8) { toast({ title: 'Need exactly 8 players', variant: 'destructive' }); return; }
     if (new Set(names).size !== 8) { toast({ title: 'All names must be unique', variant: 'destructive' }); return; }
 
-    const players = names.map(name => ({ name, score: 0 }));
+    const players: Record<string, unknown>[] = names.map(name => ({ name, score: 0 }));
     // Create all 12 rounds
     const roundInserts = Array.from({ length: TOTAL_ROUNDS }, (_, i) => ({
       tournament_id: id!,
@@ -107,8 +107,9 @@ export default function BlitzTournament() {
 
     // Update player scores
     const updatedPlayers = [...tournament.players];
-    schedule.teamA.forEach(idx => { updatedPlayers[idx] = { ...updatedPlayers[idx], score: updatedPlayers[idx].score + a }; });
-    schedule.teamB.forEach(idx => { updatedPlayers[idx] = { ...updatedPlayers[idx], score: updatedPlayers[idx].score + b }; });
+    schedule.teamA.forEach(idx => { updatedPlayers[idx] = { ...updatedPlayers[idx], score: updatedPlayers[idx].score + a } as BlitzPlayer; });
+    schedule.teamB.forEach(idx => { updatedPlayers[idx] = { ...updatedPlayers[idx], score: updatedPlayers[idx].score + b } as BlitzPlayer; });
+    const playersJson = updatedPlayers as unknown as Record<string, unknown>[];
 
     // Settle bets for this round
     const roundBets = bets.filter(bet => bet.round_index === roundIdx && bet.status === 'pending');
