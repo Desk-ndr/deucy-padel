@@ -5,8 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Zap, Play, Pause, RotateCcw, Trophy, Users, Clock, ChevronLeft, Dice1, Share2 } from 'lucide-react';
+import { Zap, Play, Pause, RotateCcw, Trophy, Users, Clock, ChevronLeft, Dice1, Share2, Trash2 } from 'lucide-react';
 import { BLITZ_SCHEDULE, TOTAL_ROUNDS, ROUND_DURATION_SECONDS } from '@/lib/blitz-schedule';
 import { cn } from '@/lib/utils';
 
@@ -147,6 +158,22 @@ export default function BlitzTournament() {
     load();
   };
 
+  // ── RESET ──
+  const handleResetTournament = async () => {
+    if (!id) return;
+    // Delete all rounds, bets, then reset tournament to setup
+    await supabase.from('blitz_bets').delete().eq('tournament_id', id);
+    await supabase.from('blitz_rounds').delete().eq('tournament_id', id);
+    const resetPlayers = (tournament?.players || []).map(p => ({ name: p.name, balance: 0 }));
+    await supabase.from('blitz_tournaments').update({ status: 'setup', current_round: 0, players: resetPlayers as any }).eq('id', id);
+    setTimerSeconds(ROUND_DURATION_SECONDS);
+    setTimerRunning(false);
+    setScoreA(''); setScoreB('');
+    setBets([]); setRounds([]);
+    load();
+    toast({ title: 'Tournament reset! ⚡', description: 'All data has been wiped.' });
+  };
+
   // ── BETS ──
   const handlePlaceBet = async () => {
     if (!tournament || betPlayer === null || !betPrediction) return;
@@ -226,15 +253,36 @@ export default function BlitzTournament() {
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => navigate('/blitz')}><ChevronLeft className="h-4 w-4 mr-1" /> Back</Button>
           <h1 className="font-bold text-lg flex items-center gap-2"><Zap className="h-5 w-5 text-primary" /> {tournament.name}</h1>
-          <Button variant="ghost" size="sm" onClick={() => {
-            const url = window.location.href;
-            if (navigator.share) {
-              navigator.share({ title: tournament.name, text: `Join the blitz tournament: ${tournament.name}`, url });
-            } else {
-              navigator.clipboard.writeText(url);
-              toast({ title: 'Link copied! 📋' });
-            }
-          }}><Share2 className="h-4 w-4" /></Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => {
+              const url = window.location.href;
+              if (navigator.share) {
+                navigator.share({ title: tournament.name, text: `Join the blitz tournament: ${tournament.name}`, url });
+              } else {
+                navigator.clipboard.writeText(url);
+                toast({ title: 'Link copied! 📋' });
+              }
+            }}><Share2 className="h-4 w-4" /></Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset Tournament?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will <span className="font-semibold text-destructive">permanently wipe all data</span> — scores, rounds, bets, and balances. The tournament will go back to the setup screen with the same player names. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleResetTournament} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Yes, reset everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
 
         <Tabs defaultValue="match" className="w-full">
