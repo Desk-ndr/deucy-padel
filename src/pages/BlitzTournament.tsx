@@ -226,7 +226,15 @@ export default function BlitzTournament() {
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => navigate('/blitz')}><ChevronLeft className="h-4 w-4 mr-1" /> Back</Button>
           <h1 className="font-bold text-lg flex items-center gap-2"><Zap className="h-5 w-5 text-primary" /> {tournament.name}</h1>
-          <div className="w-16" />
+          <Button variant="ghost" size="sm" onClick={() => {
+            const url = window.location.href;
+            if (navigator.share) {
+              navigator.share({ title: tournament.name, text: `Join the blitz tournament: ${tournament.name}`, url });
+            } else {
+              navigator.clipboard.writeText(url);
+              toast({ title: 'Link copied! 📋' });
+            }
+          }}><Share2 className="h-4 w-4" /></Button>
         </div>
 
         <Tabs defaultValue="match" className="w-full">
