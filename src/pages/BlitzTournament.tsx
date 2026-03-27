@@ -76,7 +76,7 @@ export default function BlitzTournament() {
     if (names.length !== 8) { toast({ title: 'Need exactly 8 players', variant: 'destructive' }); return; }
     if (new Set(names).size !== 8) { toast({ title: 'All names must be unique', variant: 'destructive' }); return; }
 
-    const players: Record<string, unknown>[] = names.map(name => ({ name, score: 0 }));
+    const players = names.map(name => ({ name, score: 0 })) as any;
     // Create all 12 rounds
     const roundInserts = Array.from({ length: TOTAL_ROUNDS }, (_, i) => ({
       tournament_id: id!,
@@ -109,7 +109,7 @@ export default function BlitzTournament() {
     const updatedPlayers = [...tournament.players];
     schedule.teamA.forEach(idx => { updatedPlayers[idx] = { ...updatedPlayers[idx], score: updatedPlayers[idx].score + a } as BlitzPlayer; });
     schedule.teamB.forEach(idx => { updatedPlayers[idx] = { ...updatedPlayers[idx], score: updatedPlayers[idx].score + b } as BlitzPlayer; });
-    const playersJson = updatedPlayers as unknown as Record<string, unknown>[];
+    
 
     // Settle bets for this round
     const roundBets = bets.filter(bet => bet.round_index === roundIdx && bet.status === 'pending');
@@ -121,13 +121,13 @@ export default function BlitzTournament() {
 
     const isLast = roundIdx >= TOTAL_ROUNDS;
     if (isLast) {
-      await supabase.from('blitz_tournaments').update({ players: updatedPlayers, current_round: roundIdx, status: 'finished' }).eq('id', id!);
+      await supabase.from('blitz_tournaments').update({ players: updatedPlayers as any, current_round: roundIdx, status: 'finished' }).eq('id', id!);
       toast({ title: 'Tournament complete! 🏆' });
     } else {
       // Activate next round
       const nextRound = rounds.find(r => r.round_index === roundIdx + 1);
       if (nextRound) await supabase.from('blitz_rounds').update({ status: 'active' }).eq('id', nextRound.id);
-      await supabase.from('blitz_tournaments').update({ players: updatedPlayers, current_round: roundIdx + 1 }).eq('id', id!);
+      await supabase.from('blitz_tournaments').update({ players: updatedPlayers as any, current_round: roundIdx + 1 }).eq('id', id!);
       toast({ title: `Round ${roundIdx} done! Moving to Round ${roundIdx + 1}` });
     }
 
