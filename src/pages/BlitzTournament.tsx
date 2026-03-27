@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Zap, Play, Pause, RotateCcw, Trophy, Users, Clock, ChevronLeft, Dice1, Share2, Trash2 } from 'lucide-react';
 import { BLITZ_SCHEDULE, TOTAL_ROUNDS, ROUND_DURATION_SECONDS } from '@/lib/blitz-schedule';
 import { cn } from '@/lib/utils';
+import { ChevronDown } from 'lucide-react';
 
 const EUROS_PER_GAME = 3;
 const MAX_BET = 3;
@@ -415,36 +416,7 @@ export default function BlitzTournament() {
 
           {/* ── LEADERBOARD TAB ── */}
           <TabsContent value="leaderboard" className="mt-4">
-            <Card>
-              <CardContent className="p-0">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-3 text-xs text-muted-foreground">#</th>
-                      <th className="text-left p-3 text-xs text-muted-foreground">Player</th>
-                      <th className="text-right p-3 text-xs text-muted-foreground">Balance</th>
-                      <th className="text-right p-3 text-xs text-muted-foreground">Rounds</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedPlayers.map((p, rank) => {
-                      const roundsPlayed = rounds.filter(r => r.status === 'completed').filter(r => {
-                        const s = BLITZ_SCHEDULE[r.round_index - 1];
-                        return [...s.teamA, ...s.teamB].includes(p.index);
-                      }).length;
-                      return (
-                        <tr key={p.index} className={cn('border-b last:border-0', rank === 0 && 'bg-primary/5')}>
-                          <td className="p-3 font-bold">{rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : rank + 1}</td>
-                          <td className="p-3 font-medium">{p.name}</td>
-                          <td className="p-3 text-right font-bold text-primary">€{p.balance}</td>
-                          <td className="p-3 text-right text-sm text-muted-foreground">{roundsPlayed}/6</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+            <LeaderboardTable players={sortedPlayers} rounds={rounds} bets={bets} />
           </TabsContent>
 
           {/* ── BETS TAB ── */}
@@ -639,5 +611,117 @@ export default function BlitzTournament() {
         </Tabs>
       </div>
     </div>
+  );
+}
+
+// ── LEADERBOARD WITH EXPANDABLE LEDGER ──
+function LeaderboardTable({ players, rounds, bets }: {
+  players: (BlitzPlayer & { index: number })[];
+  rounds: BlitzRound[];
+  bets: BlitzBet[];
+}) {
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const completedRounds = rounds.filter(r => r.status === 'completed');
+
+  const getPlayerStats = (playerIndex: number) => {
+    let gamesWon = 0;
+    const ledger: { round: number; type: string; amount: number; detail: string }[] = [];
+
+    for (const r of completedRounds) {
+      const s = BLITZ_SCHEDULE[r.round_index - 1];
+      const onA = s.teamA.includes(playerIndex);
+      const onB = s.teamB.includes(playerIndex);
+      if (onA && r.team_a_score != null) {
+        gamesWon += r.team_a_score;
+        const earned = r.team_a_score * EUROS_PER_GAME;
+        if (earned > 0) ledger.push({ round: r.round_index, type: '🎾 Games won', amount: earned, detail: `${r.team_a_score} games × €${EUROS_PER_GAME}` });
+      } else if (onB && r.team_b_score != null) {
+        gamesWon += r.team_b_score;
+        const earned = r.team_b_score * EUROS_PER_GAME;
+        if (earned > 0) ledger.push({ round: r.round_index, type: '🎾 Games won', amount: earned, detail: `${r.team_b_score} games × €${EUROS_PER_GAME}` });
+      }
+    }
+
+    // Bets
+    const playerBets = bets.filter(b => b.bettor_index === playerIndex && b.status !== 'pending');
+    for (const bet of playerBets) {
+      if (bet.status === 'won') {
+        ledger.push({ round: bet.round_index, type: '🎲 Bet won', amount: bet.stake, detail: `+€${bet.stake} profit (Team ${bet.predicted_winner})` });
+      } else if (bet.status === 'lost') {
+        ledger.push({ round: bet.round_index, type: '🎲 Bet lost', amount: -bet.stake, detail: `-€${bet.stake} (Team ${bet.predicted_winner})` });
+      } else if (bet.status === 'draw') {
+        ledger.push({ round: bet.round_index, type: '🎲 Bet refund', amount: 0, detail: `€${bet.stake} returned (draw)` });
+      }
+    }
+
+    ledger.sort((a, b) => a.round - b.round);
+    return { gamesWon, ledger };
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left p-3 text-xs text-muted-foreground">#</th>
+              <th className="text-left p-3 text-xs text-muted-foreground">Player</th>
+              <th className="text-right p-3 text-xs text-muted-foreground">Games</th>
+              <th className="text-right p-3 text-xs text-muted-foreground">Balance</th>
+              <th className="w-8"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {players.map((p, rank) => {
+              const { gamesWon, ledger } = getPlayerStats(p.index);
+              const isExpanded = expanded === p.index;
+              return (
+                <React.Fragment key={p.index}>
+                  <tr
+                    className={cn('border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors', rank === 0 && 'bg-primary/5')}
+                    onClick={() => setExpanded(isExpanded ? null : p.index)}
+                  >
+                    <td className="p-3 font-bold">{rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : rank + 1}</td>
+                    <td className="p-3 font-medium">{p.name}</td>
+                    <td className="p-3 text-right text-sm font-semibold">{gamesWon}</td>
+                    <td className="p-3 text-right font-bold text-primary">€{p.balance}</td>
+                    <td className="p-2">
+                      <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isExpanded && 'rotate-180')} />
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={5} className="bg-muted/20 px-4 py-3">
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Transaction Ledger</p>
+                          {ledger.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No transactions yet</p>
+                          ) : (
+                            ledger.map((entry, i) => (
+                              <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-border/30 last:border-0">
+                                <span className="text-muted-foreground w-8">R{entry.round}</span>
+                                <span className="flex-1">{entry.type}</span>
+                                <span className="text-muted-foreground text-[10px] mr-2">{entry.detail}</span>
+                                <span className={cn('font-bold', entry.amount > 0 ? 'text-primary' : entry.amount < 0 ? 'text-destructive' : 'text-muted-foreground')}>
+                                  {entry.amount > 0 ? '+' : ''}€{entry.amount}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                          <div className="flex justify-between pt-2 border-t border-border/50 mt-1">
+                            <span className="text-xs font-semibold">Total</span>
+                            <span className="text-sm font-bold text-primary">€{p.balance}</span>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
   );
 }
