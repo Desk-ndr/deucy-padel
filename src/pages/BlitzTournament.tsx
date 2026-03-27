@@ -6,14 +6,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Zap, Play, Pause, RotateCcw, Trophy, Users, Clock, ChevronLeft, Gift, Dice1 } from 'lucide-react';
+import { Zap, Play, Pause, RotateCcw, Trophy, Users, Clock, ChevronLeft, Dice1 } from 'lucide-react';
 import { BLITZ_SCHEDULE, TOTAL_ROUNDS, ROUND_DURATION_SECONDS } from '@/lib/blitz-schedule';
 import { cn } from '@/lib/utils';
 
-interface BlitzPlayer { name: string; score: number; }
+const EUROS_PER_GAME = 3;
+const MAX_BET = 3;
+
+interface BlitzPlayer { name: string; balance: number; }
 interface BlitzRound { id: string; round_index: number; team_a_score: number | null; team_b_score: number | null; status: string; }
-interface BlitzPledge { id: string; player_index: number; item_text: string; }
-interface BlitzBet { id: string; round_index: number; bettor_index: number; predicted_winner: string; status: string; }
+interface BlitzBet { id: string; round_index: number; bettor_index: number; predicted_winner: string; status: string; stake: number; }
 
 export default function BlitzTournament() {
   const { id } = useParams<{ id: string }>();
@@ -22,7 +24,6 @@ export default function BlitzTournament() {
 
   const [tournament, setTournament] = useState<{ id: string; name: string; status: string; players: BlitzPlayer[]; current_round: number } | null>(null);
   const [rounds, setRounds] = useState<BlitzRound[]>([]);
-  const [pledges, setPledges] = useState<BlitzPledge[]>([]);
   const [bets, setBets] = useState<BlitzBet[]>([]);
 
   // Setup state
@@ -35,24 +36,25 @@ export default function BlitzTournament() {
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Pledge/bet state
-  const [newPledgePlayer, setNewPledgePlayer] = useState(0);
-  const [newPledgeText, setNewPledgeText] = useState('');
-  const [betPlayer, setBetPlayer] = useState(0);
-  const [betPrediction, setBetPrediction] = useState<'A' | 'B'>('A');
+  // Bet state
+  const [betPlayer, setBetPlayer] = useState<number | null>(null);
+  const [betPrediction, setBetPrediction] = useState<'A' | 'B' | null>(null);
+  const [betStake, setBetStake] = useState(1);
 
   const load = useCallback(async () => {
     if (!id) return;
     const { data: t } = await supabase.from('blitz_tournaments').select('*').eq('id', id).maybeSingle();
     if (!t) return;
-    setTournament(t as any);
-    if (t.status === 'setup') setPlayerNames((t.players as any[]).length === 8 ? (t.players as any[]).map((p: any) => p.name) : Array(8).fill(''));
+    // Migrate old 'score' field to 'balance' for backwards compat
+    const players = (t.players as any[]).map((p: any) => ({
+      name: p.name,
+      balance: p.balance ?? p.score ?? 0,
+    }));
+    setTournament({ ...t, players } as any);
+    if (t.status === 'setup') setPlayerNames(players.length === 8 ? players.map((p: any) => p.name) : Array(8).fill(''));
 
     const { data: r } = await supabase.from('blitz_rounds').select('*').eq('tournament_id', id).order('round_index');
     setRounds((r || []) as BlitzRound[]);
-
-    const { data: p } = await supabase.from('blitz_pledges').select('*').eq('tournament_id', id).order('created_at');
-    setPledges((p || []) as BlitzPledge[]);
 
     const { data: b } = await supabase.from('blitz_bets').select('*').eq('tournament_id', id).order('created_at');
     setBets((b || []) as BlitzBet[]);
@@ -76,8 +78,7 @@ export default function BlitzTournament() {
     if (names.length !== 8) { toast({ title: 'Need exactly 8 players', variant: 'destructive' }); return; }
     if (new Set(names).size !== 8) { toast({ title: 'All names must be unique', variant: 'destructive' }); return; }
 
-    const players = names.map(name => ({ name, score: 0 })) as any;
-    // Create all 12 rounds
+    const players = names.map(name => ({ name, balance: 0 })) as any;
     const roundInserts = Array.from({ length: TOTAL_ROUNDS }, (_, i) => ({
       tournament_id: id!,
       round_index: i + 1,
@@ -102,21 +103,29 @@ export default function BlitzTournament() {
     const round = rounds.find(r => r.round_index === roundIdx);
     if (!round) return;
 
-    // Update round score
     await supabase.from('blitz_rounds').update({ team_a_score: a, team_b_score: b, status: 'completed' }).eq('id', round.id);
 
-    // Update player scores
+    // Award €3 per game won to each player on the team
     const updatedPlayers = [...tournament.players];
-    schedule.teamA.forEach(idx => { updatedPlayers[idx] = { ...updatedPlayers[idx], score: updatedPlayers[idx].score + a } as BlitzPlayer; });
-    schedule.teamB.forEach(idx => { updatedPlayers[idx] = { ...updatedPlayers[idx], score: updatedPlayers[idx].score + b } as BlitzPlayer; });
-    
+    schedule.teamA.forEach(idx => { updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + (a * EUROS_PER_GAME) }; });
+    schedule.teamB.forEach(idx => { updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + (b * EUROS_PER_GAME) }; });
 
     // Settle bets for this round
     const roundBets = bets.filter(bet => bet.round_index === roundIdx && bet.status === 'pending');
     const winner = a > b ? 'A' : b > a ? 'B' : 'draw';
     for (const bet of roundBets) {
-      const betStatus = winner === 'draw' ? 'draw' : bet.predicted_winner === winner ? 'won' : 'lost';
-      await supabase.from('blitz_bets').update({ status: betStatus }).eq('id', bet.id);
+      if (winner === 'draw') {
+        // Refund on draw
+        updatedPlayers[bet.bettor_index] = { ...updatedPlayers[bet.bettor_index], balance: updatedPlayers[bet.bettor_index].balance + bet.stake };
+        await supabase.from('blitz_bets').update({ status: 'draw' }).eq('id', bet.id);
+      } else if (bet.predicted_winner === winner) {
+        // Win: get back stake + win same amount = double
+        updatedPlayers[bet.bettor_index] = { ...updatedPlayers[bet.bettor_index], balance: updatedPlayers[bet.bettor_index].balance + (bet.stake * 2) };
+        await supabase.from('blitz_bets').update({ status: 'won' }).eq('id', bet.id);
+      } else {
+        // Lose: stake already deducted, nothing returned
+        await supabase.from('blitz_bets').update({ status: 'lost' }).eq('id', bet.id);
+      }
     }
 
     const isLast = roundIdx >= TOTAL_ROUNDS;
@@ -124,7 +133,6 @@ export default function BlitzTournament() {
       await supabase.from('blitz_tournaments').update({ players: updatedPlayers as any, current_round: roundIdx, status: 'finished' }).eq('id', id!);
       toast({ title: 'Tournament complete! 🏆' });
     } else {
-      // Activate next round
       const nextRound = rounds.find(r => r.round_index === roundIdx + 1);
       if (nextRound) await supabase.from('blitz_rounds').update({ status: 'active' }).eq('id', nextRound.id);
       await supabase.from('blitz_tournaments').update({ players: updatedPlayers as any, current_round: roundIdx + 1 }).eq('id', id!);
@@ -134,39 +142,45 @@ export default function BlitzTournament() {
     setScoreA(''); setScoreB('');
     setTimerSeconds(ROUND_DURATION_SECONDS);
     setTimerRunning(false);
+    setBetPrediction(null);
+    setBetPlayer(null);
     load();
-  };
-
-  // ── PLEDGES ──
-  const handleAddPledge = async () => {
-    if (!newPledgeText.trim()) return;
-    await supabase.from('blitz_pledges').insert({ tournament_id: id!, player_index: newPledgePlayer, item_text: newPledgeText.trim() });
-    setNewPledgeText('');
-    load();
-    toast({ title: 'Pledge added! 🎁' });
   };
 
   // ── BETS ──
   const handlePlaceBet = async () => {
-    if (!tournament) return;
+    if (!tournament || betPlayer === null || !betPrediction) return;
     const roundIdx = tournament.current_round;
-    // Check not already bet this round
     const existing = bets.find(b => b.round_index === roundIdx && b.bettor_index === betPlayer);
     if (existing) { toast({ title: 'Already bet this round', variant: 'destructive' }); return; }
-    // Can't bet if playing this round
     const schedule = BLITZ_SCHEDULE[roundIdx - 1];
     const isPlaying = [...schedule.teamA, ...schedule.teamB].includes(betPlayer);
     if (isPlaying) { toast({ title: "Can't bet on your own match!", variant: 'destructive' }); return; }
 
-    await supabase.from('blitz_bets').insert({ tournament_id: id!, round_index: roundIdx, bettor_index: betPlayer, predicted_winner: betPrediction });
+    const playerBalance = tournament.players[betPlayer]?.balance || 0;
+    if (betStake > playerBalance) { toast({ title: `Not enough €. You have €${playerBalance}`, variant: 'destructive' }); return; }
+
+    // Deduct stake from balance immediately
+    const updatedPlayers = [...tournament.players];
+    updatedPlayers[betPlayer] = { ...updatedPlayers[betPlayer], balance: updatedPlayers[betPlayer].balance - betStake };
+    await supabase.from('blitz_tournaments').update({ players: updatedPlayers as any }).eq('id', id!);
+
+    await supabase.from('blitz_bets').insert({
+      tournament_id: id!,
+      round_index: roundIdx,
+      bettor_index: betPlayer,
+      predicted_winner: betPrediction,
+      stake: betStake,
+    });
+    setBetPrediction(null);
     load();
-    toast({ title: 'Bet placed! 🎲' });
+    toast({ title: `€${betStake} bet placed on Team ${betPrediction}! 🎲` });
   };
 
   if (!tournament) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="text-4xl animate-pulse">⚡</div></div>;
 
   const currentSchedule = tournament.current_round > 0 && tournament.current_round <= TOTAL_ROUNDS ? BLITZ_SCHEDULE[tournament.current_round - 1] : null;
-  const sortedPlayers = tournament.players.map((p, i) => ({ ...p, index: i })).sort((a, b) => b.score - a.score);
+  const sortedPlayers = tournament.players.map((p, i) => ({ ...p, index: i })).sort((a, b) => b.balance - a.balance);
 
   // ── SETUP VIEW ──
   if (tournament.status === 'setup') {
@@ -201,6 +215,10 @@ export default function BlitzTournament() {
     );
   }
 
+  // Current round bets for display
+  const currentRoundBets = bets.filter(b => b.round_index === tournament.current_round);
+  const currentPlayerBet = betPlayer !== null ? currentRoundBets.find(b => b.bettor_index === betPlayer) : null;
+
   // ── MAIN DASHBOARD ──
   return (
     <div className="min-h-screen bg-background">
@@ -212,10 +230,9 @@ export default function BlitzTournament() {
         </div>
 
         <Tabs defaultValue="match" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="match"><Play className="h-3.5 w-3.5 mr-1" /> Match</TabsTrigger>
             <TabsTrigger value="leaderboard"><Trophy className="h-3.5 w-3.5 mr-1" /> Rank</TabsTrigger>
-            <TabsTrigger value="pledges"><Gift className="h-3.5 w-3.5 mr-1" /> Pledges</TabsTrigger>
             <TabsTrigger value="bets"><Dice1 className="h-3.5 w-3.5 mr-1" /> Bets</TabsTrigger>
           </TabsList>
 
@@ -226,7 +243,7 @@ export default function BlitzTournament() {
                 <CardContent className="p-6 text-center space-y-3">
                   <div className="text-5xl">🏆</div>
                   <h2 className="text-xl font-bold">Tournament Complete!</h2>
-                  <p className="text-muted-foreground">Winner: <span className="text-primary font-bold">{sortedPlayers[0]?.name}</span> with {sortedPlayers[0]?.score} points</p>
+                  <p className="text-muted-foreground">Winner: <span className="text-primary font-bold">{sortedPlayers[0]?.name}</span> with €{sortedPlayers[0]?.balance}</p>
                 </CardContent>
               </Card>
             ) : currentSchedule && (
@@ -294,7 +311,8 @@ export default function BlitzTournament() {
                 {/* Score input */}
                 <Card>
                   <CardContent className="p-4 space-y-3">
-                    <p className="text-sm font-semibold text-center">Enter Final Points</p>
+                    <p className="text-sm font-semibold text-center">Enter Final Score</p>
+                    <p className="text-xs text-muted-foreground text-center">Each game won = €{EUROS_PER_GAME} per player</p>
                     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                       <div className="space-y-1">
                         <label className="text-xs text-muted-foreground text-center block">Team A</label>
@@ -306,6 +324,12 @@ export default function BlitzTournament() {
                         <Input type="number" min="0" placeholder="0" value={scoreB} onChange={e => setScoreB(e.target.value)} className="text-center text-xl font-bold" />
                       </div>
                     </div>
+                    {scoreA && scoreB && (
+                      <div className="text-xs text-muted-foreground text-center space-y-0.5">
+                        <p>Team A players each earn: <span className="font-semibold text-primary">€{parseInt(scoreA) * EUROS_PER_GAME}</span></p>
+                        <p>Team B players each earn: <span className="font-semibold text-primary">€{parseInt(scoreB) * EUROS_PER_GAME}</span></p>
+                      </div>
+                    )}
                     <Button className="w-full" onClick={handleSubmitScore} disabled={!scoreA || !scoreB}>
                       Submit Score & {tournament.current_round >= TOTAL_ROUNDS ? 'Finish' : 'Next Round'} →
                     </Button>
@@ -321,9 +345,9 @@ export default function BlitzTournament() {
                       return (
                         <div key={r.id} className="flex items-center justify-between text-sm px-3 py-2 rounded-lg bg-muted/30">
                           <span className="text-muted-foreground">R{r.round_index}</span>
-                          <span>{tournament.players[s.teamA[0]]?.name} & {tournament.players[s.teamA[1]]?.name}</span>
+                          <span className="truncate">{tournament.players[s.teamA[0]]?.name} & {tournament.players[s.teamA[1]]?.name}</span>
                           <span className="font-bold">{r.team_a_score} - {r.team_b_score}</span>
-                          <span>{tournament.players[s.teamB[0]]?.name} & {tournament.players[s.teamB[1]]?.name}</span>
+                          <span className="truncate">{tournament.players[s.teamB[0]]?.name} & {tournament.players[s.teamB[1]]?.name}</span>
                         </div>
                       );
                     })}
@@ -342,7 +366,7 @@ export default function BlitzTournament() {
                     <tr className="border-b">
                       <th className="text-left p-3 text-xs text-muted-foreground">#</th>
                       <th className="text-left p-3 text-xs text-muted-foreground">Player</th>
-                      <th className="text-right p-3 text-xs text-muted-foreground">Points</th>
+                      <th className="text-right p-3 text-xs text-muted-foreground">Balance</th>
                       <th className="text-right p-3 text-xs text-muted-foreground">Rounds</th>
                     </tr>
                   </thead>
@@ -356,7 +380,7 @@ export default function BlitzTournament() {
                         <tr key={p.index} className={cn('border-b last:border-0', rank === 0 && 'bg-primary/5')}>
                           <td className="p-3 font-bold">{rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : rank + 1}</td>
                           <td className="p-3 font-medium">{p.name}</td>
-                          <td className="p-3 text-right font-bold text-primary">{p.score}</td>
+                          <td className="p-3 text-right font-bold text-primary">€{p.balance}</td>
                           <td className="p-3 text-right text-sm text-muted-foreground">{roundsPlayed}/6</td>
                         </tr>
                       );
@@ -367,106 +391,193 @@ export default function BlitzTournament() {
             </Card>
           </TabsContent>
 
-          {/* ── PLEDGES TAB ── */}
-          <TabsContent value="pledges" className="mt-4 space-y-4">
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <p className="text-sm font-semibold">Add a Pledge 🎁</p>
-                <div className="flex gap-2">
-                  <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={newPledgePlayer} onChange={e => setNewPledgePlayer(Number(e.target.value))}>
-                    {tournament.players.map((p, i) => <option key={i} value={i}>{p.name}</option>)}
-                  </select>
-                  <Input placeholder="What are you pledging?" value={newPledgeText} onChange={e => setNewPledgeText(e.target.value)} className="flex-1" />
-                  <Button size="sm" onClick={handleAddPledge} disabled={!newPledgeText.trim()}>Add</Button>
-                </div>
-              </CardContent>
-            </Card>
-            {pledges.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No pledges yet. Be the first!</p>
-            ) : (
-              <div className="space-y-2">
-                {pledges.map(p => (
-                  <Card key={p.id}>
-                    <CardContent className="p-3 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{p.item_text}</p>
-                        <p className="text-xs text-muted-foreground">by {tournament.players[p.player_index]?.name || 'Unknown'}</p>
-                      </div>
-                      <span className="text-xl">🎁</span>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
           {/* ── BETS TAB ── */}
           <TabsContent value="bets" className="mt-4 space-y-4">
             {tournament.status === 'live' && currentSchedule && (
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <p className="text-sm font-semibold">Place a Bet on Round {tournament.current_round} 🎲</p>
-                  <p className="text-xs text-muted-foreground">Only resting players can bet</p>
-                  <div className="flex gap-2 items-end">
-                    <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">Who are you?</label>
-                      <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={betPlayer} onChange={e => setBetPlayer(Number(e.target.value))}>
-                        {currentSchedule.rest.map(i => <option key={i} value={i}>{tournament.players[i]?.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">Winner?</label>
-                      <div className="flex gap-1">
-                        <Button size="sm" variant={betPrediction === 'A' ? 'default' : 'outline'} onClick={() => setBetPrediction('A')}>Team A</Button>
-                        <Button size="sm" variant={betPrediction === 'B' ? 'default' : 'outline'} onClick={() => setBetPrediction('B')}>Team B</Button>
-                      </div>
-                    </div>
-                    <Button size="sm" onClick={handlePlaceBet}>Bet!</Button>
+              <Card className="border-accent/30">
+                <CardContent className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold flex items-center gap-1.5">
+                      <Dice1 className="h-4 w-4 text-accent" /> Bet on Round {tournament.current_round}
+                    </p>
+                    <span className="text-xs text-muted-foreground">Max €{MAX_BET}</span>
                   </div>
+
+                  {/* Step 1: Who are you */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Who are you?</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {currentSchedule.rest.map(i => {
+                        const alreadyBet = currentRoundBets.some(b => b.bettor_index === i);
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => { setBetPlayer(i); setBetPrediction(null); }}
+                            disabled={alreadyBet}
+                            className={cn(
+                              'rounded-lg border px-3 py-2 text-sm text-left transition-all',
+                              betPlayer === i ? 'border-primary bg-primary/10 font-semibold' : 'border-border hover:border-muted-foreground/40',
+                              alreadyBet && 'opacity-40 cursor-not-allowed',
+                            )}
+                          >
+                            {tournament.players[i]?.name}
+                            {alreadyBet && <span className="text-xs ml-1">✅</span>}
+                            {!alreadyBet && <span className="text-xs text-muted-foreground ml-1">(€{tournament.players[i]?.balance})</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {betPlayer !== null && !currentPlayerBet && (
+                    <>
+                      {/* Step 2: Pick winner */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Who wins?</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => setBetPrediction('A')}
+                            className={cn(
+                              'rounded-lg border-2 p-3 text-center transition-all',
+                              betPrediction === 'A' ? 'border-primary bg-primary/10' : 'border-border hover:border-muted-foreground/30',
+                            )}
+                          >
+                            <p className="text-[10px] uppercase text-muted-foreground mb-0.5">Team A</p>
+                            <p className="text-sm font-bold">{tournament.players[currentSchedule.teamA[0]]?.name}</p>
+                            <p className="text-sm font-bold">{tournament.players[currentSchedule.teamA[1]]?.name}</p>
+                          </button>
+                          <button
+                            onClick={() => setBetPrediction('B')}
+                            className={cn(
+                              'rounded-lg border-2 p-3 text-center transition-all',
+                              betPrediction === 'B' ? 'border-primary bg-primary/10' : 'border-border hover:border-muted-foreground/30',
+                            )}
+                          >
+                            <p className="text-[10px] uppercase text-muted-foreground mb-0.5">Team B</p>
+                            <p className="text-sm font-bold">{tournament.players[currentSchedule.teamB[0]]?.name}</p>
+                            <p className="text-sm font-bold">{tournament.players[currentSchedule.teamB[1]]?.name}</p>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Step 3: Stake */}
+                      {betPrediction && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-muted-foreground">How much?</label>
+                          <div className="flex gap-2">
+                            {[1, 2, 3].filter(a => a <= Math.min(MAX_BET, tournament.players[betPlayer]?.balance || 0)).map(amount => (
+                              <Button
+                                key={amount}
+                                variant={betStake === amount ? 'default' : 'outline'}
+                                size="sm"
+                                className="flex-1 h-10 text-base font-bold"
+                                onClick={() => setBetStake(amount)}
+                              >
+                                €{amount}
+                              </Button>
+                            ))}
+                          </div>
+                          {(tournament.players[betPlayer]?.balance || 0) <= 0 && (
+                            <p className="text-xs text-destructive">No € available to bet</p>
+                          )}
+
+                          {/* Payout preview */}
+                          <div className="rounded-lg bg-muted/30 p-3 space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-primary">✅ If you win</span>
+                              <span className="font-bold text-primary">+€{betStake}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-destructive">❌ If you lose</span>
+                              <span className="font-bold text-destructive">-€{betStake}</span>
+                            </div>
+                          </div>
+
+                          <Button
+                            className="w-full"
+                            onClick={handlePlaceBet}
+                            disabled={betStake > (tournament.players[betPlayer]?.balance || 0) || betStake <= 0}
+                          >
+                            Bet €{betStake} on Team {betPrediction} →
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}
 
-            {/* Bet history */}
-            {bets.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No bets yet</p>
-            ) : (
+            {/* Live round bets */}
+            {currentRoundBets.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Bet History</p>
-                {bets.map(b => (
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Round {tournament.current_round} Bets</p>
+                {currentRoundBets.map(b => (
                   <div key={b.id} className="flex items-center justify-between text-sm px-3 py-2 rounded-lg bg-muted/30">
-                    <span>{tournament.players[b.bettor_index]?.name}</span>
-                    <span>R{b.round_index} → Team {b.predicted_winner}</span>
+                    <span className="font-medium">{tournament.players[b.bettor_index]?.name}</span>
+                    <span className="text-muted-foreground">€{b.stake} on Team {b.predicted_winner}</span>
                     <span className={cn(
                       'font-bold',
                       b.status === 'won' && 'text-primary',
                       b.status === 'lost' && 'text-destructive',
                     )}>
-                      {b.status === 'pending' ? '⏳' : b.status === 'won' ? '✅' : b.status === 'draw' ? '🤝' : '❌'}
+                      {b.status === 'pending' ? '⏳' : b.status === 'won' ? `+€${b.stake} ✅` : b.status === 'draw' ? '🤝 refund' : `-€${b.stake} ❌`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Full bet history */}
+            {bets.filter(b => b.status !== 'pending').length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Bet History</p>
+                {bets.filter(b => b.status !== 'pending').map(b => (
+                  <div key={b.id} className="flex items-center justify-between text-sm px-3 py-2 rounded-lg bg-muted/30">
+                    <span>{tournament.players[b.bettor_index]?.name}</span>
+                    <span className="text-muted-foreground">R{b.round_index} · €{b.stake} → Team {b.predicted_winner}</span>
+                    <span className={cn(
+                      'font-bold',
+                      b.status === 'won' && 'text-primary',
+                      b.status === 'lost' && 'text-destructive',
+                    )}>
+                      {b.status === 'won' ? `+€${b.stake}` : b.status === 'draw' ? '🤝' : `-€${b.stake}`}
                     </span>
                   </div>
                 ))}
 
-                {/* Bet accuracy per player */}
-                {bets.some(b => b.status !== 'pending') && (
-                  <div className="pt-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold mb-2">Betting Accuracy</p>
-                    {tournament.players.map((p, i) => {
-                      const playerBets = bets.filter(b => b.bettor_index === i);
-                      const settled = playerBets.filter(b => b.status === 'won' || b.status === 'lost');
-                      if (settled.length === 0) return null;
-                      const wins = settled.filter(b => b.status === 'won').length;
-                      const accuracy = Math.round((wins / settled.length) * 100);
-                      return (
-                        <div key={i} className="flex items-center justify-between text-sm px-3 py-1.5">
-                          <span>{p.name}</span>
-                          <span className="font-medium">{wins}/{settled.length} ({accuracy}%)</span>
+                {/* Betting accuracy */}
+                <div className="pt-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold mb-2">Betting Accuracy</p>
+                  {tournament.players.map((p, i) => {
+                    const playerBets = bets.filter(b => b.bettor_index === i);
+                    const settled = playerBets.filter(b => b.status === 'won' || b.status === 'lost');
+                    if (settled.length === 0) return null;
+                    const wins = settled.filter(b => b.status === 'won').length;
+                    const profit = playerBets.reduce((sum, b) => {
+                      if (b.status === 'won') return sum + b.stake;
+                      if (b.status === 'lost') return sum - b.stake;
+                      return sum;
+                    }, 0);
+                    const accuracy = Math.round((wins / settled.length) * 100);
+                    return (
+                      <div key={i} className="flex items-center justify-between text-sm px-3 py-1.5">
+                        <span>{p.name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-muted-foreground">{wins}/{settled.length} ({accuracy}%)</span>
+                          <span className={cn('font-bold', profit >= 0 ? 'text-primary' : 'text-destructive')}>
+                            {profit >= 0 ? '+' : ''}€{profit}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
+            )}
+
+            {bets.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">No bets yet. Pick your winner!</p>
             )}
           </TabsContent>
         </Tabs>
