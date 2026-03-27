@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Zap, Play, Pause, RotateCcw, Trophy, Users, Clock, ChevronLeft, Dice1, Share2, Trash2 } from 'lucide-react';
-import { BLITZ_SCHEDULE, TOTAL_ROUNDS, ROUND_DURATION_SECONDS } from '@/lib/blitz-schedule';
+import { BLITZ_SCHEDULE, TOTAL_ROUNDS, TOTAL_PLAYERS, ROUND_DURATION_SECONDS } from '@/lib/blitz-schedule';
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 
@@ -39,7 +39,7 @@ export default function BlitzTournament() {
   const [bets, setBets] = useState<BlitzBet[]>([]);
 
   // Setup state
-  const [playerNames, setPlayerNames] = useState<string[]>(Array(8).fill(''));
+  const [playerNames, setPlayerNames] = useState<string[]>(Array(TOTAL_PLAYERS).fill(''));
 
   // Round state
   const [scoreA, setScoreA] = useState('');
@@ -63,7 +63,7 @@ export default function BlitzTournament() {
       balance: p.balance ?? p.score ?? 0,
     }));
     setTournament({ ...t, players } as any);
-    if (t.status === 'setup') setPlayerNames(players.length === 8 ? players.map((p: any) => p.name) : Array(8).fill(''));
+    if (t.status === 'setup') setPlayerNames(players.length === TOTAL_PLAYERS ? players.map((p: any) => p.name) : Array(TOTAL_PLAYERS).fill(''));
 
     const { data: r } = await supabase.from('blitz_rounds').select('*').eq('tournament_id', id).order('round_index');
     setRounds((r || []) as BlitzRound[]);
@@ -87,8 +87,8 @@ export default function BlitzTournament() {
   // ── SETUP ──
   const handleStartTournament = async () => {
     const names = playerNames.map(n => n.trim()).filter(Boolean);
-    if (names.length !== 8) { toast({ title: 'Need exactly 8 players', variant: 'destructive' }); return; }
-    if (new Set(names).size !== 8) { toast({ title: 'All names must be unique', variant: 'destructive' }); return; }
+    if (names.length !== TOTAL_PLAYERS) { toast({ title: `Need exactly ${TOTAL_PLAYERS} players`, variant: 'destructive' }); return; }
+    if (new Set(names).size !== TOTAL_PLAYERS) { toast({ title: 'All names must be unique', variant: 'destructive' }); return; }
 
     const players = names.map(name => ({ name, balance: 0 })) as any;
     const roundInserts = Array.from({ length: TOTAL_ROUNDS }, (_, i) => ({
@@ -219,7 +219,7 @@ export default function BlitzTournament() {
           <div className="text-center space-y-2">
             <div className="text-5xl">⚡</div>
             <h1 className="text-2xl font-bold">{tournament.name}</h1>
-            <p className="text-muted-foreground text-sm">Enter the names of 8 players</p>
+            <p className="text-muted-foreground text-sm">Enter the names of {TOTAL_PLAYERS} players</p>
           </div>
           <Card>
             <CardContent className="p-4 space-y-3">
@@ -233,7 +233,7 @@ export default function BlitzTournament() {
                   />
                 </div>
               ))}
-              <Button className="w-full mt-4" size="lg" onClick={handleStartTournament} disabled={playerNames.filter(n => n.trim()).length !== 8}>
+              <Button className="w-full mt-4" size="lg" onClick={handleStartTournament} disabled={playerNames.filter(n => n.trim()).length !== TOTAL_PLAYERS}>
                 <Zap className="h-4 w-4 mr-2" /> Start Tournament
               </Button>
             </CardContent>
