@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, Fragment } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -619,7 +619,6 @@ function LeaderboardTable({ players, rounds, bets }: {
   players: (BlitzPlayer & { index: number })[];
   rounds: BlitzRound[];
   bets: BlitzBet[];
-  allPlayers: BlitzPlayer[];
 }) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const completedRounds = rounds.filter(r => r.status === 'completed');
