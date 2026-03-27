@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -615,7 +615,7 @@ export default function BlitzTournament() {
 }
 
 // ── LEADERBOARD WITH EXPANDABLE LEDGER ──
-function LeaderboardTable({ players, rounds, bets, allPlayers }: {
+function LeaderboardTable({ players, rounds, bets }: {
   players: (BlitzPlayer & { index: number })[];
   rounds: BlitzRound[];
   bets: BlitzBet[];
