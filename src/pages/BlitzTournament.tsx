@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Zap, Play, Pause, RotateCcw, Trophy, Users, Clock, ChevronLeft, Dice1 } from 'lucide-react';
+import { Zap, Play, Pause, RotateCcw, Trophy, Users, Clock, ChevronLeft, Dice1, Share2 } from 'lucide-react';
 import { BLITZ_SCHEDULE, TOTAL_ROUNDS, ROUND_DURATION_SECONDS } from '@/lib/blitz-schedule';
 import { cn } from '@/lib/utils';
 
@@ -226,7 +226,15 @@ export default function BlitzTournament() {
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => navigate('/blitz')}><ChevronLeft className="h-4 w-4 mr-1" /> Back</Button>
           <h1 className="font-bold text-lg flex items-center gap-2"><Zap className="h-5 w-5 text-primary" /> {tournament.name}</h1>
-          <div className="w-16" />
+          <Button variant="ghost" size="sm" onClick={() => {
+            const url = window.location.href;
+            if (navigator.share) {
+              navigator.share({ title: tournament.name, text: `Join the blitz tournament: ${tournament.name}`, url });
+            } else {
+              navigator.clipboard.writeText(url);
+              toast({ title: 'Link copied! 📋' });
+            }
+          }}><Share2 className="h-4 w-4" /></Button>
         </div>
 
         <Tabs defaultValue="match" className="w-full">
