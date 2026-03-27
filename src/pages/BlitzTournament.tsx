@@ -158,6 +158,22 @@ export default function BlitzTournament() {
     load();
   };
 
+  // ── RESET ──
+  const handleResetTournament = async () => {
+    if (!id) return;
+    // Delete all rounds, bets, then reset tournament to setup
+    await supabase.from('blitz_bets').delete().eq('tournament_id', id);
+    await supabase.from('blitz_rounds').delete().eq('tournament_id', id);
+    const resetPlayers = (tournament?.players || []).map(p => ({ name: p.name, balance: 0 }));
+    await supabase.from('blitz_tournaments').update({ status: 'setup', current_round: 0, players: resetPlayers as any }).eq('id', id);
+    setTimerSeconds(ROUND_DURATION_SECONDS);
+    setTimerRunning(false);
+    setScoreA(''); setScoreB('');
+    setBets([]); setRounds([]);
+    load();
+    toast({ title: 'Tournament reset! ⚡', description: 'All data has been wiped.' });
+  };
+
   // ── BETS ──
   const handlePlaceBet = async () => {
     if (!tournament || betPlayer === null || !betPrediction) return;
