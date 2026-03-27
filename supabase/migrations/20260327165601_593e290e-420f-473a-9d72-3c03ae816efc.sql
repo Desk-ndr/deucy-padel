@@ -1,0 +1,1 @@
+ALTER TABLE public.blitz_bets ADD COLUMN stake integer NOT NULL DEFAULT 1;
