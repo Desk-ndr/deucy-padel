@@ -250,7 +250,7 @@ export default function BlitzTournament() {
                   className="text-center text-2xl font-bold h-14"
                 />
                 <div className="flex gap-2 justify-center flex-wrap">
-                  {[5, 6, 7, 8, 9, 10, 12, 14, 16].map(n => (
+                  {[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].map(n => (
                     <Button key={n} variant={numPlayers === n ? 'default' : 'outline'} size="sm" onClick={() => setNumPlayers(n)}>
                       {n}
                     </Button>
