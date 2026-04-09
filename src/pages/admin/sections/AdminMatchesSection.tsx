@@ -122,7 +122,7 @@ export default function AdminMatchesSection({ tournament, rounds, matches, playe
 
   const swapPlayer = async () => {
     if (!swapMatch || !swapPlayerId) return;
-    const update: Record<string, string> = { [swapMatch.slot]: swapPlayerId };
+    const update = { [swapMatch.slot]: swapPlayerId } as any;
     const { error } = await supabase.from('matches').update(update).eq('id', swapMatch.matchId);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
