@@ -494,6 +494,11 @@ export default function BlitzTournament() {
                       <Button variant="outline" onClick={() => { setTimerRunning(false); setTimerSeconds(tournament.round_duration_seconds); }}>
                         <RotateCcw className="h-4 w-4 mr-1" /> Reset
                       </Button>
+                      {currentSchedule && currentSchedule.rest.length > 0 && (
+                        <Button variant="hot" onClick={() => setActiveTab('bets')}>
+                          <Dice1 className="h-4 w-4 mr-1" /> Bet
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
