@@ -15,7 +15,7 @@ export function computeBlitzConfig(
   numPlayers: number,
   totalMinutes: number
 ): { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null {
-  if (numPlayers < 4) return null;
+  if (numPlayers < 5) return null;
 
   const g = gcd(numPlayers, 4);
   const minK = 4 / g; // smallest K where N*K % 4 == 0
@@ -48,7 +48,7 @@ export function getAllBlitzConfigs(
   numPlayers: number,
   totalMinutes: number
 ): { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }[] {
-  if (numPlayers < 4) return [];
+  if (numPlayers < 5) return [];
 
   const g = gcd(numPlayers, 4);
   const minK = 4 / g;
@@ -78,26 +78,44 @@ export function generateSchedule(numPlayers: number, totalRounds: number): Blitz
   const partnerCount: number[][] = Array.from({ length: numPlayers }, () => new Array(numPlayers).fill(0));
   const opponentCount: number[][] = Array.from({ length: numPlayers }, () => new Array(numPlayers).fill(0));
 
+  // Use seeded randomness for reproducibility but varied results
+  let seed = numPlayers * 1000 + totalRounds;
+  const seededRandom = () => {
+    seed = (seed * 16807 + 0) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+
   for (let r = 0; r < totalRounds; r++) {
-    // Pick 4 players who have played the fewest games (and still under targetGames)
+    // Get eligible players (under target games)
     const eligible = Array.from({ length: numPlayers }, (_, i) => i)
       .filter(i => playCounts[i] < targetGames);
 
-    // Sort by play count ascending, then by index for stability
-    eligible.sort((a, b) => playCounts[a] - playCounts[b] || a - b);
+    let pool = eligible.length >= 4 ? eligible :
+      Array.from({ length: numPlayers }, (_, i) => i);
 
-    const chosen = eligible.slice(0, 4);
+    // Sort by fewest games first
+    pool.sort((a, b) => playCounts[a] - playCounts[b]);
 
-    if (chosen.length < 4) {
-      // Fallback: pick from all players with fewest games
-      const all = Array.from({ length: numPlayers }, (_, i) => i)
-        .sort((a, b) => playCounts[a] - playCounts[b]);
-      chosen.length = 0;
-      chosen.push(...all.slice(0, 4));
+    // Among players with the same (lowest) play count, pick the best 4
+    // by evaluating all combinations and choosing the one with least repeated pairings
+    const minPlays = playCounts[pool[0]];
+    const mustPlay = pool.filter(p => playCounts[p] === minPlays);
+    const canPlay = pool.filter(p => playCounts[p] > minPlays && playCounts[p] < targetGames);
+
+    let chosen: number[];
+
+    if (mustPlay.length >= 4) {
+      // Pick best 4 from mustPlay group considering pairing diversity
+      chosen = pickBestFour(mustPlay, partnerCount, opponentCount, seededRandom);
+    } else {
+      // Must include all mustPlay, fill remaining from canPlay
+      const remaining = 4 - mustPlay.length;
+      const fillers = pickBestFillers(mustPlay, canPlay.length > 0 ? canPlay : pool.filter(p => !mustPlay.includes(p)), remaining, partnerCount, opponentCount, seededRandom);
+      chosen = [...mustPlay, ...fillers];
     }
 
-    // Find best team split to minimize repeated partners/opponents
-    const bestSplit = findBestSplit(chosen, partnerCount, opponentCount);
+    // Find best team split to minimize repeated partners/opponents, with randomized tie-breaking
+    const bestSplit = findBestSplit(chosen, partnerCount, opponentCount, seededRandom);
 
     const rest = Array.from({ length: numPlayers }, (_, i) => i).filter(i => !chosen.includes(i));
 
@@ -124,12 +142,121 @@ export function generateSchedule(numPlayers: number, totalRounds: number): Blitz
   return schedule;
 }
 
+/** Score how "fresh" a group of 4 players is — lower = less repeated pairings */
+function groupFreshness(group: number[], partnerCount: number[][], opponentCount: number[][]): number {
+  let score = 0;
+  for (let i = 0; i < group.length; i++) {
+    for (let j = i + 1; j < group.length; j++) {
+      score += partnerCount[group[i]][group[j]] + opponentCount[group[i]][group[j]];
+    }
+  }
+  return score;
+}
+
+/** Pick the best 4 from a pool, minimizing repeated pairings with random tie-breaking */
+function pickBestFour(
+  pool: number[],
+  partnerCount: number[][],
+  opponentCount: number[][],
+  rand: () => number
+): number[] {
+  if (pool.length <= 4) return pool.slice(0, 4);
+
+  // For small pools, try all combinations; for larger ones, sample randomly
+  if (pool.length <= 10) {
+    let bestGroup = pool.slice(0, 4);
+    let bestScore = Infinity;
+    for (let a = 0; a < pool.length; a++) {
+      for (let b = a + 1; b < pool.length; b++) {
+        for (let c = b + 1; c < pool.length; c++) {
+          for (let d = c + 1; d < pool.length; d++) {
+            const g = [pool[a], pool[b], pool[c], pool[d]];
+            const s = groupFreshness(g, partnerCount, opponentCount);
+            if (s < bestScore || (s === bestScore && rand() < 0.5)) {
+              bestScore = s;
+              bestGroup = g;
+            }
+          }
+        }
+      }
+    }
+    return bestGroup;
+  }
+
+  // For larger pools, sample 200 random combinations
+  let bestGroup = pool.slice(0, 4);
+  let bestScore = Infinity;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const shuffled = [...pool].sort(() => rand() - 0.5);
+    const g = shuffled.slice(0, 4);
+    const s = groupFreshness(g, partnerCount, opponentCount);
+    if (s < bestScore || (s === bestScore && rand() < 0.5)) {
+      bestScore = s;
+      bestGroup = g;
+    }
+  }
+  return bestGroup;
+}
+
+/** Pick `count` fillers from candidates that best complement the `fixed` players */
+function pickBestFillers(
+  fixed: number[],
+  candidates: number[],
+  count: number,
+  partnerCount: number[][],
+  opponentCount: number[][],
+  rand: () => number
+): number[] {
+  if (candidates.length <= count) return candidates.slice(0, count);
+
+  if (candidates.length <= 12) {
+    // Try all combinations
+    let bestFillers = candidates.slice(0, count);
+    let bestScore = Infinity;
+    const combos = combinations(candidates, count);
+    for (const combo of combos) {
+      const group = [...fixed, ...combo];
+      const s = groupFreshness(group, partnerCount, opponentCount);
+      if (s < bestScore || (s === bestScore && rand() < 0.5)) {
+        bestScore = s;
+        bestFillers = combo;
+      }
+    }
+    return bestFillers;
+  }
+
+  // Sample approach for large pools
+  let bestFillers = candidates.slice(0, count);
+  let bestScore = Infinity;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const shuffled = [...candidates].sort(() => rand() - 0.5);
+    const combo = shuffled.slice(0, count);
+    const group = [...fixed, ...combo];
+    const s = groupFreshness(group, partnerCount, opponentCount);
+    if (s < bestScore || (s === bestScore && rand() < 0.5)) {
+      bestScore = s;
+      bestFillers = combo;
+    }
+  }
+  return bestFillers;
+}
+
+/** Generate all combinations of `k` elements from `arr` */
+function combinations<T>(arr: T[], k: number): T[][] {
+  if (k === 0) return [[]];
+  if (arr.length < k) return [];
+  const [first, ...rest] = arr;
+  const withFirst = combinations(rest, k - 1).map(c => [first, ...c]);
+  const withoutFirst = combinations(rest, k);
+  return [...withFirst, ...withoutFirst];
+}
+
 function findBestSplit(
   players: number[],
   partnerCount: number[][],
-  opponentCount: number[][]
+  opponentCount: number[][],
+  rand: () => number
 ): { teamA: [number, number]; teamB: [number, number] } {
-  // 3 possible ways to split 4 players into 2 teams of 2
   const [a, b, c, d] = players;
   const splits: [number, number, number, number][] = [
     [a, b, c, d],
@@ -145,7 +272,7 @@ function findBestSplit(
       partnerCount[p1][p2] + partnerCount[p3][p4] +
       opponentCount[p1][p3] + opponentCount[p1][p4] +
       opponentCount[p2][p3] + opponentCount[p2][p4];
-    if (score < bestScore) {
+    if (score < bestScore || (score === bestScore && rand() < 0.5)) {
       bestScore = score;
       bestSplit = [p1, p2, p3, p4];
     }
