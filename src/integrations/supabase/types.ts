@@ -282,7 +282,10 @@ export type Database = {
           id: string
           name: string
           players: Json
+          round_duration_seconds: number
+          schedule: Json
           status: string
+          total_rounds: number
         }
         Insert: {
           created_at?: string
@@ -290,7 +293,10 @@ export type Database = {
           id?: string
           name?: string
           players?: Json
+          round_duration_seconds?: number
+          schedule?: Json
           status?: string
+          total_rounds?: number
         }
         Update: {
           created_at?: string
@@ -298,7 +304,10 @@ export type Database = {
           id?: string
           name?: string
           players?: Json
+          round_duration_seconds?: number
+          schedule?: Json
           status?: string
+          total_rounds?: number
         }
         Relationships: []
       }
