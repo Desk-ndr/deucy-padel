@@ -15,7 +15,7 @@ export function computeBlitzConfig(
   numPlayers: number,
   totalMinutes: number
 ): { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null {
-  if (numPlayers < 4) return null;
+  if (numPlayers < 5) return null;
 
   const g = gcd(numPlayers, 4);
   const minK = 4 / g; // smallest K where N*K % 4 == 0
@@ -48,7 +48,7 @@ export function getAllBlitzConfigs(
   numPlayers: number,
   totalMinutes: number
 ): { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }[] {
-  if (numPlayers < 4) return [];
+  if (numPlayers < 5) return [];
 
   const g = gcd(numPlayers, 4);
   const minK = 4 / g;
