@@ -70,34 +70,64 @@ export function getAllBlitzConfigs(
  * Each player must play exactly K = R*4/N rounds.
  */
 export function generateSchedule(numPlayers: number, totalRounds: number): BlitzRoundSchedule[] {
+  // Run multiple attempts with different seeds and pick the schedule with fewest repeated partners
+  let bestSchedule: BlitzRoundSchedule[] = [];
+  let bestPartnerRepeats = Infinity;
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const schedule = generateScheduleAttempt(numPlayers, totalRounds, attempt);
+    const repeats = countPartnerRepeats(schedule, numPlayers);
+    if (repeats < bestPartnerRepeats) {
+      bestPartnerRepeats = repeats;
+      bestSchedule = schedule;
+    }
+    if (repeats === 0) break; // Perfect — no repeated partners
+  }
+
+  return bestSchedule;
+}
+
+/** Count how many times any pair plays together as partners more than once */
+function countPartnerRepeats(schedule: BlitzRoundSchedule[], numPlayers: number): number {
+  const pc: number[][] = Array.from({ length: numPlayers }, () => new Array(numPlayers).fill(0));
+  for (const round of schedule) {
+    pc[round.teamA[0]][round.teamA[1]]++;
+    pc[round.teamA[1]][round.teamA[0]]++;
+    pc[round.teamB[0]][round.teamB[1]]++;
+    pc[round.teamB[1]][round.teamB[0]]++;
+  }
+  let repeats = 0;
+  for (let i = 0; i < numPlayers; i++) {
+    for (let j = i + 1; j < numPlayers; j++) {
+      if (pc[i][j] > 1) repeats += pc[i][j] - 1;
+    }
+  }
+  return repeats;
+}
+
+function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemptSeed: number): BlitzRoundSchedule[] {
   const targetGames = (totalRounds * 4) / numPlayers;
   const playCounts = new Array(numPlayers).fill(0);
   const schedule: BlitzRoundSchedule[] = [];
 
-  // Track partner and opponent pairings to minimize repeats
   const partnerCount: number[][] = Array.from({ length: numPlayers }, () => new Array(numPlayers).fill(0));
   const opponentCount: number[][] = Array.from({ length: numPlayers }, () => new Array(numPlayers).fill(0));
 
-  // Use seeded randomness for reproducibility but varied results
-  let seed = numPlayers * 1000 + totalRounds;
+  let seed = numPlayers * 1000 + totalRounds + attemptSeed * 7919;
   const seededRandom = () => {
     seed = (seed * 16807 + 0) % 2147483647;
     return (seed - 1) / 2147483646;
   };
 
   for (let r = 0; r < totalRounds; r++) {
-    // Get eligible players (under target games)
     const eligible = Array.from({ length: numPlayers }, (_, i) => i)
       .filter(i => playCounts[i] < targetGames);
 
     let pool = eligible.length >= 4 ? eligible :
       Array.from({ length: numPlayers }, (_, i) => i);
 
-    // Sort by fewest games first
     pool.sort((a, b) => playCounts[a] - playCounts[b]);
 
-    // Among players with the same (lowest) play count, pick the best 4
-    // by evaluating all combinations and choosing the one with least repeated pairings
     const minPlays = playCounts[pool[0]];
     const mustPlay = pool.filter(p => playCounts[p] === minPlays);
     const canPlay = pool.filter(p => playCounts[p] > minPlays && playCounts[p] < targetGames);
@@ -105,16 +135,13 @@ export function generateSchedule(numPlayers: number, totalRounds: number): Blitz
     let chosen: number[];
 
     if (mustPlay.length >= 4) {
-      // Pick best 4 from mustPlay group considering pairing diversity
       chosen = pickBestFour(mustPlay, partnerCount, opponentCount, seededRandom);
     } else {
-      // Must include all mustPlay, fill remaining from canPlay
       const remaining = 4 - mustPlay.length;
       const fillers = pickBestFillers(mustPlay, canPlay.length > 0 ? canPlay : pool.filter(p => !mustPlay.includes(p)), remaining, partnerCount, opponentCount, seededRandom);
       chosen = [...mustPlay, ...fillers];
     }
 
-    // Find best team split to minimize repeated partners/opponents, with randomized tie-breaking
     const bestSplit = findBestSplit(chosen, partnerCount, opponentCount, seededRandom);
 
     const rest = Array.from({ length: numPlayers }, (_, i) => i).filter(i => !chosen.includes(i));
@@ -125,7 +152,6 @@ export function generateSchedule(numPlayers: number, totalRounds: number): Blitz
       rest,
     });
 
-    // Update counts
     for (const idx of chosen) playCounts[idx]++;
     partnerCount[bestSplit.teamA[0]][bestSplit.teamA[1]]++;
     partnerCount[bestSplit.teamA[1]][bestSplit.teamA[0]]++;
