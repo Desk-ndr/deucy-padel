@@ -10,8 +10,9 @@ interface BlitzTournament {
   id: string;
   name: string;
   status: string;
-  players: { name: string; score: number }[];
+  players: any[];
   current_round: number;
+  total_rounds: number;
   created_at: string;
 }
 
@@ -26,7 +27,7 @@ export default function BlitzList() {
 
   const load = async () => {
     const { data } = await supabase.from('blitz_tournaments').select('*').order('created_at', { ascending: false });
-    setTournaments((data || []) as BlitzTournament[]);
+    setTournaments((data || []) as unknown as BlitzTournament[]);
   };
 
   const handleCreate = async () => {
@@ -79,7 +80,7 @@ export default function BlitzList() {
                 <div>
                   <p className="font-semibold">{t.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {t.players.length} players · {t.status === 'finished' ? 'Finished' : t.status === 'live' ? `Round ${t.current_round}/12` : 'Setup'}
+                    {t.players.length} players · {t.status === 'finished' ? 'Finished' : t.status === 'live' ? `Round ${t.current_round}/${t.total_rounds}` : 'Setup'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
