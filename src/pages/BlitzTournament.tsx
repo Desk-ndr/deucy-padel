@@ -243,14 +243,14 @@ export default function BlitzTournament() {
             <Card>
               <CardContent className="p-4 space-y-4">
                 <p className="text-sm font-semibold text-center">How many players?</p>
-                <p className="text-xs text-muted-foreground text-center">Minimum 4 players for 2v2 format</p>
+                <p className="text-xs text-muted-foreground text-center">From 5 to 16 players · 2v2 format</p>
                 <Input
-                  type="number" min="4" max="20" value={numPlayers}
-                  onChange={e => setNumPlayers(Math.max(4, parseInt(e.target.value) || 4))}
+                  type="number" min="5" max="16" value={numPlayers}
+                  onChange={e => setNumPlayers(Math.min(16, Math.max(5, parseInt(e.target.value) || 5)))}
                   className="text-center text-2xl font-bold h-14"
                 />
-                <div className="flex gap-2 justify-center">
-                  {[6, 8, 9, 10, 12].map(n => (
+                <div className="flex gap-2 justify-center flex-wrap">
+                  {[5, 6, 7, 8, 9, 10, 12, 14, 16].map(n => (
                     <Button key={n} variant={numPlayers === n ? 'default' : 'outline'} size="sm" onClick={() => setNumPlayers(n)}>
                       {n}
                     </Button>
