@@ -142,12 +142,14 @@ export function generateSchedule(numPlayers: number, totalRounds: number): Blitz
   return schedule;
 }
 
-/** Score how "fresh" a group of 4 players is — lower = less repeated pairings */
+/** Score how "fresh" a group of 4 players is — lower = less repeated pairings.
+ *  Partner repeats are penalized 10x more than opponent repeats. */
 function groupFreshness(group: number[], partnerCount: number[][], opponentCount: number[][]): number {
   let score = 0;
   for (let i = 0; i < group.length; i++) {
     for (let j = i + 1; j < group.length; j++) {
-      score += partnerCount[group[i]][group[j]] + opponentCount[group[i]][group[j]];
+      // Partner repeats are much worse than opponent repeats
+      score += partnerCount[group[i]][group[j]] * 10 + opponentCount[group[i]][group[j]];
     }
   }
   return score;
@@ -162,7 +164,6 @@ function pickBestFour(
 ): number[] {
   if (pool.length <= 4) return pool.slice(0, 4);
 
-  // For small pools, try all combinations; for larger ones, sample randomly
   if (pool.length <= 10) {
     let bestGroup = pool.slice(0, 4);
     let bestScore = Infinity;
@@ -183,10 +184,9 @@ function pickBestFour(
     return bestGroup;
   }
 
-  // For larger pools, sample 200 random combinations
   let bestGroup = pool.slice(0, 4);
   let bestScore = Infinity;
-  for (let attempt = 0; attempt < 200; attempt++) {
+  for (let attempt = 0; attempt < 300; attempt++) {
     const shuffled = [...pool].sort(() => rand() - 0.5);
     const g = shuffled.slice(0, 4);
     const s = groupFreshness(g, partnerCount, opponentCount);
@@ -210,7 +210,6 @@ function pickBestFillers(
   if (candidates.length <= count) return candidates.slice(0, count);
 
   if (candidates.length <= 12) {
-    // Try all combinations
     let bestFillers = candidates.slice(0, count);
     let bestScore = Infinity;
     const combos = combinations(candidates, count);
@@ -225,10 +224,9 @@ function pickBestFillers(
     return bestFillers;
   }
 
-  // Sample approach for large pools
   let bestFillers = candidates.slice(0, count);
   let bestScore = Infinity;
-  for (let attempt = 0; attempt < 200; attempt++) {
+  for (let attempt = 0; attempt < 300; attempt++) {
     const shuffled = [...candidates].sort(() => rand() - 0.5);
     const combo = shuffled.slice(0, count);
     const group = [...fixed, ...combo];
@@ -268,10 +266,12 @@ function findBestSplit(
   let bestSplit = splits[0];
 
   for (const [p1, p2, p3, p4] of splits) {
-    const score =
-      partnerCount[p1][p2] + partnerCount[p3][p4] +
+    // Heavily penalize repeated partners (10x weight)
+    const partnerPenalty = (partnerCount[p1][p2] + partnerCount[p3][p4]) * 10;
+    const opponentPenalty =
       opponentCount[p1][p3] + opponentCount[p1][p4] +
       opponentCount[p2][p3] + opponentCount[p2][p4];
+    const score = partnerPenalty + opponentPenalty;
     if (score < bestScore || (score === bestScore && rand() < 0.5)) {
       bestScore = score;
       bestSplit = [p1, p2, p3, p4];
