@@ -174,6 +174,7 @@ export default function BlitzTournament() {
     setScoreA(''); setScoreB('');
     setTimerSeconds(tournament.round_duration_seconds);
     setTimerRunning(false);
+    setShowScoreInput(false);
     setBetPrediction(null); setBetPlayer(null);
     load();
   };
