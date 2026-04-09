@@ -53,6 +53,7 @@ export default function BlitzTournament() {
   const [betPrediction, setBetPrediction] = useState<'A' | 'B' | null>(null);
   const [betStake, setBetStake] = useState(1);
   const [activeTab, setActiveTab] = useState('match');
+  const [showScoreInput, setShowScoreInput] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -173,6 +174,7 @@ export default function BlitzTournament() {
     setScoreA(''); setScoreB('');
     setTimerSeconds(tournament.round_duration_seconds);
     setTimerRunning(false);
+    setShowScoreInput(false);
     setBetPrediction(null); setBetPlayer(null);
     load();
   };
@@ -503,33 +505,42 @@ export default function BlitzTournament() {
                   </CardContent>
                 </Card>
 
-                {/* Score input */}
-                <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <p className="text-sm font-semibold text-center">Enter Final Score</p>
-                    <p className="text-xs text-muted-foreground text-center">Each game won = €{EUROS_PER_GAME} per player</p>
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground text-center block">Team A</label>
-                        <Input type="number" min="0" placeholder="0" value={scoreA} onChange={e => setScoreA(e.target.value)} className="text-center text-xl font-bold" />
+                {/* Score input — collapsed by default */}
+                {!showScoreInput ? (
+                  <Button className="w-full" size="lg" onClick={() => setShowScoreInput(true)}>
+                    Submit Score & {tournament.current_round >= totalRounds ? 'Finish' : 'Next Round'} →
+                  </Button>
+                ) : (
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <p className="text-sm font-semibold text-center">Enter Final Score</p>
+                      <p className="text-xs text-muted-foreground text-center">Each game won = €{EUROS_PER_GAME} per player</p>
+                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs text-muted-foreground text-center block">Team A</label>
+                          <Input type="number" min="0" placeholder="0" value={scoreA} onChange={e => setScoreA(e.target.value)} className="text-center text-xl font-bold" />
+                        </div>
+                        <span className="text-muted-foreground font-bold mt-4">—</span>
+                        <div className="space-y-1">
+                          <label className="text-xs text-muted-foreground text-center block">Team B</label>
+                          <Input type="number" min="0" placeholder="0" value={scoreB} onChange={e => setScoreB(e.target.value)} className="text-center text-xl font-bold" />
+                        </div>
                       </div>
-                      <span className="text-muted-foreground font-bold mt-4">—</span>
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground text-center block">Team B</label>
-                        <Input type="number" min="0" placeholder="0" value={scoreB} onChange={e => setScoreB(e.target.value)} className="text-center text-xl font-bold" />
+                      {scoreA && scoreB && (
+                        <div className="text-xs text-muted-foreground text-center space-y-0.5">
+                          <p>Team A players each earn: <span className="font-semibold text-primary">€{parseInt(scoreA) * EUROS_PER_GAME}</span></p>
+                          <p>Team B players each earn: <span className="font-semibold text-primary">€{parseInt(scoreB) * EUROS_PER_GAME}</span></p>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Button variant="outline" className="flex-1" onClick={() => setShowScoreInput(false)}>Cancel</Button>
+                        <Button className="flex-1" onClick={handleSubmitScore} disabled={!scoreA || !scoreB}>
+                          Confirm →
+                        </Button>
                       </div>
-                    </div>
-                    {scoreA && scoreB && (
-                      <div className="text-xs text-muted-foreground text-center space-y-0.5">
-                        <p>Team A players each earn: <span className="font-semibold text-primary">€{parseInt(scoreA) * EUROS_PER_GAME}</span></p>
-                        <p>Team B players each earn: <span className="font-semibold text-primary">€{parseInt(scoreB) * EUROS_PER_GAME}</span></p>
-                      </div>
-                    )}
-                    <Button className="w-full" onClick={handleSubmitScore} disabled={!scoreA || !scoreB}>
-                      Submit Score & {tournament.current_round >= totalRounds ? 'Finish' : 'Next Round'} →
-                    </Button>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Past rounds */}
                 {rounds.filter(r => r.status === 'completed').length > 0 && (
