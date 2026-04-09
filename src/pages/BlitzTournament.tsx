@@ -52,6 +52,7 @@ export default function BlitzTournament() {
   const [betPlayer, setBetPlayer] = useState<number | null>(null);
   const [betPrediction, setBetPrediction] = useState<'A' | 'B' | null>(null);
   const [betStake, setBetStake] = useState(1);
+  const [activeTab, setActiveTab] = useState('match');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -420,7 +421,7 @@ export default function BlitzTournament() {
           </div>
         </div>
 
-        <Tabs defaultValue="match" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="match"><Play className="h-3.5 w-3.5 mr-1" /> Match</TabsTrigger>
             <TabsTrigger value="leaderboard"><Trophy className="h-3.5 w-3.5 mr-1" /> Rank</TabsTrigger>
@@ -592,6 +593,16 @@ export default function BlitzTournament() {
                     <div className="text-[10px] text-muted-foreground text-center mt-1">
                       Resting: {s.rest.map(idx => tournament.players[idx]?.name).join(', ')}
                     </div>
+                    {isActive && s.rest.length > 0 && (
+                      <Button
+                        variant="hot"
+                        size="sm"
+                        className="w-full mt-2 h-7 text-xs"
+                        onClick={() => setActiveTab('bets')}
+                      >
+                        <Dice1 className="mr-1 h-3 w-3" /> Bet
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               );
