@@ -36,7 +36,7 @@ export default function BlitzTournament() {
 
   // Setup state — multi-step
   const [setupStep, setSetupStep] = useState<'players_count' | 'time' | 'config' | 'names'>('players_count');
-  const [numPlayers, setNumPlayers] = useState(9);
+  const [numPlayers, setNumPlayers] = useState(8);
   const [totalMinutes, setTotalMinutes] = useState(90);
   const [selectedConfig, setSelectedConfig] = useState<{ totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null>(null);
   const [playerNames, setPlayerNames] = useState<string[]>([]);
