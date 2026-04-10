@@ -4,7 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Zap, Plus, Trophy } from 'lucide-react';
+import { Zap, Plus, Trophy, Trash2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface BlitzTournament {
   id: string;
@@ -22,6 +26,8 @@ export default function BlitzList() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('Saturday Blitz');
   const [creating, setCreating] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<BlitzTournament | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -36,6 +42,19 @@ export default function BlitzList() {
     const { data, error } = await supabase.from('blitz_tournaments').insert({ name: name.trim() }).select().single();
     setCreating(false);
     if (!error && data) navigate(`/blitz/${data.id}`);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const tid = deleteTarget.id;
+    await supabase.from('blitz_bets').delete().eq('tournament_id', tid);
+    await supabase.from('blitz_rounds').delete().eq('tournament_id', tid);
+    await supabase.from('blitz_pledges').delete().eq('tournament_id', tid);
+    await supabase.from('blitz_tournaments').delete().eq('id', tid);
+    setDeleting(false);
+    setDeleteTarget(null);
+    load();
   };
 
   return (
@@ -86,6 +105,14 @@ export default function BlitzList() {
                 <div className="flex items-center gap-2">
                   {t.status === 'finished' && <Trophy className="h-5 w-5 text-primary" />}
                   {t.status === 'live' && <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium animate-pulse">LIVE</span>}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -96,6 +123,27 @@ export default function BlitzList() {
           ← Back to Tournaments
         </Button>
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the tournament, all rounds, bets, and pledges. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
