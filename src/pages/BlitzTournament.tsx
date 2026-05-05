@@ -30,9 +30,9 @@ export default function BlitzTournament() {
 
   // ── Handlers ──
 
-  const handleStart = async (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, names: string[]) => {
+  const handleStart = async (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, names: string[], playerIds?: string[]) => {
     if (!id) return;
-    const players: BlitzPlayer[] = names.map(n => ({ name: n.trim(), balance: 10 }));
+    const players = names.map((n, i) => ({ name: n.trim(), balance: 10, player_id: playerIds?.[i] || null }));
     const schedule = generateSchedule(names.length, config.totalRounds);
     const { error } = await startTournament(id, config, players, schedule);
     if (error) toast({ title: 'Error starting', description: error, variant: 'destructive' });
