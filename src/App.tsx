@@ -5,6 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PlayerProvider } from "@/contexts/PlayerContext";
 
+// Auth Components
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { ProtectedAdminRoute } from "@/components/auth/ProtectedAdminRoute";
+
 // Pages
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -46,34 +50,36 @@ const App = () => (
             <Route path="/landing" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/join" element={<Join />} />
-            
-            <Route path="/complete-entry" element={<CompleteEntry />} />
-            
-            {/* Player routes */}
-            <Route path="/tournaments" element={<Tournaments />} />
-            <Route path="/home" element={<Tournaments />} />
-            <Route path="/matches" element={<Matches />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            
-            <Route path="/auction" element={<AuctionHouse />} />
-            <Route path="/auction/live" element={<AuctionLive />} />
-            <Route path="/auction/lot/:lotId" element={<LotDetail />} />
-            <Route path="/auction/pledge/:pledgeItemId" element={<LotDetail />} />
-            <Route path="/auction/:pledgeId" element={<PledgeDetail />} />
-            <Route path="/pledges" element={<Pledges />} />
-            <Route path="/player/:playerId" element={<PlayerProfile />} />
-            <Route path="/profile" element={<Profile />} />
-            
-            {/* Blitz routes */}
             <Route path="/blitz" element={<BlitzList />} />
             <Route path="/blitz/:id" element={<BlitzTournament />} />
-            
-            {/* Admin routes */}
+
+            {/* Protected player routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/complete-entry" element={<CompleteEntry />} />
+              <Route path="/tournaments" element={<Tournaments />} />
+              <Route path="/home" element={<Tournaments />} />
+              <Route path="/matches" element={<Matches />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/auction" element={<AuctionHouse />} />
+              <Route path="/auction/live" element={<AuctionLive />} />
+              <Route path="/auction/lot/:lotId" element={<LotDetail />} />
+              <Route path="/auction/pledge/:pledgeItemId" element={<LotDetail />} />
+              <Route path="/auction/:pledgeId" element={<PledgeDetail />} />
+              <Route path="/pledges" element={<Pledges />} />
+              <Route path="/player/:playerId" element={<PlayerProfile />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
+
+            {/* Public admin login */}
             <Route path="/admin" element={<AdminLogin />} />
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/tournaments/new" element={<AdminTournamentCreate />} />
-            <Route path="/admin/tournaments/:tournamentId" element={<AdminTournamentDetail />} />
-            
+
+            {/* Protected admin routes */}
+            <Route element={<ProtectedAdminRoute />}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/tournaments/new" element={<AdminTournamentCreate />} />
+              <Route path="/admin/tournaments/:tournamentId" element={<AdminTournamentDetail />} />
+            </Route>
+
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>

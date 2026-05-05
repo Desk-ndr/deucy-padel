@@ -3,7 +3,7 @@ export type TournamentStatus = 'Draft' | 'SignupOpen' | 'Live' | 'Finished' | 'A
 export type PlayerStatus = 'Active' | 'InactiveWarning' | 'Removed';
 export type PlayerGender = 'male' | 'female' | 'other' | 'prefer_not';
 export type RoundStatus = 'Upcoming' | 'Live' | 'Locked' | 'Completed';
-export type MatchStatus = 'Scheduled' | 'BookingClaimed' | 'Played' | 'Overdue' | 'AutoResolved';
+export type MatchStatus = 'Scheduled' | 'BookingClaimed' | 'Played' | 'Overdue' | 'AutoResolved' | 'PendingConfirmation' | 'Disputed';
 export type CreditType = 'StartingGrant' | 'ParticipationBonus' | 'MatchStake' | 'MatchPayout' | 'Penalty' | 'AdminAdjustment' | 'AuctionHold' | 'AuctionRelease' | 'AuctionSettlement' | 'BetStake' | 'BetPayout';
 export type PledgeCategory = 'food' | 'drink' | 'object' | 'service' | 'chaos';
 export type PledgeStatus = 'Draft' | 'Approved' | 'Hidden';
@@ -109,6 +109,10 @@ export interface Match {
   pot_total_credits: number;
   is_bye: boolean;
   bye_player_id: string | null;
+  reported_by_player_id: string | null;
+  reported_at: string | null;
+  confirmed_by_player_id: string | null;
+  confirmed_at: string | null;
   created_at: string;
 }
 
@@ -139,7 +143,9 @@ export interface PledgeItem {
   estimate_high: number | null; // cents (€)
   price_euro: number | null; // cents – admin-set starting price
   status: PledgeStatus;
+  admin_note: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Auction {

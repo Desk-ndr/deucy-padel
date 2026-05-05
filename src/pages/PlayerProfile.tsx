@@ -1,286 +1,206 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState, useRef } from 'react';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
-import { CreditsDisplay } from '@/components/ui/CreditsDisplay';
-import { StatusChip } from '@/components/ui/StatusChip';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { getCategoryConfig } from '@/components/auction/PledgeCard';
-import { usePlayer } from '@/contexts/PlayerContext';
-import { supabase } from '@/integrations/supabase/client';
-import type { Player, PledgeItem, Round } from '@/lib/types';
-import { ArrowLeft, Camera } from 'lucide-react';
-import { formatEuros } from '@/lib/euros';
-import { PlayerLedger } from '@/components/profile/PlayerLedger';
-import { BettingAccuracy } from '@/components/profile/BettingAccuracy';
+import { useState, useEffect } from 'react';
+import { getPlayer, uploadAvatar, updateProfile, getPlayerPledge } from '@/services';
+import type { Player, PledgeItem } from '@/lib/types';
 
-export default function PlayerProfilePage() {
-  const { playerId } = useParams<{ playerId: string }>();
-  const navigate = useNavigate();
-  const { player: currentPlayer, tournament, session, isLoading, refreshPlayer } = usePlayer();
-
-  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
-  const [pledges, setPledges] = useState<PledgeItem[]>([]);
-  const [rounds, setRounds] = useState<Round[]>([]);
-  const [rank, setRank] = useState<number>(0);
+export function PlayerProfile() {
+  const [player, setPlayer] = useState<Player | null>(null);
+  const [pledge, setPledge] = useState<PledgeItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [notFound, setNotFound] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fullName, setFullName] = useState('');
 
-  const isSelf = currentPlayer?.id === playerId;
+  // TODO: Get playerId and tournamentId from context/params
+  const playerId = '';
+  const tournamentId = '';
 
   useEffect(() => {
-    if (!isLoading && !session) {
-      navigate('/');
-      return;
+    const loadPlayer = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getPlayer(playerId);
+        setPlayer(data);
+        setFullName(data.full_name || '');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Errore nel caricamento del profilo');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (playerId) {
+      loadPlayer();
     }
-    if (tournament && playerId) {
-      loadProfile();
-    }
-  }, [playerId, tournament, isLoading, session, navigate]);
+  }, [playerId]);
 
-  const loadProfile = async () => {
-    if (!tournament || !playerId) return;
+  useEffect(() => {
+    const loadPledge = async () => {
+      if (!playerId || !tournamentId) return;
+      try {
+        const data = await getPlayerPledge(tournamentId, playerId);
+        setPledge(data);
+      } catch (err) {
+        console.error('Error loading pledge:', err);
+      }
+    };
 
-    const [playerRes, pledgeRes, roundRes] = await Promise.all([
-      supabase.from('players').select('*').eq('id', playerId).single(),
-      supabase.from('pledge_items').select('*').eq('pledged_by_player_id', playerId).eq('tournament_id', tournament.id).order('created_at', { ascending: false }),
-      supabase.from('rounds').select('*').eq('tournament_id', tournament.id).order('index', { ascending: true }),
-    ]);
+    loadPledge();
+  }, [playerId, tournamentId]);
 
-    if (playerRes.data) {
-      setProfilePlayer(playerRes.data as Player);
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !player) return;
 
-      const { count } = await supabase
-        .from('players')
-        .select('*', { count: 'exact', head: true })
-        .eq('tournament_id', tournament.id)
-        .eq('status', 'Active')
-        .gt('credits_balance', (playerRes.data as Player).credits_balance);
-
-      setRank((count || 0) + 1);
-    } else {
-      setNotFound(true);
-    }
-
-    setPledges((pledgeRes.data || []) as PledgeItem[]);
-    setRounds((roundRes.data || []) as Round[]);
-  };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !currentPlayer) return;
-
-    setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const filePath = `${currentPlayer.id}/avatar.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-
-      await supabase
-        .from('players')
-        .update({ avatar_url: avatarUrl })
-        .eq('id', currentPlayer.id);
-
-      await refreshPlayer();
-      setProfilePlayer(prev => prev ? { ...prev, avatar_url: avatarUrl } : prev);
+      setUploading(true);
+      setError(null);
+      const avatarUrl = await uploadAvatar(player.id, file);
+      await updateProfile(player.id, { avatar_url: avatarUrl });
+      setPlayer({ ...player, avatar_url: avatarUrl });
     } catch (err) {
-      console.error('Upload failed:', err);
+      setError(err instanceof Error ? err.message : 'Errore nel caricamento della foto');
     } finally {
       setUploading(false);
     }
   };
 
-  if (notFound) {
-    return (
-      <>
-        <PageLayout hasBottomNav={true}>
-          <div className="text-center py-12">
-            <div className="text-4xl mb-3">🔍</div>
-            <p className="font-semibold mb-2">Player not found</p>
-            <Button variant="outline" onClick={() => navigate(-1)}>Go back</Button>
-          </div>
-        </PageLayout>
-        <BottomNav />
-      </>
-    );
+  const handleUpdateProfile = async () => {
+    if (!player) return;
+    try {
+      setError(null);
+      await updateProfile(player.id, { full_name: fullName });
+      setPlayer({ ...player, full_name: fullName });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Errore nell\'aggiornamento del profilo');
+    }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+  };
+
+  if (loading) {
+    return <div className="p-4">Caricamento...</div>;
   }
 
-  if (isLoading || !profilePlayer || !tournament) {
+  if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-4xl animate-pulse">👤</div>
+      <div className="p-4 border border-red-200 bg-red-50 rounded">
+        <p className="text-red-800">{error}</p>
+        <button onClick={handleRetry} className="mt-2 px-4 py-2 bg-red-600 text-white rounded">
+          Riprova
+        </button>
       </div>
     );
   }
 
-  const roundMap = new Map(rounds.map(r => [r.id, r]));
-  const setDiff = profilePlayer.sets_won - profilePlayer.sets_lost;
-  const showDecimals = tournament.display_decimals;
+  if (!player) {
+    return (
+      <div className="p-4 text-center text-gray-500">
+        Giocatore non trovato.
+      </div>
+    );
+  }
 
   return (
-    <>
-      <PageLayout
-        header={
-          <div className="p-4 flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="font-bold text-lg">Player Profile</h1>
-          </div>
-        }
-      >
-        <div className="space-y-6">
-          {/* Hero header */}
-          <div className="flex flex-col items-center text-center space-y-3">
-            <div className="relative">
-              <PlayerAvatar player={profilePlayer} className="h-24 w-24 text-2xl" />
-              {isSelf && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg"
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Camera className="h-4 w-4" />
-                  )}
-                </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-              />
-            </div>
+    <div className="p-4 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Profilo</h1>
 
-            <div>
-              <h2 className="text-xl font-bold">{profilePlayer.full_name}</h2>
-              <p className="text-sm text-muted-foreground">Rank #{rank}</p>
-            </div>
-
-            <CreditsDisplay amount={profilePlayer.credits_balance} variant="large" showDisclaimer showDecimals={showDecimals} />
-          </div>
-
-          {/* Stats chips */}
-          <div className="flex justify-center gap-2 flex-wrap">
-            <StatusChip variant="neutral" size="sm">
-              🎾 {profilePlayer.matches_played} played
-            </StatusChip>
-            <StatusChip variant="info" size="sm">
-              Sets Won: {profilePlayer.sets_won}
-            </StatusChip>
-            <StatusChip variant={setDiff >= 0 ? 'success' : 'warning'} size="sm">
-              Sets: {setDiff >= 0 ? '+' : ''}{setDiff}
-            </StatusChip>
-            {profilePlayer.no_shows > 0 && (
-              <StatusChip variant="error" size="sm">
-                ⚠️ {profilePlayer.no_shows} no-show{profilePlayer.no_shows > 1 ? 's' : ''}
-              </StatusChip>
-            )}
-          </div>
-
-          {/* Pledges section */}
-          {pledges.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                {pledges.length === 1 ? 'Pledge' : 'Pledges'}
-              </h3>
-
-              {pledges.map((pledge) => {
-                const cat = getCategoryConfig(pledge.category);
-                const round = pledge.round_id ? roundMap.get(pledge.round_id) : null;
-                const estimate = pledge.estimate_low != null || pledge.estimate_high != null;
-
-                return (
-                  <Card
-                    key={pledge.id}
-                    className="overflow-hidden cursor-pointer hover:border-primary/40 transition-all"
-                    onClick={() => navigate(`/auction/${pledge.id}`)}
-                  >
-                    {pledge.image_url && (
-                      <div className="aspect-video bg-muted overflow-hidden">
-                        <img
-                          src={pledge.image_url}
-                          alt={pledge.title}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
-                    <CardContent className="p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="font-semibold">{pledge.title}</p>
-                        {round && (
-                          <span className="text-[10px] font-bold rounded-full bg-muted px-2 py-0.5">
-                            Round {round.index}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${cat.color}`}>
-                          {cat.emoji} {cat.label}
-                        </span>
-                        {estimate ? (
-                          <span className="text-xs text-primary font-medium">
-                            {formatEuros(pledge.estimate_low ?? 0, showDecimals)}–{formatEuros(pledge.estimate_high ?? 0, showDecimals)}
-                          </span>
-                        ) : pledge.status !== 'Draft' ? (
-                          <span className="text-xs text-muted-foreground">Pending estimate</span>
-                        ) : null}
-                      </div>
-                      {pledge.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2">{pledge.description}</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          {pledges.length === 0 && (
-            <div className="text-center py-8">
-              <div className="text-3xl mb-2">📦</div>
-              <p className="text-sm text-muted-foreground">No pledges yet</p>
-            </div>
-          )}
-
-          {/* Betting accuracy */}
-          {tournament.betting_enabled && (
-            <BettingAccuracy
-              playerId={profilePlayer.id}
-              tournamentId={tournament.id}
-              showDecimals={showDecimals}
+      <div className="space-y-6">
+        {/* Avatar Section */}
+        <div className="flex flex-col items-center">
+          {player.avatar_url && (
+            <img
+              src={player.avatar_url}
+              alt={player.full_name}
+              className="w-32 h-32 rounded-full object-cover mb-4"
             />
           )}
-
-          {/* Credit Ledger - always visible */}
-          <PlayerLedger
-            playerId={profilePlayer.id}
-            tournamentId={tournament.id}
-            showDecimals={showDecimals}
-            startingCredits={tournament.starting_credits}
-          />
+          <label className="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700">
+            {uploading ? 'Caricamento...' : 'Carica foto'}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              disabled={uploading}
+              className="hidden"
+            />
+          </label>
         </div>
-      </PageLayout>
-      <BottomNav />
-    </>
+
+        {/* Name Section */}
+        <div>
+          <label className="block text-sm font-semibold mb-2">Nome completo</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="flex-1 p-2 border rounded"
+            />
+            <button
+              onClick={handleUpdateProfile}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              Salva
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Section */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-3 border rounded">
+            <p className="text-sm text-gray-600">Crediti</p>
+            <p className="text-2xl font-bold">{player.credits_balance}</p>
+          </div>
+          <div className="p-3 border rounded">
+            <p className="text-sm text-gray-600">Vittorie</p>
+            <p className="text-2xl font-bold">{player.match_wins || 0}</p>
+          </div>
+          <div className="p-3 border rounded">
+            <p className="text-sm text-gray-600">Set vinti</p>
+            <p className="text-2xl font-bold">{player.sets_won || 0}</p>
+          </div>
+          <div className="p-3 border rounded">
+            <p className="text-sm text-gray-600">Status</p>
+            <p className="text-lg font-semibold">{player.status}</p>
+          </div>
+        </div>
+
+        {/* Pledge Section */}
+        {pledge && (
+          <div className="p-4 border rounded">
+            <h2 className="text-lg font-bold mb-3">Impegno per l'Asta</h2>
+            <div className="space-y-2">
+              <div>
+                <p className="text-sm text-gray-600">Titolo</p>
+                <p className="font-semibold">{pledge.title}</p>
+              </div>
+              {pledge.description && (
+                <div>
+                  <p className="text-sm text-gray-600">Descrizione</p>
+                  <p>{pledge.description}</p>
+                </div>
+              )}
+              {pledge.image_url && (
+                <img
+                  src={pledge.image_url}
+                  alt={pledge.title}
+                  className="w-full h-auto rounded"
+                />
+              )}
+              <div>
+                <p className="text-sm text-gray-600">Status</p>
+                <p className="font-semibold">{pledge.status}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
+
+export default PlayerProfile;

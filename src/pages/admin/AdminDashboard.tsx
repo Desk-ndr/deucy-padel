@@ -71,18 +71,14 @@ export default function AdminDashboard() {
 
   const checkAuthAndLoad = async () => {
     try {
-      // Check passcode-based auth first
-      const passcodeAuth = localStorage.getItem('deucy_admin_authenticated') === 'true';
-      if (passcodeAuth) {
-        setIsAuthorized(true);
-        await loadTournaments();
+      // Verify Supabase auth
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/admin');
         return;
       }
 
-      // Fallback to Supabase auth
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate('/admin'); return; }
-
+      // Check admin role
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
@@ -91,7 +87,11 @@ export default function AdminDashboard() {
         .maybeSingle();
 
       if (!roleData) {
-        toast({ title: 'Access Denied', description: 'You do not have admin privileges.', variant: 'destructive' });
+        toast({
+          title: 'Access Denied',
+          description: 'You do not have admin privileges.',
+          variant: 'destructive',
+        });
         await supabase.auth.signOut();
         navigate('/admin');
         return;
@@ -101,6 +101,12 @@ export default function AdminDashboard() {
       await loadTournaments();
     } catch (error) {
       console.error('Error loading dashboard:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to verify admin access.',
+        variant: 'destructive',
+      });
+      navigate('/admin');
     } finally {
       setIsLoading(false);
     }
@@ -143,7 +149,6 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    localStorage.removeItem('deucy_admin_authenticated');
     await supabase.auth.signOut();
     navigate('/admin');
   };

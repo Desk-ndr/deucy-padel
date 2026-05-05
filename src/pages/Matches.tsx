@@ -1,356 +1,171 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { usePlayer } from '@/contexts/PlayerContext';
-import { usePledgeStatus } from '@/hooks/usePledgeStatus';
-import { supabase } from '@/integrations/supabase/client';
-import type { MatchWithPlayers, Round, Player } from '@/lib/types';
-import { Calendar, Lock, ChevronDown, ChevronUp } from 'lucide-react';
-import { MatchCard } from '@/components/cards/MatchCard';
-import { RoundTimeline } from '@/components/tournament/RoundTimeline';
-import { RoundBetsSection } from '@/components/betting/RoundBetsSection';
-import { CountdownTimer } from '@/components/ui/CountdownTimer';
+import { getMatchesByRound, getLiveRound, getRounds, claimBooking } from '@/services';
+import type { Match, Round } from '@/lib/types';
 
-import { ReportResultDialog } from '@/components/tournament/ReportResultDialog';
-import { InstallAppModal } from '@/components/onboarding/InstallAppModal';
-import { useRoundSummaries } from '@/hooks/useRoundSummaries';
-import { useRoundPledges } from '@/hooks/useRoundPledges';
-import { usePwaInstall } from '@/hooks/usePwaInstall';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-
-export default function MatchesPage() {
-  const navigate = useNavigate();
-  const { player, tournament, session, isLoading, refreshPlayer } = usePlayer();
-  const { toast } = useToast();
-  const { pledgeStatus } = usePledgeStatus(player, tournament);
-  const pwa = usePwaInstall(player?.id);
-  const [showInstall, setShowInstall] = useState(false);
-
+export function Matches() {
   const [rounds, setRounds] = useState<Round[]>([]);
-  const [matches, setMatches] = useState<Map<string, MatchWithPlayers[]>>(new Map());
-  const [selectedMatch, setSelectedMatch] = useState<MatchWithPlayers | null>(null);
-  const [showReportDialog, setShowReportDialog] = useState(false);
-  const [playerCount, setPlayerCount] = useState(0);
-  const [showBets, setShowBets] = useState(false);
-  const [showProgress, setShowProgress] = useState(false);
-  const [betsCount, setBetsCount] = useState(0);
-
-  const isEnrolled = !!player && !!tournament;
-
-  const liveRound = rounds.find(r => r.status === 'Live') || null;
-  const myLiveMatches = liveRound ? (matches.get(liveRound.id) || []) : [];
-  const myActiveMatch = myLiveMatches.find(m => m.status !== 'Played' && m.status !== 'AutoResolved') || myLiveMatches[0] || null;
-
-  const summaries = useRoundSummaries(rounds, matches, player?.id || '');
-  const { pledges: roundPledges, refresh: refreshPledges } = useRoundPledges(tournament?.id, liveRound?.id);
-
-  // Auto-show install popup once per user
-  useEffect(() => {
-    if (player && pwa.shouldShowAuto) {
-      // Small delay so the page loads first
-      const t = setTimeout(() => setShowInstall(true), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [player?.id, pwa.shouldShowAuto]);
+  const [liveRound, setLiveRound] = useState<Round | null>(null);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
+  const tournamentId = ''; // TODO: Get from context/params
 
   useEffect(() => {
-    if (!isLoading && !session) { navigate('/'); return; }
-    if (tournament && player) loadMatches();
-  }, [session, tournament, player, isLoading, navigate]);
-
-  // Load bet count for active match
-  useEffect(() => {
-    if (!myActiveMatch || myActiveMatch.is_bye) return;
-    supabase.from('match_bets').select('id', { count: 'exact', head: true }).eq('match_id', myActiveMatch.id)
-      .then(({ count }) => setBetsCount(count || 0));
-  }, [myActiveMatch?.id]);
-
-  const loadMatches = async () => {
-    if (!tournament || !player) return;
-
-    const { count } = await supabase.from('players').select('id', { count: 'exact', head: true }).eq('tournament_id', tournament.id).eq('status', 'Active');
-    setPlayerCount(count || 0);
-
-    const { data: roundsData } = await supabase.from('rounds').select('*').eq('tournament_id', tournament.id).order('index', { ascending: true });
-    setRounds((roundsData || []) as Round[]);
-
-    const liveR = (roundsData || []).find((r: any) => r.status === 'Live');
-    if (liveR) {
+    const loadRounds = async () => {
       try {
-        await supabase.functions.invoke('tournament-engine', {
-          body: { action: 'auto_match_remaining', tournament_id: tournament.id, round_id: liveR.id },
-        });
-      } catch (e) { console.log('Auto-match check:', e); }
+        setLoading(true);
+        setError(null);
+
+        const [roundsData, liveRoundData] = await Promise.all([
+          getRounds(tournamentId),
+          getLiveRound(tournamentId),
+        ]);
+
+        setRounds(roundsData);
+        setLiveRound(liveRoundData);
+
+        if (liveRoundData) {
+          setSelectedRoundId(liveRoundData.id);
+        } else if (roundsData.length > 0) {
+          setSelectedRoundId(roundsData[0].id);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Errore nel caricamento dei turni');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (tournamentId) {
+      loadRounds();
     }
+  }, [tournamentId]);
 
-    const { data: matchesData } = await supabase.from('matches').select('*').eq('tournament_id', tournament.id)
-      .or(`team_a_player1_id.eq.${player.id},team_a_player2_id.eq.${player.id},team_b_player1_id.eq.${player.id},team_b_player2_id.eq.${player.id},bye_player_id.eq.${player.id}`);
-    if (!matchesData) return;
+  useEffect(() => {
+    const loadMatches = async () => {
+      if (!selectedRoundId) return;
+      try {
+        const data = await getMatchesByRound(selectedRoundId);
+        setMatches(data);
+      } catch (err) {
+        console.error('Error loading matches:', err);
+        setError(err instanceof Error ? err.message : 'Errore nel caricamento delle partite');
+      }
+    };
 
-    const playerIds = new Set<string>();
-    matchesData.forEach(m => {
-      [m.team_a_player1_id, m.team_a_player2_id, m.team_b_player1_id, m.team_b_player2_id].forEach(id => { if (id) playerIds.add(id); });
-    });
-
-    const { data: players } = await supabase.from('players').select('*').in('id', Array.from(playerIds));
-    const playerMap = new Map((players || []).map(p => [p.id, p as Player]));
-
-    const matchesByRound = new Map<string, MatchWithPlayers[]>();
-    matchesData.forEach(match => {
-      const mwp: MatchWithPlayers = {
-        ...match,
-        team_a_player1: playerMap.get(match.team_a_player1_id),
-        team_a_player2: playerMap.get(match.team_a_player2_id),
-        team_b_player1: playerMap.get(match.team_b_player1_id),
-        team_b_player2: playerMap.get(match.team_b_player2_id),
-      };
-      const existing = matchesByRound.get(match.round_id) || [];
-      existing.push(mwp);
-      matchesByRound.set(match.round_id, existing);
-    });
-    setMatches(matchesByRound);
-  };
-
-  const handleClaimBooking = async (match: MatchWithPlayers) => {
-    if (!player) return;
-    const { error } = await supabase.from('matches').update({
-      booking_claimed_by_player_id: player.id,
-      booking_claimed_at: new Date().toISOString(),
-      status: 'BookingClaimed',
-    }).eq('id', match.id);
-    if (!error) {
-      loadMatches();
-      toast({ title: 'Booking claimed! 📅', description: "You're on court duty. Don't forget!" });
-    }
-  };
-
-  const handleReportResult = (match: MatchWithPlayers) => {
-    setSelectedMatch(match);
-    setShowReportDialog(true);
-  };
-
-  const handleCopyContacts = (match: MatchWithPlayers) => {
-    const allPlayers = [match.team_a_player1, match.team_a_player2, match.team_b_player1, match.team_b_player2].filter(Boolean) as Player[];
-    const text = allPlayers.map(p => `${p.full_name}: ${p.phone}`).join('\n');
-    navigator.clipboard.writeText(text);
-    toast({ title: 'Contacts copied! 📋', description: 'Paste into your WhatsApp group' });
-  };
-
-  const handleSubmitResult = async (setsA: number, setsB: number, isUnfinished: boolean, tiebreakWinner?: 'A' | 'B') => {
-    if (!selectedMatch || !player) return;
-    const { data, error } = await supabase.functions.invoke('tournament-engine', {
-      body: { action: 'process_match_result', match_id: selectedMatch.id, sets_a: setsA, sets_b: setsB, is_unfinished: isUnfinished, player_id: player.id, tiebreak_winner: tiebreakWinner },
-    });
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-    toast({ title: 'Score submitted! 🎾', description: 'Scores locked. Credits distributed.' });
-    setShowReportDialog(false);
     loadMatches();
-    refreshPlayer();
+  }, [selectedRoundId]);
+
+  const handleClaimBooking = async (matchId: string) => {
+    try {
+      // TODO: Get current player ID from context
+      const currentPlayerId = '';
+      await claimBooking(matchId, currentPlayerId);
+      // Reload matches
+      if (selectedRoundId) {
+        const data = await getMatchesByRound(selectedRoundId);
+        setMatches(data);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Errore nella prenotazione');
+    }
   };
 
-  if (isLoading) {
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+  };
+
+  if (loading) {
+    return <div className="p-4">Caricamento...</div>;
+  }
+
+  if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-4xl animate-pulse">📅</div>
+      <div className="p-4 border border-red-200 bg-red-50 rounded">
+        <p className="text-red-800">{error}</p>
+        <button onClick={handleRetry} className="mt-2 px-4 py-2 bg-red-600 text-white rounded">
+          Riprova
+        </button>
       </div>
     );
   }
 
-  const pledgeMissing = isEnrolled && pledgeStatus === 'missing';
-  const roundsCount = tournament?.rounds_count || 3;
+  if (rounds.length === 0) {
+    return (
+      <div className="p-4 text-center text-gray-500">
+        Nessun turno trovato per questo torneo.
+      </div>
+    );
+  }
 
   return (
-    <>
-      <PageLayout
-        header={
-          <div className="p-4">
-            <h1 className="font-bold text-xl flex items-center gap-2">
-              <Calendar className="h-6 w-6 text-primary" />
-              {isEnrolled ? tournament!.name : 'Matches'}
-            </h1>
-            {isEnrolled && (
-              <p className="text-xs text-muted-foreground mt-0.5">Your matches & progress</p>
-            )}
-          </div>
-        }
-      >
-        {isEnrolled ? (
-          <div className="space-y-4">
-            {/* Pledge missing warning */}
-            {pledgeMissing && (
-              <Card className="chaos-card border-chaos-orange/50 bg-chaos-orange/5">
-                <CardContent className="p-5 flex items-center gap-4">
-                  <Lock className="h-6 w-6 text-chaos-orange shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-chaos-orange">Locked until pledge submitted</p>
-                    <p className="text-xs text-muted-foreground">Add your pledge to be scheduled for matches</p>
-                  </div>
-                  <Button size="sm" onClick={() => navigate('/complete-entry')} className="bg-gradient-primary hover:opacity-90 shrink-0">
-                    Add Pledge
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Partite</h1>
 
-            {/* A) YOUR MATCH - always expanded */}
-            {myActiveMatch && !myActiveMatch.is_bye && (
-              <MatchCard
-                match={myActiveMatch}
-                currentPlayerId={player!.id}
-                round={liveRound || undefined}
-                tournament={tournament!}
-                roundPledges={roundPledges}
-                betsCount={betsCount}
-                onClaimBooking={() => handleClaimBooking(myActiveMatch)}
-                onReportResult={() => handleReportResult(myActiveMatch)}
-                onPledgeSaved={refreshPledges}
-              />
-            )}
+      {liveRound && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded">
+          <p className="text-green-800 font-semibold">Turno in corso: {liveRound.name}</p>
+        </div>
+      )}
 
-            {myActiveMatch?.is_bye && (
-              <Card className="chaos-card border-accent/30">
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl mb-2">😎</div>
-                  <p className="text-accent font-medium">Bye Round</p>
-                  <p className="text-sm text-muted-foreground">Enjoy the rest!</p>
-                </CardContent>
-              </Card>
-            )}
+      <div className="mb-4">
+        <label className="block text-sm font-semibold mb-2">Seleziona turno:</label>
+        <select
+          value={selectedRoundId || ''}
+          onChange={(e) => setSelectedRoundId(e.target.value)}
+          className="w-full p-2 border rounded"
+        >
+          {rounds.map((round) => (
+            <option key={round.id} value={round.id}>
+              {round.name} ({round.status})
+            </option>
+          ))}
+        </select>
+      </div>
 
-            {/* No match yet */}
-            {!myActiveMatch && liveRound && (() => {
-              const remainder = (tournament!.max_players > 0 ? Math.min(playerCount, tournament!.max_players) : playerCount) % 4;
-              if (remainder === 0) return null;
-              const needed = 4 - remainder;
-              return (
-                <Card className="chaos-card border-primary/20 bg-primary/5">
-                  <CardContent className="p-4 text-center space-y-1">
-                    <p className="text-sm font-medium">⏳ Waiting for {needed} more player{needed > 1 ? 's' : ''}</p>
-                    <p className="text-xs text-muted-foreground">Matches need groups of 4.</p>
-                  </CardContent>
-                </Card>
-              );
-            })()}
-
-            {/* B) TOURNAMENT PROGRESS */}
-            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
-              <button
-                onClick={() => setShowProgress(!showProgress)}
-                className="w-full flex items-center justify-between text-sm"
-              >
-                <span className="font-semibold text-primary uppercase tracking-wide text-xs">Tournament Progress</span>
-                {showProgress ? <ChevronUp className="h-4 w-4 text-primary" /> : <ChevronDown className="h-4 w-4 text-primary" />}
-              </button>
-
-              {/* Compact progress strip always visible */}
-              <div className="flex items-center gap-1.5 py-1 overflow-x-auto">
-                {Array.from({ length: roundsCount }, (_, i) => {
-                  const rd = rounds.find(r => r.index === i + 1 && !r.is_playoff);
-                  const status = rd?.status || 'Upcoming';
-                  const isCurrent = status === 'Live';
-                  const isCompleted = status === 'Completed' || status === 'Locked';
-                  return (
-                    <div key={i} className="flex items-center gap-1 shrink-0">
-                      <div className={cn(
-                        'text-[10px] font-bold px-2 py-1 rounded-md border whitespace-nowrap',
-                        isCurrent && 'bg-primary/20 border-primary/40 text-primary',
-                        isCompleted && 'bg-muted/60 border-border text-muted-foreground line-through',
-                        !isCurrent && !isCompleted && 'bg-muted/30 border-border/50 text-muted-foreground/50',
-                      )}>
-                        Round {i + 1}
-                      </div>
-                      {i < roundsCount - 1 && <span className="text-muted-foreground/40 text-[10px]">→</span>}
-                    </div>
-                  );
-                })}
-                {tournament!.playoffs_enabled && (
-                  <>
-                    <span className="text-muted-foreground/40 text-[10px]">→</span>
-                    <div className="text-[10px] font-bold px-2 py-1 rounded-md border bg-chaos-orange/10 border-chaos-orange/30 text-chaos-orange shrink-0">🏆 Finals</div>
-                  </>
-                )}
+      {matches.length === 0 ? (
+        <div className="p-4 text-center text-gray-500">
+          Nessuna partita trovata per questo turno.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {matches.map((match) => (
+            <div key={match.id} className="p-4 border rounded">
+              <div className="grid grid-cols-3 gap-4 mb-3">
+                <div>
+                  <p className="text-sm text-gray-600">Squadra A</p>
+                  <p className="font-semibold">{match.team_a_player1_id || 'TBD'}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Risultato</p>
+                  <p className="font-semibold">
+                    {match.sets_a ?? '-'} - {match.sets_b ?? '-'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-600">Squadra B</p>
+                  <p className="font-semibold">{match.team_b_player1_id || 'TBD'}</p>
+                </div>
               </div>
 
-              {liveRound?.end_at && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  ⏳ Round {liveRound.index} ends in <CountdownTimer targetDate={liveRound.end_at} variant="compact" className="text-xs inline font-medium text-foreground" />
-                </div>
-              )}
+              <p className="text-sm text-gray-600 mb-3">Status: {match.status}</p>
 
-              {/* Full round timeline when expanded */}
-              {showProgress && (
-                <div className="animate-in slide-in-from-top-2 duration-200 pt-2">
-                  <RoundTimeline
-                    summaries={summaries}
-                    currentPlayerId={player!.id}
-                    tournament={tournament!}
-                    onClaimBooking={handleClaimBooking}
-                    onReportResult={handleReportResult}
-                    onCopyContacts={handleCopyContacts}
-                  />
-                </div>
+              {match.status === 'BookingRequired' && (
+                <button
+                  onClick={() => handleClaimBooking(match.id)}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Prenota campo
+                </button>
               )}
             </div>
-
-            {/* C) ROUND BETS - always visible */}
-            {tournament!.betting_enabled && liveRound && (
-              <div className="space-y-2">
-                <h3 className="font-semibold text-sm flex items-center gap-2 px-1">
-                  🎲 Round Bets
-                </h3>
-                <div className="rounded-xl bg-muted/30 border border-border p-4">
-                  <RoundBetsSection
-                    tournament={tournament!}
-                    player={player!}
-                    currentRound={liveRound}
-                  />
-                </div>
-              </div>
-            )}
-
-            {rounds.length === 0 && (
-              <div className="text-center py-12">
-                <div className="text-4xl mb-3">📅</div>
-                <p className="text-muted-foreground">No rounds yet</p>
-                <p className="text-sm text-muted-foreground">Matches will appear when the tournament starts</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <Card className="chaos-card">
-            <CardContent className="p-8 text-center space-y-4">
-              <div className="text-4xl">🎾</div>
-              <p className="font-semibold">No active tournament</p>
-              <p className="text-sm text-muted-foreground">Join a tournament to start playing</p>
-              <Button variant="outline" onClick={() => navigate('/tournaments')} className="mt-2">Browse Tournaments</Button>
-            </CardContent>
-          </Card>
-        )}
-      </PageLayout>
-
-      <BottomNav />
-
-      <ReportResultDialog
-        open={showReportDialog}
-        onOpenChange={setShowReportDialog}
-        onSubmit={handleSubmitResult}
-      />
-
-      <InstallAppModal
-        open={showInstall}
-        onOpenChange={setShowInstall}
-        isIos={pwa.isIos}
-        isAndroid={pwa.isAndroid}
-        isSafari={pwa.isSafari}
-        canNativeInstall={pwa.canNativeInstall}
-        onDismiss={pwa.dismiss}
-        onTriggerInstall={pwa.triggerInstall}
-      />
-    </>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
+
+export default Matches;

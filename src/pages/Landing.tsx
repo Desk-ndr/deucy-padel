@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePlayer } from '@/contexts/PlayerContext';
 import type { Tournament } from '@/lib/types';
 import { Users, Trophy, Loader2, Settings } from 'lucide-react';
+import { formatEuros } from '@/lib/euros';
 
 export default function LandingPage() {
   const [searchParams] = useSearchParams();
@@ -141,7 +142,7 @@ export default function LandingPage() {
               <div className="h-10 w-px bg-border" />
               <div className="flex flex-col items-center">
                 <Trophy className="h-5 w-5 text-accent mb-1" />
-                <span className="text-2xl font-bold">{tournament.starting_credits}</span>
+                <span className="text-2xl font-bold">{formatEuros(tournament.starting_credits, tournament.display_decimals)}</span>
                 <span className="text-xs text-muted-foreground">Starting Credits</span>
               </div>
             </div>

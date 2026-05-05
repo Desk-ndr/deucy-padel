@@ -108,6 +108,7 @@ function RoundAccordionItem({
   const { pledges: roundPledges, refresh: refreshPledges } = useRoundPledges(
     tournament?.id,
     round.id,
+    currentPlayerId,
   );
 
   // Load bet counts per match for this round

@@ -3,13 +3,15 @@ import { Button } from '@/components/ui/button';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { cn } from '@/lib/utils';
-import { Phone, ExternalLink, Check, MapPin, MessageCircle, Flame } from 'lucide-react';
+import { Phone, ExternalLink, Check, MapPin, MessageCircle, Flame, Clock, AlertTriangle, X } from 'lucide-react';
 import { PlayerLink } from '@/components/ui/PlayerLink';
 import { PledgeIndicator } from './PledgeIndicator';
 import { useToast } from '@/hooks/use-toast';
 import type { MatchWithPlayers, Player, Round, Tournament } from '@/lib/types';
 import type { RoundPledgeMap } from '@/hooks/useRoundPledges';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
 
 interface MatchCardProps {
   match: MatchWithPlayers;
@@ -20,6 +22,7 @@ interface MatchCardProps {
   betsCount?: number;
   onClaimBooking?: () => void;
   onReportResult?: () => void;
+  onConfirmResult?: () => void;
   onPledgeSaved?: () => void;
   className?: string;
 }
@@ -33,13 +36,19 @@ export function MatchCard({
   betsCount = 0,
   onClaimBooking,
   onReportResult,
+  onConfirmResult,
   onPledgeSaved,
   className,
 }: MatchCardProps) {
   const { toast } = useToast();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isDisputing, setIsDisputing] = useState(false);
+
   const isBookingClaimed = match.status === 'BookingClaimed' || match.booking_claimed_by_player_id;
   const isPlayed = match.status === 'Played';
   const isOverdue = match.status === 'Overdue' || match.status === 'AutoResolved';
+  const isPendingConfirmation = match.status === 'PendingConfirmation';
+  const isDisputed = match.status === 'Disputed';
 
   const isInMatch =
     match.team_a_player1_id === currentPlayerId ||
@@ -50,6 +59,20 @@ export function MatchCard({
   const isTeamA =
     match.team_a_player1_id === currentPlayerId ||
     match.team_a_player2_id === currentPlayerId;
+
+  // Determine which team the reporter is on
+  const reporterIsTeamA =
+    match.reported_by_player_id === match.team_a_player1_id ||
+    match.reported_by_player_id === match.team_a_player2_id;
+
+  // Current player can only confirm if they're on the opposite team from the reporter
+  const canConfirm =
+    isPendingConfirmation &&
+    match.reported_by_player_id &&
+    isInMatch &&
+    currentPlayerId !== match.reported_by_player_id &&
+    reporterIsTeamA !== isTeamA &&
+    !match.confirmed_by_player_id;
 
   const allPlayers = [
     match.team_a_player1,
@@ -72,10 +95,54 @@ export function MatchCard({
     );
   };
 
+  const handleConfirmResult = async () => {
+    if (!match.reported_by_player_id || !canConfirm) return;
+    
+    setIsConfirming(true);
+    try {
+      const now = new Date().toISOString();
+      const { error } = await supabase.from('matches').update({
+        status: 'Played',
+        confirmed_by_player_id: currentPlayerId,
+        confirmed_at: now,
+        played_at: now,
+      }).eq('id', match.id);
+
+      if (error) throw error;
+      
+      toast({ title: 'Risultato confermato!', description: 'Classifica aggiornata.' });
+      onConfirmResult?.();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  const handleDisputeResult = async () => {
+    if (!isPendingConfirmation || !isInMatch || !match.reported_by_player_id) return;
+
+    setIsDisputing(true);
+    try {
+      const { error } = await supabase.from('matches').update({
+        status: 'Disputed',
+      }).eq('id', match.id);
+
+      if (error) throw error;
+      
+      toast({ title: 'Risultato contestato', description: 'L\'admin verificherà.' });
+      onConfirmResult?.();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsDisputing(false);
+    }
+  };
+
   return (
     <Card className={cn(
       'chaos-card transition-all',
-      isInMatch && !isPlayed && !isOverdue && 'ring-2 ring-primary/60 border-primary/60 shadow-lg shadow-primary/20 bg-[hsl(145_80%_50%/0.08)]',
+      isInMatch && !isPlayed && !isOverdue && !isPendingConfirmation && !isDisputed && 'ring-2 ring-primary/60 border-primary/60 shadow-lg shadow-primary/20 bg-[hsl(145_80%_50%/0.08)]',
       className,
     )}>
       <CardContent className="p-4 space-y-4">
@@ -97,12 +164,16 @@ export function MatchCard({
             <StatusChip
               variant={
                 isPlayed ? 'success' :
+                isDisputed ? 'error' :
+                isPendingConfirmation ? 'warning' :
                 isOverdue ? 'error' :
                 isBookingClaimed ? 'info' : 'neutral'
               }
               size="sm"
             >
               {isPlayed ? 'Played' :
+               isDisputed ? 'Disputed' :
+               isPendingConfirmation ? 'Pending' :
                isOverdue ? 'Overdue' :
                isBookingClaimed ? 'Booked' : 'Pending'}
             </StatusChip>
@@ -173,8 +244,70 @@ export function MatchCard({
           </div>
         )}
 
+        {/* Pending Confirmation state */}
+        {isPendingConfirmation && (
+          <>
+            {/* Show reported score */}
+            <div className="flex items-center justify-center gap-4 py-2 bg-muted/30 rounded-lg border border-primary/20">
+              <span className="text-2xl font-bold text-primary">
+                {match.sets_a}
+              </span>
+              <span className="text-muted-foreground">-</span>
+              <span className="text-2xl font-bold text-primary">
+                {match.sets_b}
+              </span>
+            </div>
+
+            {/* If current player is on same team as reporter */}
+            {match.reported_by_player_id && isInMatch && (reporterIsTeamA === isTeamA) && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20">
+                <Clock className="h-4 w-4 text-primary shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  In attesa conferma avversario
+                </p>
+              </div>
+            )}
+
+            {/* If current player is on opposite team (can confirm or dispute) */}
+            {canConfirm && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground text-center px-1">
+                  Conferma il risultato oppure contesta se non sei d'accordo
+                </p>
+                <Button
+                  onClick={handleConfirmResult}
+                  disabled={isConfirming || isDisputing}
+                  className="w-full touch-target bg-gradient-primary hover:opacity-90"
+                >
+                  <Check className="mr-2 h-4 w-4" />
+                  Conferma Risultato
+                </Button>
+                <Button
+                  onClick={handleDisputeResult}
+                  disabled={isConfirming || isDisputing}
+                  variant="secondary"
+                  className="w-full touch-target"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Contesta
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Disputed state */}
+        {isDisputed && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-chaos-orange/10 rounded-lg border border-chaos-orange/30">
+            <AlertTriangle className="h-4 w-4 text-chaos-orange shrink-0" />
+            <p className="text-xs text-chaos-orange font-medium">
+              Risultato in discussione — Admin verificherà
+            </p>
+          </div>
+        )}
+
         {/* Pledge indicators for players */}
-        {!isPlayed && Object.keys(roundPledges).length > 0 && (
+        {!isPlayed && !isPendingConfirmation && Object.keys(roundPledges).length > 0 && (
           <div className="pt-2 border-t border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Pledge Status</p>
             <div className="flex flex-wrap gap-1">
@@ -188,7 +321,7 @@ export function MatchCard({
         )}
 
         {/* Actions */}
-        {!isPlayed && !isOverdue && (
+        {!isPlayed && !isOverdue && !isPendingConfirmation && !isDisputed && (
           <div className="space-y-2">
             {!isBookingClaimed && onClaimBooking && (
               <Button

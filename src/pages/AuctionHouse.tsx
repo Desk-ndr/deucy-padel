@@ -73,7 +73,10 @@ export default function AuctionHousePage() {
     const mine = allPledges.filter(p => p.pledged_by_player_id === player.id && p.status !== 'Hidden');
     setMyPledges(mine);
 
-    const visible = allPledges.filter(p => p.status === 'Approved' || p.status === 'Draft');
+    // Show all Approved pledges to everyone. Show Draft pledges only to the player who created them.
+    const visible = allPledges.filter(p =>
+      p.status === 'Approved' || (p.status === 'Draft' && p.pledged_by_player_id === player.id)
+    );
     setPledges(visible);
   };
 

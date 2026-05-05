@@ -16,8 +16,28 @@ const navItems: NavItem[] = [
   { path: '/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
 ];
 
+// Routes where BottomNav should be hidden
+const HIDDEN_ROUTES = new Set([
+  '/',
+  '/login',
+  '/landing',
+  '/join',
+  '/complete-entry',
+  '/admin',
+  '/blitz',
+]);
+
 export function BottomNav() {
   const location = useLocation();
+
+  // Check if current route should hide the nav
+  const shouldHide = HIDDEN_ROUTES.has(location.pathname) ||
+                      location.pathname.startsWith('/admin/') ||
+                      location.pathname.startsWith('/blitz/');
+
+  if (shouldHide) {
+    return null;
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border safe-bottom">

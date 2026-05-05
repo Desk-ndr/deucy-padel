@@ -55,6 +55,7 @@ export function ReportResultDialog({ open, onOpenChange, onSubmit }: ReportResul
     setIsSubmitting(true);
     try {
       await onSubmit(a, b, false);
+      toast({ title: 'Risultato inviato', description: 'In attesa di conferma dall\'avversario.' });
     } catch (error: any) {
       toast({ title: 'Failed to submit', description: error.message, variant: 'destructive' });
     }
@@ -68,6 +69,7 @@ export function ReportResultDialog({ open, onOpenChange, onSubmit }: ReportResul
     setIsSubmitting(true);
     try {
       await onSubmit(a, b, false, winner);
+      toast({ title: 'Risultato inviato', description: 'In attesa di conferma dall\'avversario.' });
     } catch (error: any) {
       toast({ title: 'Failed to submit', description: error.message, variant: 'destructive' });
     }
