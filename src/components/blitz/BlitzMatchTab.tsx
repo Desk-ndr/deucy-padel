@@ -86,44 +86,57 @@ export default function BlitzMatchTab({
           </div>
         </HeroCard>
 
-        {/* Ranking Points Summary */}
-        <div style={{
-          padding: spacing.lg, backgroundColor: colors.surface,
-          borderRadius: radius.md, border: `1px solid ${colors.border}`,
-        }}>
-          <h3 style={{ ...typeScale.title, color: colors.text, margin: 0, marginBottom: spacing.md, textAlign: 'center' }}>
-            Ranking Points Earned
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-            {sortedPlayers.map((p, rank) => {
-              const placement = rank + 1;
-              const pts = placement <= 5 ? [50, 35, 22, 12, 5][placement - 1] : 0;
-              return (
-                <div key={p.index} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: `${spacing.sm}px ${spacing.md}px`,
-                  backgroundColor: rank === 0 ? 'rgba(34,197,94,0.08)' : 'transparent',
-                  borderRadius: radius.sm,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                    <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted, minWidth: 24 }}>
-                      #{placement}
-                    </span>
-                    <span style={{ ...typeScale.body, color: colors.text, fontWeight: rank === 0 ? 700 : 500 }}>
-                      {p.name}
-                    </span>
-                  </div>
-                  <span style={{
-                    ...typeScale.mono, fontSize: 14, fontWeight: 700,
-                    color: pts > 0 ? colors.primary : colors.muted,
-                  }}>
-                    +{pts} pts
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {/* Ranking Points Summary — sorted by games won (same as ranking) */}
+        {(() => {
+          const rankedByGames = tournament.players
+            .map((p, i) => ({ ...p, index: i, games: gamesMap.get(i) || 0 }))
+            .sort((a, b) => b.games - a.games);
+          const POINTS = [50, 35, 22, 12, 5];
+          return (
+            <div style={{
+              padding: spacing.lg, backgroundColor: colors.surface,
+              borderRadius: radius.md, border: `1px solid ${colors.border}`,
+            }}>
+              <h3 style={{ ...typeScale.title, color: colors.text, margin: 0, marginBottom: spacing.md, textAlign: 'center' }}>
+                Ranking Points Earned
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                {rankedByGames.map((p, rank) => {
+                  const placement = rank + 1;
+                  const pts = placement <= 5 ? POINTS[rank] : 0;
+                  return (
+                    <div key={p.index} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: `${spacing.sm}px ${spacing.md}px`,
+                      backgroundColor: rank === 0 ? 'rgba(34,197,94,0.08)' : 'transparent',
+                      borderRadius: radius.sm,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                        <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted, minWidth: 24 }}>
+                          #{placement}
+                        </span>
+                        <span style={{ ...typeScale.body, color: colors.text, fontWeight: rank === 0 ? 700 : 500 }}>
+                          {p.name}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                        <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted }}>
+                          {p.games}g
+                        </span>
+                        <span style={{
+                          ...typeScale.mono, fontSize: 14, fontWeight: 700,
+                          color: pts > 0 ? colors.primary : colors.muted,
+                        }}>
+                          +{pts} pts
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Completed rounds with edit */}
         {isCreator && completedAll.length > 0 && (

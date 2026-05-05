@@ -30,7 +30,7 @@ export default function BlitzRanking() {
         </button>
         <div>
           <h1 style={{ fontFamily: fonts.heading, fontSize: typeScale.xl, fontWeight: 700, color: colors.text, margin: 0 }}>
-            Ranking Generale
+            Overall Ranking
           </h1>
           <p style={{ fontFamily: fonts.body, fontSize: typeScale.sm, color: colors.textSecondary, margin: 0, marginTop: 2 }}>
             Best 4 of last 6 tournaments
