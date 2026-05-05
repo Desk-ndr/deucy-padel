@@ -5,6 +5,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { listTournaments, createTournament, deleteTournament, BlitzTournamentData } from '@/services/blitzService';
+import { getCrownHolder, RankedPlayer } from '@/services/rankingService';
 import { useBlitzIdentity } from '@/hooks/useBlitzIdentity';
 import { colors, spacing, radius, fonts, typeScale, shadows, animationCSS, formatBalance } from '@/lib/design-tokens';
 import { HeroCard, LiveBadge, MonoNumber } from '@/components/ui/deucy';
@@ -25,6 +26,9 @@ export default function BlitzList() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const [crownHolder, setCrownHolder] = useState<RankedPlayer | null>(null);
+  useEffect(() => { getCrownHolder().then(({ data }) => setCrownHolder(data)); }, []);
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -82,6 +86,45 @@ export default function BlitzList() {
           }}>A</div>
         </div>
 
+
+        {/* Ranking Banner */}
+        <div
+          onClick={() => navigate("/blitz/ranking")}
+          style={{
+            background: crownHolder ? `linear-gradient(135deg, ${colors.primaryMuted}, ${colors.accentMuted})` : colors.surface,
+            border: `1px solid ${crownHolder ? colors.primary : colors.border}`,
+            borderRadius: radius.xl,
+            padding: `${spacing.lg}px ${spacing.xl}px`,
+            marginBottom: spacing.xl,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: spacing.lg,
+          }}
+        >
+          <span style={{ fontSize: 24 }}>{crownHolder ? "👑" : "🏆"}</span>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontFamily: fonts.body, fontSize: typeScale.sm, color: colors.primary, margin: 0, fontWeight: 600 }}>
+              {crownHolder ? "Re del Campo" : "Ranking"}
+            </p>
+            <p style={{ fontFamily: fonts.body, fontSize: typeScale.base, color: colors.text, margin: 0, fontWeight: 600 }}>
+              {crownHolder ? crownHolder.displayName : "Vedi classifica generale"}
+            </p>
+            {crownHolder && crownHolder.consecutiveWins >= 2 && (
+              <p style={{ fontFamily: fonts.body, fontSize: typeScale.xs, color: colors.accent, margin: 0, marginTop: 2 }}>
+                Imbattuto — {crownHolder.consecutiveWins} di fila
+              </p>
+            )}
+          </div>
+          <div style={{ textAlign: "right" }}>
+            {crownHolder && (
+              <p style={{ fontFamily: fonts.mono, fontSize: typeScale.lg, color: colors.primary, margin: 0, fontWeight: 700 }}>
+                {crownHolder.rankingScore} pts
+              </p>
+            )}
+            <p style={{ fontFamily: fonts.body, fontSize: typeScale.xs, color: colors.textSecondary, margin: 0 }}>→</p>
+          </div>
+        </div>
         {/* Live tournaments */}
         {liveTournaments.map(t => (
           <div key={t.id} style={{ marginBottom: spacing.lg }}>

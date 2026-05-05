@@ -6,7 +6,7 @@ import { useBlitzIdentity } from '@/hooks/useBlitzIdentity';
 import { useBlitzTimer } from '@/hooks/useBlitzTimer';
 import {
   startTournament, startTimer, pauseTimer, resetTimer,
-  submitScore, placeBet, resetTournament, BlitzPlayer,
+  submitScore, placeBet, resetTournament, editScore, BlitzPlayer,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
@@ -32,7 +32,7 @@ export default function BlitzTournament() {
 
   const handleStart = async (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, names: string[]) => {
     if (!id) return;
-    const players: BlitzPlayer[] = names.map(n => ({ name: n.trim(), balance: 0 }));
+    const players: BlitzPlayer[] = names.map(n => ({ name: n.trim(), balance: 10 }));
     const schedule = generateSchedule(names.length, config.totalRounds);
     const { error } = await startTournament(id, config, players, schedule);
     if (error) toast({ title: 'Error starting', description: error, variant: 'destructive' });
@@ -60,6 +60,13 @@ export default function BlitzTournament() {
       toast({ title: isLast ? 'Tournament complete!' : `Round ${tournament.current_round} done!` });
       refetch();
     }
+  };
+
+  const handleEditScore = async (roundId: string, roundIndex: number, scoreA: number, scoreB: number) => {
+    if (!id || !tournament) return;
+    const { error } = await editScore(id, roundId, roundIndex, scoreA, scoreB, tournament, bets, rounds);
+    if (error) toast({ title: "Error", description: error, variant: "destructive" });
+    else { toast({ title: `Round ${roundIndex} score updated!` }); refetch(); }
   };
 
   const handlePlaceBet = async (prediction: 'A' | 'B', stake: number) => {
@@ -217,7 +224,7 @@ export default function BlitzTournament() {
                 tournament={tournament} rounds={rounds} isCreator={isCreator}
                 timerProps={timerProps} onStartTimer={handleStartTimer}
                 onPauseTimer={handlePauseTimer} onResetTimer={handleResetTimer}
-                onSubmitScore={handleSubmitScore} onBetClick={() => {}}
+                onSubmitScore={handleSubmitScore} onEditScore={handleEditScore} onBetClick={() => {}}
               />
               {/* Betting card for resting players */}
               {currentSchedule && playerIndex !== null && (

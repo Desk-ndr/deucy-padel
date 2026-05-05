@@ -227,10 +227,96 @@ export async function placeBet(
 export async function resetTournament(id: string, playerNames: string[]) {
   await supabase.from('blitz_bets').delete().eq('tournament_id', id);
   await supabase.from('blitz_rounds').delete().eq('tournament_id', id);
-  const resetPlayers = playerNames.map(name => ({ name, balance: 0 }));
+  const resetPlayers = playerNames.map(name => ({ name, balance: 10 }));
   const { error } = await supabase.from('blitz_tournaments').update({
     status: 'setup', current_round: 0, players: resetPlayers as any,
     schedule: [] as any, timer_started_at: null, timer_paused_remaining: null,
   } as any).eq('id', id);
+  return { error: error?.message ?? null };
+}
+
+export async function editScore(
+  id: string, roundId: string, roundIndex: number,
+  newScoreA: number, newScoreB: number,
+  tournament: BlitzTournamentData, bets: BlitzBet[],
+  allRounds: BlitzRound[],
+) {
+  // 1. Update the round scores
+  const { error: rErr } = await supabase.from('blitz_rounds')
+    .update({ team_a_score: newScoreA, team_b_score: newScoreB }).eq('id', roundId);
+  if (rErr) return { error: rErr.message };
+
+  // 2. Recalculate ALL balances from scratch (starting balance + all completed rounds + all settled bets)
+  const startingBalance = 10;
+  const updatedPlayers = tournament.players.map(p => ({ ...p, balance: startingBalance }));
+
+  // Build a map of rounds with updated scores
+  const roundScores = new Map<number, { a: number; b: number }>();
+  for (const r of allRounds) {
+    if (r.status === 'completed' && r.team_a_score != null && r.team_b_score != null) {
+      if (r.round_index === roundIndex) {
+        roundScores.set(r.round_index, { a: newScoreA, b: newScoreB });
+      } else {
+        roundScores.set(r.round_index, { a: r.team_a_score, b: r.team_b_score });
+      }
+    }
+  }
+
+  // Apply game earnings for all completed rounds
+  for (const [ri, scores] of roundScores) {
+    const s = tournament.schedule[ri - 1];
+    if (!s) continue;
+    s.teamA.forEach(idx => {
+      updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + scores.a * EUROS_PER_GAME };
+    });
+    s.teamB.forEach(idx => {
+      updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + scores.b * EUROS_PER_GAME };
+    });
+  }
+
+  // 3. Re-settle bets for the edited round
+  const roundBets = bets.filter(b => b.round_index === roundIndex);
+  const newWinner = newScoreA > newScoreB ? 'A' : newScoreB > newScoreA ? 'B' : 'draw';
+
+  for (const bet of roundBets) {
+    if (newWinner === 'draw') {
+      // Refund: stake was already deducted when bet was placed, give it back
+      updatedPlayers[bet.bettor_index] = {
+        ...updatedPlayers[bet.bettor_index],
+        balance: updatedPlayers[bet.bettor_index].balance + bet.stake,
+      };
+      await supabase.from('blitz_bets').update({ status: 'draw' }).eq('id', bet.id);
+    } else if (bet.predicted_winner === newWinner) {
+      updatedPlayers[bet.bettor_index] = {
+        ...updatedPlayers[bet.bettor_index],
+        balance: updatedPlayers[bet.bettor_index].balance + bet.stake * 2,
+      };
+      await supabase.from('blitz_bets').update({ status: 'won' }).eq('id', bet.id);
+    } else {
+      // Lost — stake already deducted, nothing to add
+      await supabase.from('blitz_bets').update({ status: 'lost' }).eq('id', bet.id);
+    }
+  }
+
+  // Also re-apply settled bets from OTHER rounds (not the edited one)
+  const otherSettledBets = bets.filter(b => b.round_index !== roundIndex && b.status !== 'pending');
+  for (const bet of otherSettledBets) {
+    if (bet.status === 'won') {
+      updatedPlayers[bet.bettor_index] = {
+        ...updatedPlayers[bet.bettor_index],
+        balance: updatedPlayers[bet.bettor_index].balance + bet.stake * 2,
+      };
+    } else if (bet.status === 'draw') {
+      updatedPlayers[bet.bettor_index] = {
+        ...updatedPlayers[bet.bettor_index],
+        balance: updatedPlayers[bet.bettor_index].balance + bet.stake,
+      };
+    }
+    // lost: nothing to add (stake already deducted)
+  }
+
+  // 4. Save updated players
+  const { error } = await supabase.from('blitz_tournaments')
+    .update({ players: updatedPlayers as any } as any).eq('id', id);
   return { error: error?.message ?? null };
 }

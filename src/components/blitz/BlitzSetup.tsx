@@ -115,28 +115,6 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             </div>
           </div>
 
-          {/* Quick picks */}
-          <div style={{
-            display: 'flex', flexWrap: 'wrap', gap: spacing.sm,
-            justifyContent: 'center', marginBottom: spacing.xl,
-          }}>
-            {[5, 6, 7, 8, 10, 12].map(n => (
-              <button
-                key={n}
-                onClick={() => setNumPlayers(n)}
-                style={{
-                  padding: `${spacing.sm}px ${spacing.lg}px`,
-                  borderRadius: radius.pill,
-                  backgroundColor: numPlayers === n ? colors.primaryMuted : colors.bg,
-                  border: `2px solid ${numPlayers === n ? colors.primary : colors.border}`,
-                  color: numPlayers === n ? colors.primary : colors.textSecondary,
-                  fontSize: 14, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: fonts.sans,
-                  transition: 'all 0.15s',
-                }}
-              >{n}</button>
-            ))}
-          </div>
 
           <button onClick={() => setStep('time')} style={buttonStyle(true)}>
             Next →
