@@ -19,6 +19,8 @@ export interface RankedPlayer {
   bestResults: number[];
   isCrownHolder: boolean;
   consecutiveWins: number;
+  lastTournamentPoints: number | null; // points from latest tournament
+  pointsDelta: number | null;          // change vs previous ranking score
 }
 
 export interface RankingEntry {
@@ -199,12 +201,26 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
     });
   }
 
-  // Calculate ranking for each player
+  // Calculate ranking for each player, including delta from last tournament
   const ranked: RankedPlayer[] = (players || []).map(player => {
     const entries = (playerEntries[player.id] || []).slice(0, WINDOW_SIZE);
     const sorted = entries.map(e => e.totalPoints).sort((a, b) => b - a);
     const best = sorted.slice(0, BEST_OF);
     const score = best.reduce((sum, pts) => sum + pts, 0);
+
+    // Calculate what the score was BEFORE the most recent tournament
+    const latestEntry = entries[0]; // already sorted by created_at desc
+    let pointsDelta: number | null = null;
+    let lastTournamentPoints: number | null = null;
+    if (latestEntry) {
+      lastTournamentPoints = latestEntry.totalPoints;
+      // Recalculate without the latest entry
+      const prevEntries = entries.slice(1).slice(0, WINDOW_SIZE);
+      const prevSorted = prevEntries.map(e => e.totalPoints).sort((a, b) => b - a);
+      const prevBest = prevSorted.slice(0, BEST_OF);
+      const prevScore = prevBest.reduce((sum, pts) => sum + pts, 0);
+      pointsDelta = score - prevScore;
+    }
 
     return {
       playerId: player.id,
@@ -215,6 +231,8 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       bestResults: best,
       isCrownHolder: player.crown_holder,
       consecutiveWins: player.consecutive_wins,
+      lastTournamentPoints,
+      pointsDelta,
     };
   }).filter(p => p.tournamentsPlayed > 0);
 

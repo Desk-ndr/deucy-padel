@@ -78,8 +78,8 @@ export default function BlitzRanking() {
       {/* Ranking List */}
       {!loading && ranking.length === 0 && (
         <div style={{ textAlign: 'center', padding: spacing.xxl, color: colors.textSecondary }}>
-          <p style={{ fontFamily: fonts.body, fontSize: typeScale.base }}>Nessun ranking ancora.</p>
-          <p style={{ fontFamily: fonts.body, fontSize: typeScale.sm, marginTop: spacing.sm }}>Completa un torneo per iniziare!</p>
+          <p style={{ fontFamily: fonts.body, fontSize: typeScale.base }}>No ranking yet.</p>
+          <p style={{ fontFamily: fonts.body, fontSize: typeScale.sm, marginTop: spacing.sm }}>Complete a tournament to get started!</p>
         </div>
       )}
 
@@ -128,14 +128,27 @@ export default function BlitzRanking() {
                 </p>
               </div>
 
-              {/* Score */}
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ fontFamily: fonts.mono, fontSize: typeScale.lg, fontWeight: 700, color: isFirst ? colors.primary : colors.text, margin: 0 }}>
-                  {player.rankingScore}
-                </p>
-                <p style={{ fontFamily: fonts.body, fontSize: typeScale.xs, color: colors.textSecondary, margin: 0 }}>
-                  pts
-                </p>
+              {/* Score + Delta */}
+              <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                <div>
+                  <p style={{ fontFamily: fonts.mono, fontSize: typeScale.lg, fontWeight: 700, color: isFirst ? colors.primary : colors.text, margin: 0 }}>
+                    {player.rankingScore}
+                  </p>
+                  <p style={{ fontFamily: fonts.body, fontSize: typeScale.xs, color: colors.textSecondary, margin: 0 }}>
+                    pts
+                  </p>
+                </div>
+                {player.pointsDelta !== null && player.pointsDelta !== 0 && (
+                  <span style={{
+                    fontFamily: fonts.mono,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: player.pointsDelta > 0 ? colors.primary : colors.destructive,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {player.pointsDelta > 0 ? '+' : ''}{player.pointsDelta}
+                  </span>
+                )}
               </div>
             </div>
 
