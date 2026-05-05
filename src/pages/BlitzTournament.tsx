@@ -9,6 +9,7 @@ import {
   submitScore, placeBet, resetTournament, editScore, BlitzPlayer,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
+import { finalizeRanking } from '@/services/rankingService';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 import { DeucyBottomNav, type DeucyTab } from '@/components/ui/deucy';
 import BlitzSetup from '@/components/blitz/BlitzSetup';
@@ -57,6 +58,10 @@ export default function BlitzTournament() {
     if (error) toast({ title: 'Error', description: error, variant: 'destructive' });
     else {
       const isLast = tournament.current_round >= tournament.total_rounds;
+      if (isLast) {
+        const rankResult = await finalizeRanking(tournament, rounds, bets);
+        if (rankResult?.error) console.warn('Ranking finalization:', rankResult.error);
+      }
       toast({ title: isLast ? 'Tournament complete!' : `Round ${tournament.current_round} done!` });
       refetch();
     }

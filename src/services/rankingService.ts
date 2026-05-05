@@ -40,20 +40,17 @@ export async function finalizeRanking(
   rounds: BlitzRound[],
   bets: BlitzBet[]
 ) {
-  // 1. Calculate games won per player
+  // 1. Calculate total games won per player (same logic as leaderboard)
   const gamesWon: number[] = tournament.players.map(() => 0);
   const completedRounds = rounds.filter(r => r.status === 'completed' && r.team_a_score !== null);
 
   for (const round of completedRounds) {
-    const schedule = tournament.schedule[round.round_index];
+    const schedule = tournament.schedule[round.round_index - 1];
     if (!schedule) continue;
     const scoreA = round.team_a_score!;
     const scoreB = round.team_b_score!;
-    if (scoreA > scoreB) {
-      schedule.teamA.forEach(i => { gamesWon[i]++; });
-    } else if (scoreB > scoreA) {
-      schedule.teamB.forEach(i => { gamesWon[i]++; });
-    }
+    schedule.teamA.forEach(i => { gamesWon[i] += scoreA; });
+    schedule.teamB.forEach(i => { gamesWon[i] += scoreB; });
   }
 
   // 2. Calculate betting profit per player

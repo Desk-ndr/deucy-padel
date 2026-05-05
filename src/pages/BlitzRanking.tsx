@@ -52,14 +52,14 @@ export default function BlitzRanking() {
             {crownHolder.consecutiveWins >= 2 ? '👑🔥' : '👑'}
           </div>
           <p style={{ fontFamily: fonts.body, fontSize: typeScale.xs, color: colors.primary, margin: 0, marginBottom: spacing.xs, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Re del Campo
+            King of the Field
           </p>
           <p style={{ fontFamily: fonts.heading, fontSize: typeScale['2xl'], fontWeight: 700, color: colors.text, margin: 0 }}>
             {crownHolder.displayName}
           </p>
           {crownHolder.consecutiveWins >= 2 && (
             <p style={{ fontFamily: fonts.body, fontSize: typeScale.sm, color: colors.accent, margin: 0, marginTop: spacing.xs }}>
-              Imbattuto — {crownHolder.consecutiveWins} vittorie consecutive
+              Unbeaten — {crownHolder.consecutiveWins} consecutive wins
             </p>
           )}
           <p style={{ fontFamily: fonts.mono, fontSize: typeScale.lg, color: colors.primary, margin: 0, marginTop: spacing.md, fontWeight: 700 }}>

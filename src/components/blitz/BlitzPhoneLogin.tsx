@@ -113,13 +113,13 @@ export function BlitzPhoneLogin({ onAuthenticated }: BlitzPhoneLoginProps) {
     <div style={containerStyle}>
       <div style={cardStyle}>
         <h1 style={titleStyle}>
-          {step === 'phone' ? 'Entra in Deucy' : step === 'otp' ? 'Codice OTP' : 'Come ti chiami?'}
+          {step === 'phone' ? 'Join Deucy' : step === 'otp' ? 'OTP Code' : 'What\'s your name?'}
         </h1>
         <p style={subtitleStyle}>
           {step === 'phone'
-            ? 'Inserisci il tuo numero per identificarti'
+            ? 'Enter your phone number to sign in'
             : step === 'otp'
-            ? 'Inserisci il codice ricevuto via SMS'
+            ? 'Enter the code received via SMS'
             : 'Scegli il nome che vedranno gli altri'}
         </p>
 

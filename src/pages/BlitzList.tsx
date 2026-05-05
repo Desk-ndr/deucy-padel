@@ -105,14 +105,14 @@ export default function BlitzList() {
           <span style={{ fontSize: 24 }}>{crownHolder ? "👑" : "🏆"}</span>
           <div style={{ flex: 1 }}>
             <p style={{ fontFamily: fonts.body, fontSize: typeScale.sm, color: colors.primary, margin: 0, fontWeight: 600 }}>
-              {crownHolder ? "Re del Campo" : "Ranking"}
+              {crownHolder ? "King of the Field" : "Ranking"}
             </p>
             <p style={{ fontFamily: fonts.body, fontSize: typeScale.base, color: colors.text, margin: 0, fontWeight: 600 }}>
-              {crownHolder ? crownHolder.displayName : "Vedi classifica generale"}
+              {crownHolder ? crownHolder.displayName : "View full ranking"}
             </p>
             {crownHolder && crownHolder.consecutiveWins >= 2 && (
               <p style={{ fontFamily: fonts.body, fontSize: typeScale.xs, color: colors.accent, margin: 0, marginTop: 2 }}>
-                Imbattuto — {crownHolder.consecutiveWins} di fila
+                Unbeaten — {crownHolder.consecutiveWins} in a row
               </p>
             )}
           </div>
@@ -135,6 +135,18 @@ export default function BlitzList() {
                   <h3 style={{ ...typeScale.headline, color: colors.text, margin: '4px 0 0' }}>{t.name}</h3>
                 </div>
                 <LiveBadge />
+                <button
+                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: spacing.xs, borderRadius: radius.sm,
+                    color: colors.muted, display: 'flex', marginLeft: spacing.sm,
+                  }}
+                >
+                  <svg width={16} height={16} viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth={2}>
+                    <polyline points='3 6 5 6 21 6' /><path d='M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2' />
+                  </svg>
+                </button>
               </div>
               <div style={{ display: 'flex', gap: spacing.xl, marginBottom: spacing.lg }}>
                 <div>
