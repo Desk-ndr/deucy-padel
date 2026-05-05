@@ -37,9 +37,23 @@ export interface RankingEntry {
 
 export async function finalizeRanking(
   tournament: BlitzTournamentData,
-  rounds: BlitzRound[],
-  bets: BlitzBet[]
+  _rounds?: BlitzRound[],
+  _bets?: BlitzBet[]
 ) {
+  // Fetch fresh data from Supabase (local state may be stale after last submitScore)
+  const { data: freshRounds } = await supabase
+    .from('blitz_rounds')
+    .select('*')
+    .eq('tournament_id', tournament.id)
+    .order('round_index');
+  const { data: freshBets } = await supabase
+    .from('blitz_bets')
+    .select('*')
+    .eq('tournament_id', tournament.id);
+
+  const rounds: BlitzRound[] = (freshRounds || []) as any;
+  const bets: BlitzBet[] = (freshBets || []) as any;
+
   // 1. Calculate total games won per player (same logic as leaderboard)
   const gamesWon: number[] = tournament.players.map(() => 0);
   const completedRounds = rounds.filter(r => r.status === 'completed' && r.team_a_score !== null);
