@@ -71,7 +71,14 @@ export default function BlitzTournament() {
     if (!id || !tournament) return;
     const { error } = await editScore(id, roundId, roundIndex, scoreA, scoreB, tournament, bets, rounds);
     if (error) toast({ title: "Error", description: error, variant: "destructive" });
-    else { toast({ title: `Round ${roundIndex} score updated!` }); refetch(); }
+    else {
+      // Re-finalize ranking if tournament is already finished
+      if (tournament.status === 'finished') {
+        await finalizeRanking(tournament);
+      }
+      toast({ title: `Round ${roundIndex} score updated!` });
+      refetch();
+    }
   };
 
   const handlePlaceBet = async (prediction: 'A' | 'B', stake: number) => {

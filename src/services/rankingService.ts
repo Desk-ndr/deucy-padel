@@ -86,11 +86,14 @@ export async function finalizeRanking(
   const betPlacement: number[] = new Array(tournament.players.length);
   sortedByBets.forEach((playerIdx, rank) => { betPlacement[playerIdx] = rank + 1; });
 
-  // 5. Get authenticated player mapping (tournament player index → player_id)
-  // For now, we need a way to link tournament players to auth players.
-  // We'll use phone number stored in tournament.players (to be added) or match by name.
-  // This requires the tournament to store player_id in the players JSON.
-  
+  // 5. Resolve player_id for each tournament player
+  // If player_id is stored in the JSON, use it. Otherwise, match by display_name.
+  const { data: allPlayers } = await supabase.from('players').select('id, display_name');
+  const nameToId: Record<string, string> = {};
+  for (const p of (allPlayers || [])) {
+    nameToId[p.display_name.toLowerCase()] = p.id;
+  }
+
   const entries: Array<{
     player_id: string;
     tournament_id: string;
@@ -103,8 +106,9 @@ export async function finalizeRanking(
 
   for (let i = 0; i < tournament.players.length; i++) {
     const player = tournament.players[i] as any;
-    // Skip if no linked player_id (guest/unauth player)
-    if (!player.player_id) continue;
+    // Resolve player_id: direct link OR fallback to name match
+    const resolvedId = player.player_id || nameToId[player.name.toLowerCase()] || null;
+    if (!resolvedId) continue;
 
     const placement = gamePlacement[i];
     const placementPts = PLACEMENT_POINTS[Math.min(placement, 5)] || 0;
@@ -112,7 +116,7 @@ export async function finalizeRanking(
     const bettingBon = BETTING_BONUS[Math.min(bettingPl, 5)] || 0;
 
     entries.push({
-      player_id: player.player_id,
+      player_id: resolvedId,
       tournament_id: tournament.id,
       placement,
       placement_points: placementPts,
@@ -122,7 +126,7 @@ export async function finalizeRanking(
     });
   }
 
-  if (entries.length === 0) return { error: 'No authenticated players to rank' };
+  if (entries.length === 0) return { error: 'No players could be matched to ranking' };
 
   // 6. Insert ranking entries
   const { error: insertError } = await supabase.from('ranking_entries').upsert(entries, {
