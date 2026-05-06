@@ -386,7 +386,7 @@ export default function BlitzRanking() {
                   display: 'flex', alignItems: 'center', gap: spacing.xs,
                 }}>
                   {player.displayName}
-                  {player.isCrownHolder && <span style={{ fontSize: 14 }}>👑</span>}
+                  {player.isCrownHolder && <svg width={14} height={14} viewBox="0 0 24 24" fill={colors.accent} stroke="none" style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 2 }}><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z" /></svg>}
                 </p>
                 <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.muted, margin: 0, marginTop: 1 }}>
                   {player.tournamentsPlayed}T

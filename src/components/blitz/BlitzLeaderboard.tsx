@@ -115,6 +115,19 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
     return b.betProfit - a.betProfit;
   });
 
+  // Calculate shared placements (so tied players show same ranking points)
+  const PLACEMENT_PTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
+  const placements: number[] = sorted.map((p, rank) => {
+    if (rank === 0) return 1;
+    const prev = sorted[rank - 1];
+    if (tab === 'games') {
+      if (p.matchesWon === prev.matchesWon && p.gamesWon === prev.gamesWon) return placements[rank - 1];
+    } else {
+      if (p.betProfit === prev.betProfit) return placements[rank - 1];
+    }
+    return rank + 1;
+  });
+
   // Only show betting rank points if there's meaningful differentiation
   // (at least 2 players with different non-zero profits)
   const uniqueProfits = new Set(playerStats.map(p => p.betProfit));
@@ -279,7 +292,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                   textAlign: 'center',
                 }}>
                   {tab === 'games'
-                    ? `+${[50,35,22,12,5][rank] ?? 0}`
+                    ? `+${PLACEMENT_PTS[placements[rank]] ?? 0}`
                     : `${displayValue > 0 ? '+' : ''}€${displayValue}`
                   }
                 </span>
@@ -290,7 +303,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                     fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
                     color: colors.primary, textAlign: 'center',
                   }}>
-                    +{BETTING_BONUS_POINTS[rank] ?? 0}
+                    +{BETTING_BONUS_POINTS[placements[rank] - 1] ?? 0}
                   </span>
                 )}
 

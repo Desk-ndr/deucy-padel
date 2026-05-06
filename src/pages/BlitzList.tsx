@@ -497,7 +497,7 @@ function PodiumAvatar({ name, score, color, size, tall, isCrown }: {
         whiteSpace: 'nowrap', textAlign: 'center',
       }}>
         {name}
-        {isCrown && <span style={{ fontSize: 12, marginLeft: 2 }}>{'👑'}</span>}
+        {isCrown && <svg width={12} height={12} viewBox="0 0 24 24" fill={colors.accent} stroke="none" style={{ marginLeft: 2, display: 'inline-block', verticalAlign: 'middle' }}><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z" /></svg>}
       </span>
       <span style={{
         fontFamily: fonts.mono, fontWeight: tall ? 900 : 800,

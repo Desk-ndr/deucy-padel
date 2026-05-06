@@ -159,6 +159,8 @@ export async function finalizeRanking(
       betting_placement: bettingPl,
       betting_bonus: bettingBon,
       total_points: placementPts + bettingBon,
+      games_won: gamesWon[i],
+      games_played: completedRounds.filter(r => { const s = tournament.schedule[r.round_index - 1]; return s && (s.teamA.includes(i) || s.teamB.includes(i)); }).length,
     });
   }
 
