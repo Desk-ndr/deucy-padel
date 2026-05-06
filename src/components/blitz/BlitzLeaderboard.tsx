@@ -105,8 +105,11 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
     return b.betProfit - a.betProfit;
   });
 
-  // Only show betting rank points if there's actual differentiation in profits
-  const allBettingZero = playerStats.every(p => p.betProfit === 0);
+  // Only show betting rank points if there's meaningful differentiation
+  // (at least 2 players with different non-zero profits)
+  const uniqueProfits = new Set(playerStats.map(p => p.betProfit));
+  const hasMeaningfulBetting = uniqueProfits.size > 1 && playerStats.some(p => p.betProfit > 0);
+  const allBettingZero = !hasMeaningfulBetting;
 
   const medalColors = [colors.gold, colors.silver, colors.bronze];
 
