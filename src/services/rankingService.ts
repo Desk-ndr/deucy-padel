@@ -85,7 +85,8 @@ export async function finalizeRanking(
   const gamePlacement: number[] = new Array(tournament.players.length);
   sortedByGames.forEach((playerIdx, rank) => { gamePlacement[playerIdx] = rank + 1; });
 
-  // 4. Sort by betProfit → betting placement
+  // 4. Sort by betProfit → betting placement (only if bets exist)
+  const hasBets = settledBets.length > 0;
   const sortedByBets = [...playerIndices].sort((a, b) => betProfit[b] - betProfit[a]);
   const betPlacement: number[] = new Array(tournament.players.length);
   sortedByBets.forEach((playerIdx, rank) => { betPlacement[playerIdx] = rank + 1; });
@@ -117,7 +118,7 @@ export async function finalizeRanking(
     const placement = gamePlacement[i];
     const placementPts = PLACEMENT_POINTS[Math.min(placement, 5)] || 0;
     const bettingPl = betPlacement[i];
-    const bettingBon = BETTING_BONUS[Math.min(bettingPl, 5)] || 0;
+    const bettingBon = hasBets ? (BETTING_BONUS[Math.min(bettingPl, 5)] || 0) : 0;
 
     entries.push({
       player_id: resolvedId,
