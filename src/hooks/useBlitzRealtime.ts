@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getTournament, getRounds, getBets,
   subscribeTournament, subscribeBets,
@@ -11,20 +11,38 @@ export function useBlitzRealtime(id: string | undefined) {
   const [bets, setBets] = useState<BlitzBet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const retryCount = useRef(0);
 
   const refetch = useCallback(async () => {
     if (!id) return;
-    const [tRes, rRes, bRes] = await Promise.all([
-      getTournament(id), getRounds(id), getBets(id),
-    ]);
-    if (tRes.error) setError(tRes.error);
-    if (tRes.data) setTournament(tRes.data);
-    setRounds(rRes.data);
-    setBets(bRes.data);
-    setLoading(false);
+    try {
+      const [tRes, rRes, bRes] = await Promise.all([
+        getTournament(id), getRounds(id), getBets(id),
+      ]);
+      if (tRes.error) setError(tRes.error);
+      if (tRes.data) setTournament(tRes.data);
+      setRounds(rRes.data);
+      setBets(bRes.data);
+      setLoading(false);
+      retryCount.current = 0;
+    } catch (err) {
+      // Auto-retry up to 3 times with backoff
+      if (retryCount.current < 3) {
+        retryCount.current += 1;
+        const delay = retryCount.current * 1500;
+        setTimeout(() => refetch(), delay);
+      } else {
+        setError('Failed to load tournament. Check your connection.');
+        setLoading(false);
+      }
+    }
   }, [id]);
 
-  useEffect(() => { refetch(); }, [refetch]);
+  useEffect(() => {
+    retryCount.current = 0;
+    setLoading(true);
+    refetch();
+  }, [refetch]);
 
   useEffect(() => {
     if (!id) return;

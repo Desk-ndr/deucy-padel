@@ -21,6 +21,7 @@ export default function BlitzList() {
   const [deleteCode, setDeleteCode] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [ranking, setRanking] = useState<RankedPlayer[]>([]);
+  const [rankingLoading, setRankingLoading] = useState(true);
   const [myRank, setMyRank] = useState<{ position: number; score: number } | null>(null);
   const [myResults, setMyResults] = useState<Record<string, { placement: number; points: number }>>({});
 
@@ -38,15 +39,30 @@ export default function BlitzList() {
 
   useEffect(() => { load(); }, []);
 
-  // Fetch ranking + my position
+  // Fetch ranking + my position (with retry)
   useEffect(() => {
-    getRanking().then(({ data }) => {
-      setRanking(data);
-      if (globalPlayer) {
-        const idx = data.findIndex(p => p.playerId === globalPlayer.playerId);
-        if (idx >= 0) setMyRank({ position: idx + 1, score: data[idx].rankingScore });
+    let cancelled = false;
+    const fetchRanking = async (attempt = 0) => {
+      try {
+        const { data, error } = await getRanking();
+        if (cancelled) return;
+        if (error && attempt < 2) {
+          setTimeout(() => fetchRanking(attempt + 1), 2000);
+          return;
+        }
+        setRanking(data);
+        if (globalPlayer) {
+          const idx = data.findIndex(p => p.playerId === globalPlayer.playerId);
+          if (idx >= 0) setMyRank({ position: idx + 1, score: data[idx].rankingScore });
+        }
+      } catch {
+        if (!cancelled && attempt < 2) setTimeout(() => fetchRanking(attempt + 1), 2000);
+      } finally {
+        if (!cancelled) setRankingLoading(false);
       }
-    });
+    };
+    fetchRanking();
+    return () => { cancelled = true; };
   }, [globalPlayer]);
 
   // Fetch my per-tournament results
@@ -128,7 +144,7 @@ export default function BlitzList() {
         </div>
 
         {/* ── Ranking Mini-Podium ── */}
-        {top3.length > 0 && (
+        {(top3.length > 0 || rankingLoading) && (
           <div
             onClick={() => navigate('/blitz/ranking')}
             style={{
@@ -148,6 +164,22 @@ export default function BlitzList() {
                 best 4 of 6 →
               </span>
             </div>
+
+            {/* Loading skeleton */}
+            {rankingLoading && top3.length === 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: spacing.xl, padding: `${spacing.lg}px 0`,
+              }}>
+                {[38, 48, 38].map((s, i) => (
+                  <div key={i} style={{
+                    width: s, height: s, borderRadius: '50%',
+                    background: colors.surfaceElevated, border: `2px solid ${colors.border}`,
+                    animation: 'shimmer 1.5s ease-in-out infinite',
+                  }} />
+                ))}
+              </div>
+            )}
 
             {/* Top 3 podium */}
             <div style={{

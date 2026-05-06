@@ -22,7 +22,7 @@ export default function BlitzTournament() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { tournament, rounds, bets, loading, refetch } = useBlitzRealtime(id);
+  const { tournament, rounds, bets, loading, error: realtimeError, refetch } = useBlitzRealtime(id);
   const { playerIndex, isCreator, deviceId, isSpectator } = useBlitzIdentity(id, tournament?.created_by ?? null, tournament?.players);
   const timerProps = useBlitzTimer(tournament);
   const [activeTab, setActiveTab] = useState<DeucyTab>('match');
@@ -116,11 +116,37 @@ export default function BlitzTournament() {
     return (
       <div style={{
         minHeight: '100vh', backgroundColor: colors.bg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: spacing.lg,
       }}>
-        <div style={{ fontSize: 36, fontWeight: 900, color: colors.primary, fontFamily: fonts.mono }}>
-          Loading...
-        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        {realtimeError ? (
+          <>
+            <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke={colors.destructive} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span style={{ ...typeScale.body, color: colors.textSecondary, textAlign: 'center', maxWidth: 280 }}>
+              {realtimeError}
+            </span>
+            <button onClick={() => { refetch(); }} style={{
+              padding: `${spacing.sm}px ${spacing.xl}px`,
+              background: colors.primary, color: '#000', border: 'none',
+              borderRadius: radius.sm, fontFamily: fonts.sans, fontSize: 14,
+              fontWeight: 700, cursor: 'pointer',
+            }}>
+              Retry
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{
+              width: 36, height: 36, border: `3px solid ${colors.border}`,
+              borderTopColor: colors.primary, borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+            }} />
+            <span style={{ ...typeScale.body, color: colors.muted }}>Loading tournament...</span>
+          </>
+        )}
       </div>
     );
   }
