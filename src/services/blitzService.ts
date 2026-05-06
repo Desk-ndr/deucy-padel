@@ -93,11 +93,43 @@ export async function createTournament(name: string, createdBy: string) {
 }
 
 export async function deleteTournament(id: string) {
+  // ranking_entries are CASCADE-deleted automatically via FK
   await supabase.from('blitz_bets').delete().eq('tournament_id', id);
   await supabase.from('blitz_rounds').delete().eq('tournament_id', id);
   await supabase.from('blitz_pledges').delete().eq('tournament_id', id);
   const { error } = await supabase.from('blitz_tournaments').delete().eq('id', id);
-  return { error: error?.message ?? null };
+  if (error) return { error: error.message };
+
+  // Recalculate crown: find player with most recent 1st place
+  await supabase.from('players').update({ crown_holder: false, crown_since: null, consecutive_wins: 0 }).eq('crown_holder', true);
+  const { data: latestWin } = await supabase
+    .from('ranking_entries')
+    .select('player_id')
+    .eq('placement', 1)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (latestWin && latestWin.length > 0) {
+    const winnerId = latestWin[0].player_id;
+    // Count consecutive wins
+    const { data: recentEntries } = await supabase
+      .from('ranking_entries')
+      .select('placement')
+      .eq('player_id', winnerId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    let consecutive = 0;
+    for (const e of (recentEntries || [])) {
+      if (e.placement === 1) consecutive++;
+      else break;
+    }
+    await supabase.from('players').update({
+      crown_holder: true,
+      crown_since: new Date().toISOString(),
+      consecutive_wins: consecutive,
+    }).eq('id', winnerId);
+  }
+
+  return { error: null };
 }
 
 export async function startTournament(

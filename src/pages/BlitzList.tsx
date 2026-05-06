@@ -18,6 +18,7 @@ export default function BlitzList() {
   const [name, setName] = useState('Saturday Blitz');
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<BlitzTournamentData | null>(null);
+  const [deleteCode, setDeleteCode] = useState('');
   const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
@@ -44,6 +45,7 @@ export default function BlitzList() {
     await deleteTournament(deleteTarget.id);
     setDeleting(false);
     setDeleteTarget(null);
+    setDeleteCode('');
     load();
   };
 
@@ -317,17 +319,45 @@ export default function BlitzList() {
         </button>
       </div>
 
-      {/* Delete dialog — keep shadcn for complex UI patterns */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+      {/* Delete dialog with security code */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) { setDeleteTarget(null); setDeleteCode(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently remove the tournament. This cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription>
+              {deleteTarget?.status === 'finished'
+                ? 'This tournament has ranking data. Deleting it will recalculate the overall ranking for all players.'
+                : 'This will permanently remove the tournament.'}
+              {' '}This cannot be undone.
+            </AlertDialogDescription>
           </AlertDialogHeader>
+          <div style={{ padding: '0 24px' }}>
+            <p style={{ fontSize: 14, color: colors.muted, marginBottom: 8 }}>
+              Type <span style={{ fontFamily: fonts.mono, fontWeight: 700, color: colors.destructive }}>DELETE</span> to confirm
+            </p>
+            <input
+              type="text"
+              value={deleteCode}
+              onChange={(e) => setDeleteCode(e.target.value)}
+              placeholder="Type DELETE"
+              autoComplete="off"
+              style={{
+                width: '100%', padding: '10px 12px',
+                backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm, color: colors.text,
+                fontSize: 14, fontFamily: fonts.mono, fontWeight: 600,
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogCancel disabled={deleting} onClick={() => setDeleteCode('')}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting || deleteCode !== 'DELETE'}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              style={{ opacity: deleteCode === 'DELETE' ? 1 : 0.4 }}
+            >
               {deleting ? 'Deleting…' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
