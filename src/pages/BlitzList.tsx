@@ -5,10 +5,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { listTournaments, createTournament, deleteTournament, BlitzTournamentData } from '@/services/blitzService';
-import { getCrownHolder, RankedPlayer } from '@/services/rankingService';
+import { getRanking, RankedPlayer } from '@/services/rankingService';
+import { supabase } from '@/integrations/supabase/client';
 import { useBlitzIdentity, getGlobalPlayer } from '@/hooks/useBlitzIdentity';
-import { colors, spacing, radius, fonts, typeScale, shadows, animationCSS, formatBalance } from '@/lib/design-tokens';
-import { HeroCard, LiveBadge, MonoNumber } from '@/components/ui/deucy';
+import { colors, spacing, radius, fonts, typeScale, animationCSS } from '@/lib/design-tokens';
 
 export default function BlitzList() {
   const navigate = useNavigate();
@@ -20,23 +20,49 @@ export default function BlitzList() {
   const [deleteTarget, setDeleteTarget] = useState<BlitzTournamentData | null>(null);
   const [deleteCode, setDeleteCode] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [ranking, setRanking] = useState<RankedPlayer[]>([]);
+  const [myRank, setMyRank] = useState<{ position: number; score: number } | null>(null);
+  const [myResults, setMyResults] = useState<Record<string, { placement: number; points: number }>>({});
+
+  const globalPlayer = getGlobalPlayer();
+
+  // Access gate
+  useEffect(() => {
+    if (!globalPlayer) navigate('/blitz/login');
+  }, [navigate, globalPlayer]);
 
   const load = async () => {
     const { data } = await listTournaments();
     setTournaments(data || []);
   };
 
-  // Access gate: redirect if not logged in
-  useEffect(() => {
-    if (!getGlobalPlayer()) {
-      navigate('/blitz/login');
-    }
-  }, [navigate]);
-
   useEffect(() => { load(); }, []);
 
-  const [crownHolder, setCrownHolder] = useState<RankedPlayer | null>(null);
-  useEffect(() => { getCrownHolder().then(({ data }) => setCrownHolder(data)); }, []);
+  // Fetch ranking + my position
+  useEffect(() => {
+    getRanking().then(({ data }) => {
+      setRanking(data);
+      if (globalPlayer) {
+        const idx = data.findIndex(p => p.playerId === globalPlayer.playerId);
+        if (idx >= 0) setMyRank({ position: idx + 1, score: data[idx].rankingScore });
+      }
+    });
+  }, [globalPlayer]);
+
+  // Fetch my per-tournament results
+  useEffect(() => {
+    if (!globalPlayer) return;
+    supabase
+      .from('ranking_entries')
+      .select('tournament_id, placement, total_points')
+      .eq('player_id', globalPlayer.playerId)
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, { placement: number; points: number }> = {};
+        for (const e of data) map[e.tournament_id] = { placement: e.placement, points: e.total_points };
+        setMyResults(map);
+      });
+  }, [globalPlayer]);
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -58,189 +84,264 @@ export default function BlitzList() {
 
   const liveTournaments = tournaments.filter(t => t.status === 'live');
   const otherTournaments = tournaments.filter(t => t.status !== 'live');
+  const top3 = ranking.slice(0, 3);
+
+  const ordinalSuffix = (n: number) => {
+    if (n === 1) return 'st';
+    if (n === 2) return 'nd';
+    if (n === 3) return 'rd';
+    return 'th';
+  };
+
+  const medalColors = [colors.primary, colors.silver, colors.bronze];
+  const medalSizes = [48, 38, 38];
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: colors.bg,
-      fontFamily: fonts.sans,
-    }}>
+    <div style={{ minHeight: '100vh', backgroundColor: colors.bg, fontFamily: fonts.sans }}>
       <style>{animationCSS}</style>
 
       <div style={{ maxWidth: 430, margin: '0 auto', padding: spacing.lg }}>
-        {/* Header */}
+        {/* ── Header ── */}
         <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingTop: spacing.sm,
-          marginBottom: spacing.xl,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          paddingTop: spacing.sm, marginBottom: spacing.xl,
         }}>
+          <span style={{
+            fontSize: 26, fontWeight: 900, fontStyle: 'italic',
+            fontFamily: fonts.brand, color: colors.text,
+          }}>deucy</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-            <span style={{
-              fontSize: 28,
-              fontWeight: 900,
-              fontStyle: 'italic',
-              fontFamily: fonts.brand,
-              color: colors.text,
-            }}>deucy</span>
-            {liveTournaments.length > 0 && <LiveBadge size="sm" />}
+            {globalPlayer && (
+              <span style={{ fontSize: 14, color: colors.textSecondary }}>
+                {globalPlayer.playerName}
+              </span>
+            )}
+            <div style={{
+              width: 36, height: 36, borderRadius: '50%',
+              background: `linear-gradient(135deg, ${colors.primary}, #15803d)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, fontWeight: 700, color: colors.bg,
+            }}>
+              {globalPlayer?.playerName?.charAt(0).toUpperCase() || 'A'}
+            </div>
           </div>
-          <div style={{
-            width: 40, height: 40, borderRadius: '50%',
-            backgroundColor: colors.surfaceElevated,
-            border: `2px solid ${colors.border}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 700, color: colors.text,
-          }}>A</div>
         </div>
 
+        {/* ── Ranking Mini-Podium ── */}
+        {top3.length > 0 && (
+          <div
+            onClick={() => navigate('/blitz/ranking')}
+            style={{
+              background: colors.surface, borderRadius: radius.lg,
+              padding: `${spacing.lg}px ${spacing.lg}px ${spacing.md}px`,
+              marginBottom: spacing.xl, cursor: 'pointer',
+              border: `1px solid ${colors.border}`,
+            }}
+          >
+            {/* Section label */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              marginBottom: spacing.md,
+            }}>
+              <span style={{ ...typeScale.micro, color: colors.muted, fontSize: 11 }}>Ranking</span>
+              <span style={{ fontSize: 12, color: colors.muted }}>
+                best 4 of 6 →
+              </span>
+            </div>
 
-        {/* Ranking Banner */}
-        <div
-          onClick={() => navigate("/blitz/ranking")}
-          style={{
-            background: crownHolder ? `linear-gradient(135deg, ${colors.primaryMuted}, ${colors.accentMuted})` : colors.surface,
-            border: `1px solid ${crownHolder ? colors.primary : colors.border}`,
-            borderRadius: radius.xl,
-            padding: `${spacing.lg}px ${spacing.xl}px`,
-            marginBottom: spacing.xl,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: spacing.lg,
-          }}
-        >
-          <span style={{ fontSize: 24 }}>{"🏆"}</span>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontFamily: fonts.sans, fontSize: typeScale.base, color: colors.text, margin: 0, fontWeight: 700 }}>
-              Overall Ranking
-            </p>
-            {crownHolder ? (
-              <p style={{ fontFamily: fonts.sans, fontSize: typeScale.sm, color: colors.textSecondary, margin: 0, marginTop: 2 }}>
-                {crownHolder.displayName} · {crownHolder.rankingScore} pts{crownHolder.consecutiveWins >= 2 ? ` · ${crownHolder.consecutiveWins} in a row` : ''}
-              </p>
-            ) : (
-              <p style={{ fontFamily: fonts.sans, fontSize: typeScale.sm, color: colors.textSecondary, margin: 0, marginTop: 2 }}>
-                View full ranking
-              </p>
+            {/* Top 3 podium */}
+            <div style={{
+              display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+              gap: spacing.xl, paddingBottom: spacing.sm,
+            }}>
+              {/* 2nd place */}
+              {top3[1] && (
+                <PodiumAvatar
+                  name={top3[1].displayName}
+                  score={top3[1].rankingScore}
+                  color={medalColors[1]}
+                  size={medalSizes[1]}
+                  isCrown={top3[1].isCrownHolder}
+                />
+              )}
+              {/* 1st place */}
+              {top3[0] && (
+                <PodiumAvatar
+                  name={top3[0].displayName}
+                  score={top3[0].rankingScore}
+                  color={medalColors[0]}
+                  size={medalSizes[0]}
+                  tall
+                  isCrown={top3[0].isCrownHolder}
+                />
+              )}
+              {/* 3rd place */}
+              {top3[2] && (
+                <PodiumAvatar
+                  name={top3[2].displayName}
+                  score={top3[2].rankingScore}
+                  color={medalColors[2]}
+                  size={medalSizes[2]}
+                  isCrown={top3[2].isCrownHolder}
+                />
+              )}
+            </div>
+
+            {/* My position */}
+            {myRank && (
+              <div style={{
+                textAlign: 'center', marginTop: spacing.sm,
+                paddingTop: spacing.sm, borderTop: `1px solid ${colors.border}`,
+              }}>
+                <span style={{ fontSize: 12, color: colors.muted }}>
+                  You are{' '}
+                  <span style={{ color: colors.textSecondary, fontWeight: 600 }}>
+                    #{myRank.position}
+                  </span>
+                  {' '}with{' '}
+                  <span style={{ color: colors.textSecondary, fontWeight: 600 }}>
+                    {myRank.score} pts
+                  </span>
+                </span>
+              </div>
             )}
           </div>
-          <span style={{ fontFamily: fonts.sans, fontSize: 18, color: colors.textSecondary }}>→</span>
-        </div>
-        {/* How it works link */}
-        <div
-          onClick={() => navigate('/blitz/how-it-works')}
-          style={{
-            textAlign: 'center', marginBottom: spacing.lg,
-            cursor: 'pointer',
-          }}
-        >
-          <span style={{
-            fontFamily: fonts.sans, fontSize: 14, color: colors.textMuted,
+        )}
+
+        {/* ── Section label ── */}
+        {tournaments.length > 0 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginBottom: spacing.sm,
           }}>
-            How does scoring work?
-          </span>
-        </div>
-
-        {/* Live tournaments */}
-        {liveTournaments.map(t => (
-          <div key={t.id} style={{ marginBottom: spacing.lg }}>
-            <HeroCard glow="primary" onClick={() => navigate(`/blitz/${t.id}`)}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md }}>
-                <div>
-                  <span style={{ ...typeScale.caption, color: colors.muted }}>Active blitz</span>
-                  <h3 style={{ ...typeScale.headline, color: colors.text, margin: '4px 0 0' }}>{t.name}</h3>
-                </div>
-                <LiveBadge />
-                <button
-                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    padding: spacing.xs, borderRadius: radius.sm,
-                    color: colors.muted, display: 'flex', marginLeft: spacing.sm,
-                  }}
-                >
-                  <svg width={16} height={16} viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth={2}>
-                    <polyline points='3 6 5 6 21 6' /><path d='M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2' />
-                  </svg>
-                </button>
-              </div>
-              <div style={{ display: 'flex', gap: spacing.xl, marginBottom: spacing.lg }}>
-                <div>
-                  <span style={{ ...typeScale.micro, color: colors.muted, display: 'block' }}>Players</span>
-                  <span style={{ ...typeScale.title, color: colors.text }}>{t.players.length}</span>
-                </div>
-                <div>
-                  <span style={{ ...typeScale.micro, color: colors.muted, display: 'block' }}>Round</span>
-                  <span style={{ ...typeScale.title, color: colors.text }}>
-                    {t.current_round}/{t.total_rounds}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); navigate(`/blitz/${t.id}`); }}
-                style={{
-                  width: '100%', padding: spacing.md,
-                  backgroundColor: colors.primary,
-                  color: colors.bg,
-                  border: 'none', borderRadius: radius.sm,
-                  fontSize: 14, fontWeight: 700,
-                  cursor: 'pointer',
-                  fontFamily: fonts.sans,
-                }}
-              >
-                Join match →
-              </button>
-            </HeroCard>
+            <span style={{ ...typeScale.micro, color: colors.muted, fontSize: 11 }}>
+              Tournaments
+            </span>
           </div>
-        ))}
+        )}
 
-        {/* Other tournaments */}
-        {otherTournaments.map(t => (
-          <div key={t.id} style={{ marginBottom: spacing.sm }}>
-            <div
-              onClick={() => navigate(`/blitz/${t.id}`)}
-              style={{
-                padding: spacing.md,
-                backgroundColor: colors.surfaceElevated,
-                borderRadius: radius.md,
-                cursor: 'pointer',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                opacity: t.status === 'finished' ? 0.6 : 1,
-              }}
-            >
+        {/* ── Live Tournaments ── */}
+        {liveTournaments.map(t => (
+          <div
+            key={t.id}
+            onClick={() => navigate(`/blitz/${t.id}`)}
+            style={{
+              background: colors.surface,
+              border: `1px solid ${colors.primary}`,
+              borderRadius: radius.md,
+              padding: `${spacing.md}px`,
+              marginBottom: spacing.sm,
+              cursor: 'pointer',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Green top accent */}
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+              background: `linear-gradient(90deg, ${colors.primary}, #15803d)`,
+            }} />
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+            }}>
               <div>
-                <span style={{ ...typeScale.body, fontWeight: 600, color: colors.text }}>{t.name}</span>
-                <span style={{ display: 'block', ...typeScale.micro, color: colors.muted, marginTop: 2 }}>
-                  {t.players.length} players ·{' '}
-                  {t.status === 'finished' ? 'Finished' : t.status === 'setup' ? 'Setup' : `R${t.current_round}/${t.total_rounds}`}
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: 2 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: colors.text }}>
+                    {t.name}
+                  </span>
+                  <span style={{
+                    background: colors.primary, color: colors.bg,
+                    fontSize: 10, fontWeight: 800,
+                    padding: '2px 8px', borderRadius: radius.pill,
+                    textTransform: 'uppercase', letterSpacing: '0.05em',
+                  }}>Live</span>
+                </div>
+                <span style={{ fontSize: 12, color: colors.muted }}>
+                  {t.players.length} players · R{t.current_round}/{t.total_rounds}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                {t.status === 'finished' && (
-                  <span style={{ ...typeScale.caption, color: colors.primary }}>Completed</span>
-                )}
                 <button
                   onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    padding: spacing.xs, borderRadius: radius.sm,
-                    color: colors.muted, display: 'flex',
+                    padding: spacing.xs, color: colors.muted, display: 'flex',
                   }}
                 >
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
                   </svg>
                 </button>
+                <span style={{ fontSize: 22, color: colors.primary }}>→</span>
               </div>
             </div>
           </div>
         ))}
 
-        {/* Empty state */}
+        {/* ── Finished / Setup Tournaments ── */}
+        {otherTournaments.map(t => {
+          const result = myResults[t.id];
+          const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+
+          return (
+            <div
+              key={t.id}
+              onClick={() => navigate(`/blitz/${t.id}`)}
+              style={{
+                background: colors.surface,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.md,
+                padding: `${spacing.md}px`,
+                marginBottom: spacing.sm,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 15, fontWeight: 600, color: colors.textSecondary }}>
+                    {t.name}
+                  </span>
+                  <span style={{ display: 'block', fontSize: 12, color: colors.muted, marginTop: 2 }}>
+                    {t.players.length} players
+                    {dateStr ? ` · ${dateStr}` : ''}
+                    {t.status === 'setup' ? ' · Setup' : ''}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                  {/* My result in this tournament */}
+                  {result && t.status === 'finished' && (
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: 12, color: colors.muted }}>
+                        {result.placement}{ordinalSuffix(result.placement)}
+                      </span>
+                      <span style={{
+                        display: 'block', fontFamily: fonts.mono,
+                        fontSize: 13, fontWeight: 800,
+                        color: result.points > 0 ? colors.textSecondary : colors.muted,
+                      }}>
+                        {result.points > 0 ? `+${result.points}` : '0'}
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      padding: spacing.xs, color: colors.muted, display: 'flex',
+                      opacity: 0.5,
+                    }}
+                  >
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* ── Empty state ── */}
         {tournaments.length === 0 && !showCreate && (
           <div style={{ textAlign: 'center', paddingTop: 64, paddingBottom: 32 }}>
             <div style={{
@@ -258,13 +359,11 @@ export default function BlitzList() {
           </div>
         )}
 
-        {/* Create form */}
+        {/* ── Create form ── */}
         {showCreate && (
           <div style={{
-            padding: spacing.lg,
-            backgroundColor: colors.surface,
-            borderRadius: radius.md,
-            border: `1px solid ${colors.border}`,
+            padding: spacing.lg, backgroundColor: colors.surface,
+            borderRadius: radius.md, border: `1px solid ${colors.border}`,
             marginBottom: spacing.lg,
           }}>
             <span style={{ ...typeScale.caption, color: colors.muted, display: 'block', marginBottom: spacing.md }}>
@@ -276,57 +375,40 @@ export default function BlitzList() {
               placeholder="e.g. Saturday Blitz"
               style={{
                 width: '100%', padding: spacing.md,
-                backgroundColor: colors.bg,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm,
-                color: colors.text,
-                fontSize: 16, fontWeight: 600,
-                fontFamily: fonts.sans,
-                outline: 'none',
-                boxSizing: 'border-box',
-                marginBottom: spacing.md,
+                backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm, color: colors.text,
+                fontSize: 16, fontWeight: 600, fontFamily: fonts.sans,
+                outline: 'none', boxSizing: 'border-box', marginBottom: spacing.md,
               }}
             />
             <div style={{ display: 'flex', gap: spacing.sm }}>
-              <button
-                onClick={() => setShowCreate(false)}
-                style={{
-                  flex: 1, padding: spacing.md,
-                  backgroundColor: colors.surfaceElevated,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: radius.sm,
-                  color: colors.textSecondary,
-                  fontSize: 14, fontWeight: 600,
-                  cursor: 'pointer', fontFamily: fonts.sans,
-                }}
-              >Cancel</button>
-              <button
-                onClick={handleCreate}
-                disabled={creating}
-                style={{
-                  flex: 1, padding: spacing.md,
-                  backgroundColor: colors.primary,
-                  border: 'none', borderRadius: radius.sm,
-                  color: colors.bg,
-                  fontSize: 14, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: fonts.sans,
-                  opacity: creating ? 0.6 : 1,
-                }}
-              >{creating ? 'Creating...' : 'Create tournament'}</button>
+              <button onClick={() => setShowCreate(false)} style={{
+                flex: 1, padding: spacing.md,
+                backgroundColor: colors.surfaceElevated, border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm, color: colors.textSecondary,
+                fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: fonts.sans,
+              }}>Cancel</button>
+              <button onClick={handleCreate} disabled={creating} style={{
+                flex: 1, padding: spacing.md,
+                backgroundColor: colors.primary, border: 'none', borderRadius: radius.sm,
+                color: colors.bg, fontSize: 14, fontWeight: 700,
+                cursor: 'pointer', fontFamily: fonts.sans,
+                opacity: creating ? 0.6 : 1,
+              }}>{creating ? 'Creating...' : 'Create'}</button>
             </div>
           </div>
         )}
 
-        {/* New blitz button */}
+        {/* ── New Blitz button ── */}
         <button
           onClick={() => setShowCreate(!showCreate)}
           style={{
-            width: '100%', padding: spacing.md,
-            backgroundColor: 'transparent',
-            border: `2px solid ${colors.primary}`,
-            borderRadius: radius.sm,
-            color: colors.primary,
-            fontSize: 14, fontWeight: 700,
+            width: '100%', padding: `${spacing.md}px`,
+            backgroundColor: showCreate ? 'transparent' : colors.primary,
+            border: showCreate ? `2px solid ${colors.primary}` : 'none',
+            borderRadius: radius.md,
+            color: showCreate ? colors.primary : colors.bg,
+            fontSize: 15, fontWeight: 800,
             cursor: 'pointer', fontFamily: fonts.sans,
             marginTop: spacing.sm,
           }}
@@ -335,7 +417,7 @@ export default function BlitzList() {
         </button>
       </div>
 
-      {/* Delete dialog with security code */}
+      {/* ── Delete dialog ── */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) { setDeleteTarget(null); setDeleteCode(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -374,11 +456,56 @@ export default function BlitzList() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               style={{ opacity: deleteCode === 'Valencia2026' ? 1 : 0.4 }}
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bottom spacer */}
+      <div style={{ height: 80 }} />
+    </div>
+  );
+}
+
+/* ── Podium Avatar ── */
+function PodiumAvatar({ name, score, color, size, tall, isCrown }: {
+  name: string; score: number; color: string; size: number;
+  tall?: boolean; isCrown?: boolean;
+}) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      gap: spacing.xs, marginBottom: tall ? 0 : spacing.md,
+    }}>
+      <div style={{
+        width: size, height: size, borderRadius: '50%',
+        border: `2px solid ${color}`,
+        backgroundColor: colors.surfaceElevated,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: tall ? 18 : 15, fontWeight: 800,
+        color, fontFamily: fonts.sans,
+        boxShadow: tall ? `0 0 20px ${color}30` : 'none',
+      }}>
+        {name.charAt(0).toUpperCase()}
+      </div>
+      <span style={{
+        fontSize: tall ? 13 : 12,
+        color: tall ? colors.text : colors.textSecondary,
+        fontWeight: tall ? 600 : 400,
+        maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap', textAlign: 'center',
+      }}>
+        {name}
+        {isCrown && <span style={{ fontSize: 12, marginLeft: 2 }}>{'👑'}</span>}
+      </span>
+      <span style={{
+        fontFamily: fonts.mono, fontWeight: tall ? 900 : 800,
+        fontSize: tall ? 14 : 12,
+        color: tall ? color : colors.textSecondary,
+      }}>
+        {score}
+      </span>
     </div>
   );
 }
