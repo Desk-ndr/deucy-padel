@@ -166,9 +166,6 @@ export default function BlitzList() {
                 fontFamily: fonts.sans, fontSize: 16, fontWeight: 700,
                 color: colors.text, letterSpacing: 0,
               }}>Ranking</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>
-                See all →
-              </span>
             </div>
 
             {/* PTS column label — with breathing room from header */}
@@ -280,6 +277,16 @@ export default function BlitzList() {
                 </div>
               </>
             )}
+
+            {/* See all CTA */}
+            <div style={{
+              textAlign: 'center', marginTop: spacing.md,
+              paddingTop: spacing.sm, borderTop: `1px solid ${colors.border}`,
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: colors.primary }}>
+                See all →
+              </span>
+            </div>
           </div>
         )}
 
