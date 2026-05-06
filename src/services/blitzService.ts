@@ -257,13 +257,50 @@ export async function placeBet(
 }
 
 export async function resetTournament(id: string, playerNames: string[]) {
+  // Check if tournament was finished — if so, clean ranking data
+  const { data: tournamentData } = await supabase
+    .from('blitz_tournaments').select('status').eq('id', id).single();
+  const wasFinished = tournamentData?.status === 'finished';
+
   await supabase.from('blitz_bets').delete().eq('tournament_id', id);
   await supabase.from('blitz_rounds').delete().eq('tournament_id', id);
+
+  // Remove ranking entries for this tournament
+  if (wasFinished) {
+    await supabase.from('ranking_entries').delete().eq('tournament_id', id);
+  }
+
   const resetPlayers = playerNames.map(name => ({ name, balance: 10 }));
   const { error } = await supabase.from('blitz_tournaments').update({
     status: 'setup', current_round: 0, players: resetPlayers as any,
     schedule: [] as any, timer_started_at: null, timer_paused_remaining: null,
   } as any).eq('id', id);
+
+  // Recalculate crown holder after removing ranking entries
+  if (wasFinished) {
+    await supabase.from('players').update({ crown_holder: false, crown_since: null, consecutive_wins: 0 }).eq('crown_holder', true);
+    const { data: latestWinner } = await supabase
+      .from('ranking_entries')
+      .select('player_id')
+      .eq('placement', 1)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (latestWinner && latestWinner.length > 0) {
+      const winnerId = latestWinner[0].player_id;
+      const { data: streak } = await supabase
+        .from('ranking_entries')
+        .select('placement')
+        .eq('player_id', winnerId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      let consecutive = 0;
+      for (const e of (streak || [])) { if (e.placement === 1) consecutive++; else break; }
+      await supabase.from('players').update({
+        crown_holder: true, crown_since: new Date().toISOString(), consecutive_wins: consecutive,
+      }).eq('id', winnerId);
+    }
+  }
+
   return { error: error?.message ?? null };
 }
 

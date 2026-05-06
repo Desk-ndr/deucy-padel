@@ -92,6 +92,16 @@ export default function BlitzTournament() {
 
   const handleReset = async () => {
     if (!id || !tournament) return;
+    if (tournament.status === 'finished') {
+      const code = window.prompt('This tournament is finished. Resetting will delete ranking data.\nEnter secret code to confirm:');
+      if (code !== 'Valencia2026') {
+        if (code !== null) toast({ title: 'Wrong code', variant: 'destructive' });
+        return;
+      }
+    } else {
+      const ok = window.confirm('Reset this tournament? All rounds and scores will be lost.');
+      if (!ok) return;
+    }
     await resetTournament(id, tournament.players.map(p => p.name));
     toast({ title: 'Tournament reset!' }); refetch();
   };
