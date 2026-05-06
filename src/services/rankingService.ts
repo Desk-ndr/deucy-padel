@@ -118,7 +118,18 @@ export async function finalizeRanking(
   }
   const sortedByBets = [...playerIndices].sort((a, b) => betProfit[b] - betProfit[a]);
   const betPlacement: number[] = new Array(tournament.players.length);
-  sortedByBets.forEach((playerIdx, rank) => { betPlacement[playerIdx] = rank + 1; });
+  sortedByBets.forEach((playerIdx, sortPos) => {
+    if (sortPos === 0) {
+      betPlacement[playerIdx] = 1;
+    } else {
+      const prevIdx = sortedByBets[sortPos - 1];
+      if (betProfit[playerIdx] === betProfit[prevIdx]) {
+        betPlacement[playerIdx] = betPlacement[prevIdx];
+      } else {
+        betPlacement[playerIdx] = sortPos + 1;
+      }
+    }
+  });
 
   // 5. Resolve player_id for each tournament player
   // If player_id is stored in the JSON, use it. Otherwise, match by display_name.
