@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 import { getRanking, RankedPlayer } from '@/services/rankingService';
+import { supabase } from '@/integrations/supabase/client';
 
 const FORM_ICONS: Record<string, { symbol: string; color: string; label: string }> = {
   hot:    { symbol: '▲▲', color: colors.primary,     label: 'On fire' },
@@ -16,6 +17,53 @@ export default function BlitzRanking() {
   const [ranking, setRanking] = useState<RankedPlayer[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [showManage, setShowManage] = useState(false);
+  const [adminCode, setAdminCode] = useState('');
+  const [adminVerified, setAdminVerified] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [allPlayers, setAllPlayers] = useState<{ id: string; display_name: string; access_token: string }[]>([]);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const fetchAllPlayers = async () => {
+    const { data } = await supabase.from('players').select('id, display_name, access_token').order('display_name');
+    setAllPlayers(data || []);
+  };
+
+  const handleAdminVerify = () => {
+    if (adminCode === 'Valencia2026') {
+      setAdminVerified(true);
+      fetchAllPlayers();
+    } else {
+      setAddError('Wrong code');
+      setTimeout(() => setAddError(null), 2000);
+    }
+  };
+
+  const handleAddPlayer = async () => {
+    if (!newName.trim()) return;
+    const insert: any = { display_name: newName.trim() };
+    if (newPhone.trim()) insert.phone = newPhone.trim().startsWith('+') ? newPhone.trim() : '+39' + newPhone.trim();
+    const { data, error } = await supabase.from('players').insert(insert).select('id, display_name, access_token').single();
+    if (error) { setAddError(error.message); return; }
+    if (data) {
+      const link = window.location.origin + '/p/' + data.access_token;
+      navigator.clipboard.writeText(link);
+      setCopiedLink(data.display_name);
+      setTimeout(() => setCopiedLink(null), 3000);
+      setNewName('');
+      setNewPhone('');
+      fetchAllPlayers();
+    }
+  };
+
+  const handleCopyLink = (token: string, name: string) => {
+    const link = window.location.origin + '/p/' + token;
+    navigator.clipboard.writeText(link);
+    setCopiedLink(name);
+    setTimeout(() => setCopiedLink(null), 3000);
+  };
 
   useEffect(() => {
     getRanking().then(({ data }) => {
@@ -36,7 +84,7 @@ export default function BlitzRanking() {
         >
           ←
         </button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h1 style={{ fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize, fontWeight: 700, color: colors.text, margin: 0 }}>
             Overall Ranking
           </h1>
@@ -44,7 +92,124 @@ export default function BlitzRanking() {
             Best 4 of last 6 tournaments
           </p>
         </div>
+        <button
+          onClick={() => setShowManage(!showManage)}
+          style={{
+            background: 'none', border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm, width: 36, height: 36,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', opacity: 0.5, transition: 'opacity 0.2s',
+          }}
+          title="Manage players"
+        >
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary}
+            strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="8.5" cy="7" r="4" />
+            <line x1="20" y1="8" x2="20" y2="14" />
+            <line x1="23" y1="11" x2="17" y2="11" />
+          </svg>
+        </button>
       </div>
+
+      {/* Manage Players Panel */}
+      {showManage && (
+        <div style={{
+          background: colors.surface, border: '1px solid ' + colors.border,
+          borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.xl,
+        }}>
+          {!adminVerified ? (
+            <div>
+              <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, margin: 0, marginBottom: spacing.md }}>
+                Add or manage players in the pool. Enter admin code to continue.
+              </p>
+              <div style={{ display: 'flex', gap: spacing.sm }}>
+                <input
+                  type="password"
+                  placeholder="Admin code"
+                  value={adminCode}
+                  onChange={e => setAdminCode(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAdminVerify()}
+                  style={{
+                    flex: 1, padding: spacing.md, background: colors.bg, border: '1px solid ' + colors.border,
+                    borderRadius: radius.sm, color: colors.text, fontFamily: fonts.sans, fontSize: 14,
+                  }}
+                />
+                <button onClick={handleAdminVerify} style={{
+                  padding: spacing.md + 'px ' + spacing.lg + 'px', background: colors.primary,
+                  border: 'none', borderRadius: radius.sm, color: '#000', fontWeight: 700,
+                  fontFamily: fonts.sans, fontSize: 14, cursor: 'pointer',
+                }}>
+                  Unlock
+                </button>
+              </div>
+              {addError && <p style={{ color: colors.destructive, fontSize: 14, marginTop: spacing.sm, margin: 0 }}>{addError}</p>}
+            </div>
+          ) : (
+            <div>
+              {/* Add new player form */}
+              <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.primary, fontWeight: 600, margin: 0, marginBottom: spacing.md }}>
+                Add Player
+              </p>
+              <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md }}>
+                <input
+                  placeholder="Name"
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  style={{
+                    flex: 1, padding: spacing.md, background: colors.bg, border: '1px solid ' + colors.border,
+                    borderRadius: radius.sm, color: colors.text, fontFamily: fonts.sans, fontSize: 14,
+                  }}
+                />
+                <input
+                  placeholder="Phone (optional)"
+                  value={newPhone}
+                  onChange={e => setNewPhone(e.target.value)}
+                  style={{
+                    width: 130, padding: spacing.md, background: colors.bg, border: '1px solid ' + colors.border,
+                    borderRadius: radius.sm, color: colors.text, fontFamily: fonts.sans, fontSize: 14,
+                  }}
+                />
+                <button onClick={handleAddPlayer} style={{
+                  padding: spacing.md + 'px ' + spacing.lg + 'px', background: colors.primary,
+                  border: 'none', borderRadius: radius.sm, color: '#000', fontWeight: 700,
+                  fontFamily: fonts.sans, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>
+                  Add
+                </button>
+              </div>
+              {addError && <p style={{ color: colors.destructive, fontSize: 14, margin: 0, marginBottom: spacing.sm }}>{addError}</p>}
+              {copiedLink && <p style={{ color: colors.primary, fontSize: 14, margin: 0, marginBottom: spacing.sm }}>Link copied for {copiedLink}!</p>}
+
+              {/* Player pool list */}
+              <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, fontWeight: 600, margin: 0, marginTop: spacing.lg, marginBottom: spacing.sm }}>
+                Pool ({allPlayers.length})
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                {allPlayers.map(p => (
+                  <div key={p.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: spacing.sm + 'px ' + spacing.md + 'px',
+                    background: colors.bg, borderRadius: radius.sm, border: '1px solid ' + colors.border,
+                  }}>
+                    <span style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.text }}>{p.display_name}</span>
+                    <button
+                      onClick={() => handleCopyLink(p.access_token, p.display_name)}
+                      style={{
+                        background: 'none', border: '1px solid ' + colors.border, borderRadius: radius.sm,
+                        padding: spacing.xs + 'px ' + spacing.sm + 'px', cursor: 'pointer',
+                        fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary,
+                      }}
+                    >
+                      Copy Link
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Crown Section */}
       {crownHolder && (

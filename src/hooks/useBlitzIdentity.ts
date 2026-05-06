@@ -1,4 +1,25 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+
+// ── Global player identity (persisted across sessions) ──
+
+export interface GlobalPlayer {
+  playerId: string;
+  playerName: string;
+}
+
+export function getGlobalPlayer(): GlobalPlayer | null {
+  try {
+    const raw = localStorage.getItem('deucy-player');
+    if (raw) return JSON.parse(raw) as GlobalPlayer;
+  } catch { /* ignore */ }
+  return null;
+}
+
+export function clearGlobalPlayer(): void {
+  localStorage.removeItem('deucy-player');
+}
+
+// ── Device ID (for creator tracking) ──
 
 function getDeviceId(): string {
   const key = 'blitz-device-id';
@@ -7,31 +28,63 @@ function getDeviceId(): string {
   return id;
 }
 
-export function useBlitzIdentity(tournamentId: string | undefined, createdBy: string | null) {
+// ── Tournament-scoped identity (auto-detected from global player) ──
+
+interface TournamentPlayer {
+  name: string;
+  player_id?: string;
+}
+
+export function useBlitzIdentity(
+  tournamentId: string | undefined,
+  createdBy: string | null,
+  tournamentPlayers?: TournamentPlayer[]
+) {
   const deviceId = useMemo(() => getDeviceId(), []);
-  const storageKey = tournamentId ? `blitz-identity-${tournamentId}` : null;
-
-  const readStored = () => {
-    if (!storageKey) return { playerIndex: null as number | null, playerName: null as string | null };
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) { const parsed = JSON.parse(raw); return { playerIndex: parsed.playerIndex as number, playerName: parsed.playerName as string }; }
-    } catch { /* ignore */ }
-    return { playerIndex: null as number | null, playerName: null as string | null };
-  };
-
-  const [identity, setIdentity] = useState(readStored);
+  const globalPlayer = useMemo(() => getGlobalPlayer(), []);
   const isCreator = createdBy !== null && deviceId === createdBy;
 
-  const pickPlayer = (index: number, name: string) => {
-    setIdentity({ playerIndex: index, playerName: name });
-    if (storageKey) localStorage.setItem(storageKey, JSON.stringify({ playerIndex: index, playerName: name }));
-  };
+  // Auto-detect playerIndex from global identity
+  const [playerIndex, setPlayerIndex] = useState<number | null>(null);
+  const [playerName, setPlayerName] = useState<string | null>(null);
 
-  const clearIdentity = () => {
-    setIdentity({ playerIndex: null, playerName: null });
-    if (storageKey) localStorage.removeItem(storageKey);
-  };
+  useEffect(() => {
+    if (!globalPlayer || !tournamentPlayers) {
+      setPlayerIndex(null);
+      setPlayerName(null);
+      return;
+    }
 
-  return { playerIndex: identity.playerIndex, playerName: identity.playerName, isCreator, deviceId, pickPlayer, clearIdentity };
+    // Match by player_id
+    const idx = tournamentPlayers.findIndex(
+      p => p.player_id === globalPlayer.playerId
+    );
+
+    if (idx >= 0) {
+      setPlayerIndex(idx);
+      setPlayerName(tournamentPlayers[idx].name);
+    } else {
+      // Fallback: match by name (for tournaments created before player_id was added)
+      const nameIdx = tournamentPlayers.findIndex(
+        p => p.name.toLowerCase() === globalPlayer.playerName.toLowerCase()
+      );
+      if (nameIdx >= 0) {
+        setPlayerIndex(nameIdx);
+        setPlayerName(tournamentPlayers[nameIdx].name);
+      } else {
+        setPlayerIndex(null);
+        setPlayerName(null);
+      }
+    }
+  }, [globalPlayer, tournamentPlayers]);
+
+  return {
+    playerIndex,
+    playerName,
+    isCreator,
+    deviceId,
+    isLoggedIn: !!globalPlayer,
+    isSpectator: !!globalPlayer && playerIndex === null && !!tournamentPlayers,
+    globalPlayer,
+  };
 }

@@ -13,7 +13,6 @@ import { finalizeRanking } from '@/services/rankingService';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 import { DeucyBottomNav, type DeucyTab } from '@/components/ui/deucy';
 import BlitzSetup from '@/components/blitz/BlitzSetup';
-import BlitzIdentityPicker from '@/components/blitz/BlitzIdentityPicker';
 import BlitzMatchTab from '@/components/blitz/BlitzMatchTab';
 import BlitzCalendarTab from '@/components/blitz/BlitzCalendarTab';
 import BlitzLeaderboard from '@/components/blitz/BlitzLeaderboard';
@@ -24,11 +23,10 @@ export default function BlitzTournament() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { tournament, rounds, bets, loading, refetch } = useBlitzRealtime(id);
-  const { playerIndex, isCreator, deviceId, pickPlayer, clearIdentity } = useBlitzIdentity(id, tournament?.created_by ?? null);
+  const { playerIndex, isCreator, deviceId, isSpectator } = useBlitzIdentity(id, tournament?.created_by ?? null, tournament?.players);
   const timerProps = useBlitzTimer(tournament);
   const [activeTab, setActiveTab] = useState<DeucyTab>('match');
-  const [showIdentity, setShowIdentity] = useState(false);
-
+  
   // ── Handlers ──
 
   const handleStart = async (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, names: string[], playerIds?: string[]) => {
@@ -127,16 +125,7 @@ export default function BlitzTournament() {
     );
   }
 
-  // Identity picker
-  if (playerIndex === null && tournament.status === 'live' && showIdentity) {
-    return (
-      <BlitzIdentityPicker
-        players={tournament.players}
-        onPick={(i, n) => { pickPlayer(i, n); setShowIdentity(false); }}
-        onSpectate={() => setShowIdentity(false)}
-      />
-    );
-  }
+
 
   // Setup
   if (tournament.status === 'setup') {
@@ -169,10 +158,7 @@ export default function BlitzTournament() {
     );
   }
 
-  // Prompt identity
-  if (playerIndex === null && tournament.status === 'live' && !showIdentity) {
-    setTimeout(() => setShowIdentity(true), 500);
-  }
+
 
   // ── Live / Finished ──
 
