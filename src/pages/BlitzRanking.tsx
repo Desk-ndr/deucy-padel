@@ -413,7 +413,7 @@ export default function BlitzRanking() {
                     {player.pointsDelta > 0 ? '+' : ''}{player.pointsDelta}
                   </span>
                 ) : (
-                  <span style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.muted }}>\u2014</span>
+                  <span style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.muted }}>—</span>
                 )}
               </div>
 

@@ -41,22 +41,47 @@ export default function BlitzMatchTab({
 
   /* ── Finished state ─────────────────────────────────────────── */
   if (tournament.status === 'finished') {
-    // Find winner by games won (not balance)
+    // Calculate matches won (0.5 for draws) + games won per player
     const completedAll = rounds.filter(r => r.status === 'completed');
     const gamesMap = new Map<number, number>();
-    tournament.players.forEach((_, i) => gamesMap.set(i, 0));
+    const matchesWonMap = new Map<number, number>();
+    tournament.players.forEach((_, i) => { gamesMap.set(i, 0); matchesWonMap.set(i, 0); });
     for (const r of completedAll) {
       const s = tournament.schedule[r.round_index - 1];
       if (!s || r.team_a_score == null || r.team_b_score == null) continue;
       s.teamA.forEach(idx => gamesMap.set(idx, (gamesMap.get(idx) || 0) + r.team_a_score!));
       s.teamB.forEach(idx => gamesMap.set(idx, (gamesMap.get(idx) || 0) + r.team_b_score!));
+      const aWon = r.team_a_score > r.team_b_score ? 1 : r.team_a_score === r.team_b_score ? 0.5 : 0;
+      const bWon = r.team_b_score > r.team_a_score ? 1 : r.team_b_score === r.team_a_score ? 0.5 : 0;
+      s.teamA.forEach(idx => matchesWonMap.set(idx, (matchesWonMap.get(idx) || 0) + aWon));
+      s.teamB.forEach(idx => matchesWonMap.set(idx, (matchesWonMap.get(idx) || 0) + bWon));
     }
-    let winnerIdx = 0;
-    let maxGames = 0;
-    gamesMap.forEach((games, idx) => {
-      if (games > maxGames) { maxGames = games; winnerIdx = idx; }
+
+    // Sort: matchesWon desc -> gamesWon tiebreaker -> shared placement
+    const ranked = tournament.players
+      .map((p, i) => ({ ...p, index: i, matches: matchesWonMap.get(i) || 0, games: gamesMap.get(i) || 0 }))
+      .sort((a, b) => {
+        if (b.matches !== a.matches) return b.matches - a.matches;
+        return b.games - a.games;
+      });
+
+    // Assign shared placements
+    const placements: number[] = [];
+    ranked.forEach((p, sortPos) => {
+      if (sortPos === 0) {
+        placements.push(1);
+      } else {
+        const prev = ranked[sortPos - 1];
+        if (p.matches === prev.matches && p.games === prev.games) {
+          placements.push(placements[sortPos - 1]);
+        } else {
+          placements.push(sortPos + 1);
+        }
+      }
     });
-    const winner = tournament.players[winnerIdx];
+
+    const winner = ranked[0];
+    const POINTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
 
     return (
       <div style={{ padding: spacing.lg, display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
@@ -80,80 +105,67 @@ export default function BlitzMatchTab({
               {winner?.name}
             </span>
             <span style={{ ...typeScale.mono, color: colors.textSecondary }}>
-              {maxGames} games won
+              {winner.matches % 1 === 0 ? winner.matches : winner.matches.toFixed(1)} matches won
             </span>
           </div>
         </HeroCard>
 
-        {/* Ranking Points Summary — sorted by games won (same as ranking) */}
-        {(() => {
-          const rankedByGames = tournament.players
-            .map((p, i) => ({ ...p, index: i, games: gamesMap.get(i) || 0 }))
-            .sort((a, b) => b.games - a.games);
-          const POINTS = [50, 35, 22, 12, 5];
-          const BONUS = [8, 5, 3, 1, 0];
-          // Calculate betting profit per player
-          const betProfitMap = new Map<number, number>();
-          tournament.players.forEach((_, i) => betProfitMap.set(i, 0));
-          const settledBets = (rounds as any[]).length > 0 ? [] : []; // bets come from parent
-          return (
-            <div style={{
-              padding: spacing.lg, backgroundColor: colors.surface,
-              borderRadius: radius.md, border: `1px solid ${colors.border}`,
-            }}>
-              <h3 style={{ ...typeScale.title, color: colors.text, margin: 0, marginBottom: spacing.md, textAlign: 'center' }}>
-                Ranking Points Earned
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-                {rankedByGames.map((p, rank) => {
-                  const placement = rank + 1;
-                  const pts = placement <= 5 ? POINTS[rank] : 0;
-                  return (
-                    <div key={p.index} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: `${spacing.sm}px ${spacing.md}px`,
-                      backgroundColor: rank === 0 ? 'rgba(34,197,94,0.08)' : 'transparent',
-                      borderRadius: radius.sm,
+        {/* Ranking Points Summary — sorted by matchesWon then gamesWon */}
+        <div style={{
+          padding: spacing.lg, backgroundColor: colors.surface,
+          borderRadius: radius.md, border: `1px solid ${colors.border}`,
+        }}>
+          <h3 style={{ ...typeScale.title, color: colors.text, margin: 0, marginBottom: spacing.md, textAlign: 'center' }}>
+            Ranking Points Earned
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+            {ranked.map((p, sortPos) => {
+              const placement = placements[sortPos];
+              const pts = POINTS[Math.min(placement, 5)] || 0;
+              return (
+                <div key={p.index} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: `${spacing.sm}px ${spacing.md}px`,
+                  backgroundColor: placement === 1 ? 'rgba(34,197,94,0.08)' : 'transparent',
+                  borderRadius: radius.sm,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                    <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted, minWidth: 24 }}>
+                      #{placement}
+                    </span>
+                    <span style={{ ...typeScale.body, color: colors.text, fontWeight: placement === 1 ? 700 : 500 }}>
+                      {p.name}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                    <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted }}>
+                      {p.matches % 1 === 0 ? p.matches : p.matches.toFixed(1)}W {p.games}g
+                    </span>
+                    <span style={{
+                      ...typeScale.mono, fontSize: 14, fontWeight: 700,
+                      color: pts > 0 ? colors.primary : colors.muted,
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                        <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted, minWidth: 24 }}>
-                          #{placement}
-                        </span>
-                        <span style={{ ...typeScale.body, color: colors.text, fontWeight: rank === 0 ? 700 : 500 }}>
-                          {p.name}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                        <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted }}>
-                          {p.games}g
-                        </span>
-                        <span style={{
-                          ...typeScale.mono, fontSize: 14, fontWeight: 700,
-                          color: pts > 0 ? colors.primary : colors.muted,
-                        }}>
-                          +{pts}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Point scale legend */}
-              <div style={{
-                marginTop: spacing.md, paddingTop: spacing.md,
-                borderTop: `1px solid ${colors.border}`,
-                display: 'flex', justifyContent: 'center', gap: spacing.md, flexWrap: 'wrap',
-              }}>
-                <span style={{ ...typeScale.micro, color: colors.muted }}>
-                  Placement: 50 / 35 / 22 / 12 / 5
-                </span>
-                <span style={{ ...typeScale.micro, color: colors.accent }}>
-                  Betting bonus: +8 / +5 / +3 / +1 / 0
-                </span>
-              </div>
-            </div>
-          );
-        })()}
+                      +{pts}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Point scale legend */}
+          <div style={{
+            marginTop: spacing.md, paddingTop: spacing.md,
+            borderTop: `1px solid ${colors.border}`,
+            display: 'flex', justifyContent: 'center', gap: spacing.md, flexWrap: 'wrap',
+          }}>
+            <span style={{ ...typeScale.micro, color: colors.muted }}>
+              Placement: 50 / 35 / 22 / 12 / 5
+            </span>
+            <span style={{ ...typeScale.micro, color: colors.accent }}>
+              Betting bonus: +8 / +5 / +3 / +1 / 0
+            </span>
+          </div>
+        </div>
 
         {/* Completed rounds with edit */}
         {isCreator && completedAll.length > 0 && (
