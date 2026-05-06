@@ -244,3 +244,111 @@ Refactor completo del Blitz Tournament da single-device (un telefono passato tra
 - **Task 9:** BlitzIdentityPicker + BlitzTournament orchestrator — wire all components together
 - **Task 10:** End-to-end test — npm run dev, multi-device flow
 - **Still pending:** Execute 002_main_schema.sql on Supabase (Andrea manual)
+
+## Lavoro completato — Sessione 5 (2026-05-03/04)
+
+### Task 9-10: Wiring + Build Fix
+- **BlitzTournament.tsx** — Wired orchestrator: imports BlitzBettingCard, passes props (bets, playerIndex, playerBalance, existingBet, onPlaceBet) down to BlitzMatchTab
+- **BlitzMatchTab.tsx** — Renders `<BlitzBettingCard />` between timer and score submit for resting players
+- **BlitzIdentityPicker.tsx** — Restyled with design tokens (dark theme, green primary)
+- **Build errors fixed** — Multiple TypeScript issues resolved, app compiles clean
+
+### Leaderboard Two-Tab + Edit Score
+- **BlitzLeaderboard.tsx** — Two tabs: Games and Betting. Games shows match results, Betting shows bet history
+- **Edit score after confirmation** — Added ability to edit submitted scores
+
+### Deploy
+- **Vercel deployment** — App live at `deucy-padel.vercel.app`. Auto-deploy from `main` branch on GitHub (`Desk-ndr/deucy-padel`)
+- **Git push method** — Sandbox can't push directly; use `osascript do shell script` via `mcp__Control_your_Mac__osascript`
+
+## Lavoro completato — Sessione 6 (2026-05-04/05)
+
+### Ranking System — Full Implementation
+1. **ranking_schema.sql** — New tables: `ranking_entries`, `ranking_pledges`. Applied to Supabase.
+2. **Phone OTP Auth** — `useBlitzIdentity` refactored for global identity. Login page with phone + PIN.
+3. **finalizeRanking()** — End-of-tournament hook: calculates placements (matchesWon sort + shared placement if tied), writes ranking_entries, updates player balances.
+4. **rankingService.ts** — `getRanking()`: fetches all players, calculates best 4 of 6 tournaments, returns sorted `RankedPlayer[]` with stats (winRate, form, consecutiveWins, pointsDelta).
+5. **BlitzRanking page** — ATP-style table with stats columns, manage players UI, "How it Works" section.
+6. **Crown system** — Crown holder (isCrownHolder) displayed in BlitzList + BlitzLeaderboard.
+
+### Ranking Math & Audit
+- **Placement points** — PLACEMENT_POINTS lookup: {1:50, 2:35, 3:22, 4:18, 5:15, 6:12, 7:10, 8:8}
+- **Shared placement** — If two players tie on matchesWon AND gamesWon, they share the higher placement and both get those points
+- **Best 4 of 6** — Only top 4 tournament results count toward ranking score
+- **W% calculation** — Draws count as 0.5 win: `winRate = Math.round(((won + drawn * 0.5) / played) * 100)`
+- **Full math audit** — Simulated 4-5 tournaments with 8-9 players each, found and fixed edge cases
+
+### Auth & Access Control
+- **Global identity** — `getGlobalPlayer()` returns current logged-in player from localStorage
+- **Access token system** — `/p/:token` route for BlitzJoin page (invite links)
+- **OTP fallback** — `/blitz/login` route for phone-based login
+- **Gate in BlitzList + BlitzSetup** — Redirect to login if not authenticated
+
+### Key Refactors
+- **BlitzSetup** — Now selects from registered players pool instead of typing names
+- **BlitzLeaderboard Games tab** — Match history with win/loss/draw dots (green/red/amber), shows "vs [opponents]" with score
+- **Delete live tournaments** — Admin can delete tournaments + ranking finalization cleanup
+
+## Lavoro completato — Sessione 7 (2026-05-06) — CURRENT
+
+### UX Fixes (from audit)
+1. **Tournament End Screen** — Added celebration feel: 40 confetti particles (CSS keyframes), trophy SVG entrance animation (scale+rotate), winner name 36px with glow, "+50 ranking pts" pill badge, staggered fadeSlideUp for ranking rows, medal colors for top 3. New keyframes in `animationCSS`: confettiFall, trophyEntrance, winnerGlow, fadeSlideUp.
+2. **Login page rebrand** — Complete rewrite from Tailwind/shadcn to design tokens. 486 lines, all inline styles, SVG icons inline, custom toggle switch.
+3. **Tournament loading** — Spinner animation, error state with retry button.
+
+### Critical Bug Fixes
+4. **Infinite fetch loop** — `getGlobalPlayer()` created new object on every render → used in useEffect deps → infinite re-render loop (724+ Supabase requests in 5s). Fixed with `useRef(getGlobalPlayer())` and all effects using `[]` deps.
+5. **Ranking skeleton stuck** — `setRankingLoading(false)` fired in `finally` block before retries completed. Fixed loading state management.
+6. **useBlitzRealtime.ts** — Rewritten with retry logic: up to 3 retries with progressive backoff (1.5s, 3s, 4.5s). Error state exposed via `{ error, refetch }`.
+
+### Ranking Preview Card Redesign (Home Page)
+**Design decision (brainstormed 3 options, Andrea chose B — Stacked Leaderboard):**
+- **Old design:** Circle avatars with initials in podium layout (2nd-1st-3rd), crown SVG on leader, "best 4 of 6 →" link
+- **New design:** Vertical leaderboard rows, each row = position number (medal color) + name + stats + score
+- **Specific choices:**
+  - NO circle avatars, NO crown icon — just name text
+  - Position numbers colored: gold (#FFD700) for 1st, silver (#C0C0C0) for 2nd, bronze (#CD7F32) for 3rd
+  - 1st place: larger font (15px name, 18px score in green), bold
+  - Stats line under name: "{tournamentsPlayed} played · {winRate}% W"
+  - "PTS" column header label (textSecondary color, 10px, mono font) with breathing room from title
+  - Title: "Deucy Ranking#" — 16px, white, sans-serif, font-weight 700
+  - "See all →" in green, centered at bottom of card (not in header)
+  - Green glow (rgba(34,197,94,0.06) bg + 0.12 border) on the "You" row, NOT on 1st place
+  - "You" row: position number + "You" + score, separated by divider from top 3
+  - Card always visible — shows "No players yet" empty state when no players in pool
+  - Entire card is clickable → navigates to `/blitz/ranking`
+- **Removed:** PodiumAvatar component (deleted), medalColors/medalSizes constants
+
+### Files Modified This Session
+- `src/components/blitz/BlitzMatchTab.tsx` — Tournament end screen celebration
+- `src/pages/BlitzTournament.tsx` — Loading/error states, animationCSS injection
+- `src/pages/Login.tsx` — Complete rebrand
+- `src/pages/BlitzList.tsx` — Ranking card redesign (major), infinite loop fix, empty state
+- `src/hooks/useBlitzRealtime.ts` — Retry logic
+- `src/lib/design-tokens.ts` — Celebration keyframes
+
+### Technical Notes
+- **Bash paths:** `/sessions/fervent-kind-planck/mnt/deucy-padel/` for shell, file tools use full macOS path
+- **File tools blocked** for deucy-padel subfolder — must use bash for reads/edits
+- **Git push:** Use `mcp__Control_your_Mac__osascript` with `do shell script "cd ... && git push"`
+- **Vite build** fails in sandbox (rollup native module issue) but TypeScript compiles clean — not a code problem
+- **Vercel auto-deploys** from GitHub push to main
+
+## Design System Rules (CURRENT — reference for all future work)
+
+- **Inline styles ONLY** — NO Tailwind classes, NO shadcn/ui components
+- **Design tokens** from `@/lib/design-tokens` — import `colors`, `spacing`, `radius`, `fonts`, `typeScale`, `shadows`
+- **Minimum font-size: 14px** everywhere, no exceptions
+- **No emoji** in UI text
+- **All text in English**
+- **Dark theme:** bg `#09090B`, surface `#111113`, primary `#22C55E`, accent `#F59E0B`
+- **Medal colors:** gold `#FFD700`, silver `#C0C0C0`, bronze `#CD7F32`
+- **Balance in euros** (not cents), `EUROS_PER_GAME = 3`
+- **Brand:** "deucy" lowercase italic serif (Georgia)
+
+## Prossimi passi
+
+- [ ] End-to-end flow test (Task 11 — still pending from Phase 1)
+- [ ] Verify game history redesign looks correct on live site
+- [ ] Consider further UX improvements from audit list
+- [ ] Execute `002_main_schema.sql` on Supabase (Andrea manual — for main tournament mode)
