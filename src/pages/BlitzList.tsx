@@ -115,8 +115,6 @@ export default function BlitzList() {
     return 'th';
   };
 
-  const medalColors = [colors.primary, colors.silver, colors.bronze];
-  const medalSizes = [48, 38, 38];
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.bg, fontFamily: fonts.sans }}>
@@ -149,99 +147,138 @@ export default function BlitzList() {
           </div>
         </div>
 
-        {/* ── Ranking Mini-Podium ── */}
+        {/* ── Ranking Leaderboard Card ── */}
         {(top3.length > 0 || (rankingLoading && ranking.length === 0)) && (
           <div
             onClick={() => navigate('/blitz/ranking')}
             style={{
               background: colors.surface, borderRadius: radius.lg,
-              padding: `${spacing.lg}px ${spacing.lg}px ${spacing.md}px`,
+              padding: `${spacing.lg}px`,
               marginBottom: spacing.xl, cursor: 'pointer',
               border: `1px solid ${colors.border}`,
             }}
           >
-            {/* Section label */}
+            {/* Header row */}
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              marginBottom: spacing.md,
             }}>
-              <span style={{ ...typeScale.micro, color: colors.muted, fontSize: 11 }}>Ranking</span>
-              <span style={{ fontSize: 12, color: colors.muted }}>
-                best 4 of 6 →
+              <span style={{
+                fontFamily: fonts.mono, fontSize: 10, fontWeight: 600,
+                color: colors.muted, letterSpacing: 1.5, textTransform: 'uppercase',
+              }}>Ranking</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>
+                See all \u2192
               </span>
             </div>
 
+            {/* PTS column label — with breathing room from header */}
+            <div style={{
+              display: 'flex', justifyContent: 'flex-end',
+              marginTop: spacing.lg, marginBottom: spacing.xs,
+            }}>
+              <span style={{
+                fontFamily: fonts.mono, fontSize: 9, fontWeight: 600,
+                color: colors.muted, letterSpacing: 0.5,
+              }}>PTS</span>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 1, background: colors.border, marginBottom: spacing.sm }} />
+
             {/* Loading skeleton */}
             {rankingLoading && ranking.length === 0 && (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                gap: spacing.xl, padding: `${spacing.lg}px 0`,
-              }}>
-                {[38, 48, 38].map((s, i) => (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                {[1, 2, 3].map(i => (
                   <div key={i} style={{
-                    width: s, height: s, borderRadius: '50%',
-                    background: colors.surfaceElevated, border: `2px solid ${colors.border}`,
+                    height: 48, borderRadius: radius.md,
+                    background: colors.surfaceElevated,
                     animation: 'shimmer 1.5s ease-in-out infinite',
                   }} />
                 ))}
               </div>
             )}
 
-            {/* Top 3 podium */}
-            <div style={{
-              display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-              gap: spacing.xl, paddingBottom: spacing.sm,
-            }}>
-              {/* 2nd place */}
-              {top3[1] && (
-                <PodiumAvatar
-                  name={top3[1].displayName}
-                  score={top3[1].rankingScore}
-                  color={medalColors[1]}
-                  size={medalSizes[1]}
-                  isCrown={top3[1].isCrownHolder}
-                />
-              )}
-              {/* 1st place */}
-              {top3[0] && (
-                <PodiumAvatar
-                  name={top3[0].displayName}
-                  score={top3[0].rankingScore}
-                  color={medalColors[0]}
-                  size={medalSizes[0]}
-                  tall
-                  isCrown={top3[0].isCrownHolder}
-                />
-              )}
-              {/* 3rd place */}
-              {top3[2] && (
-                <PodiumAvatar
-                  name={top3[2].displayName}
-                  score={top3[2].rankingScore}
-                  color={medalColors[2]}
-                  size={medalSizes[2]}
-                  isCrown={top3[2].isCrownHolder}
-                />
-              )}
-            </div>
+            {/* Top 3 rows */}
+            {top3.map((player, i) => {
+              const posColors = [colors.gold, colors.silver, colors.bronze];
+              const isFirst = i === 0;
+              return (
+                <div
+                  key={player.playerId}
+                  style={{
+                    display: 'flex', alignItems: 'center',
+                    padding: `${spacing.sm + 2}px ${spacing.sm}px`,
+                    borderRadius: radius.md,
+                    marginBottom: i < 2 ? spacing.xs : 0,
+                    ...(isFirst ? {
+                      background: 'rgba(34,197,94,0.06)',
+                      border: `1px solid rgba(34,197,94,0.12)`,
+                    } : {}),
+                  }}
+                >
+                  {/* Position number */}
+                  <span style={{
+                    fontFamily: fonts.mono, fontSize: isFirst ? 18 : 16,
+                    fontWeight: 900, color: posColors[i],
+                    minWidth: 28,
+                  }}>
+                    {i + 1}
+                  </span>
+
+                  {/* Name + stats */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontSize: isFirst ? 15 : 14,
+                      fontWeight: isFirst ? 600 : 500,
+                      color: isFirst ? colors.text : colors.textSecondary,
+                    }}>
+                      {player.displayName}
+                    </div>
+                    <div style={{
+                      fontSize: 11, color: colors.muted, marginTop: 1,
+                    }}>
+                      {player.tournamentsPlayed} played{player.winRate > 0 ? ` \u00B7 ${player.winRate}% W` : ''}
+                    </div>
+                  </div>
+
+                  {/* Score */}
+                  <span style={{
+                    fontFamily: fonts.mono,
+                    fontSize: isFirst ? 18 : 16,
+                    fontWeight: 900,
+                    color: isFirst ? colors.primary : colors.textSecondary,
+                  }}>
+                    {player.rankingScore}
+                  </span>
+                </div>
+              );
+            })}
 
             {/* My position */}
             {myRank && (
-              <div style={{
-                textAlign: 'center', marginTop: spacing.sm,
-                paddingTop: spacing.sm, borderTop: `1px solid ${colors.border}`,
-              }}>
-                <span style={{ fontSize: 12, color: colors.muted }}>
-                  You are{' '}
-                  <span style={{ color: colors.textSecondary, fontWeight: 600 }}>
-                    #{myRank.position}
+              <>
+                <div style={{ height: 1, background: colors.border, marginTop: spacing.sm }} />
+                <div style={{
+                  display: 'flex', alignItems: 'center',
+                  padding: `${spacing.sm + 2}px ${spacing.sm}px`,
+                  marginTop: spacing.xs,
+                }}>
+                  <span style={{
+                    fontFamily: fonts.mono, fontSize: 14,
+                    fontWeight: 700, color: colors.muted,
+                    minWidth: 28,
+                  }}>
+                    {myRank.position}
                   </span>
-                  {' '}with{' '}
-                  <span style={{ color: colors.textSecondary, fontWeight: 600 }}>
-                    {myRank.score} pts
+                  <span style={{ flex: 1, fontSize: 14, color: colors.muted }}>You</span>
+                  <span style={{
+                    fontFamily: fonts.mono, fontSize: 14,
+                    fontWeight: 700, color: colors.muted,
+                  }}>
+                    {myRank.score}
                   </span>
-                </span>
-              </div>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -507,43 +544,4 @@ export default function BlitzList() {
 }
 
 /* ── Podium Avatar ── */
-function PodiumAvatar({ name, score, color, size, tall, isCrown }: {
-  name: string; score: number; color: string; size: number;
-  tall?: boolean; isCrown?: boolean;
-}) {
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      gap: spacing.xs, marginBottom: tall ? 0 : spacing.md,
-    }}>
-      <div style={{
-        width: size, height: size, borderRadius: '50%',
-        border: `2px solid ${color}`,
-        backgroundColor: colors.surfaceElevated,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: tall ? 18 : 15, fontWeight: 800,
-        color, fontFamily: fonts.sans,
-        boxShadow: tall ? `0 0 20px ${color}30` : 'none',
-      }}>
-        {name.charAt(0).toUpperCase()}
-      </div>
-      <span style={{
-        fontSize: tall ? 13 : 12,
-        color: tall ? colors.text : colors.textSecondary,
-        fontWeight: tall ? 600 : 400,
-        maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap', textAlign: 'center',
-      }}>
-        {name}
-        {isCrown && <svg width={12} height={12} viewBox="0 0 24 24" fill={colors.accent} stroke="none" style={{ marginLeft: 2, display: 'inline-block', verticalAlign: 'middle' }}><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z" /></svg>}
-      </span>
-      <span style={{
-        fontFamily: fonts.mono, fontWeight: tall ? 900 : 800,
-        fontSize: tall ? 14 : 12,
-        color: tall ? color : colors.textSecondary,
-      }}>
-        {score}
-      </span>
-    </div>
-  );
-}
+
