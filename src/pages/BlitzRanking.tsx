@@ -177,31 +177,35 @@ export default function BlitzRanking() {
               <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.primary, fontWeight: 600, margin: 0, marginBottom: spacing.md }}>
                 Add Player
               </p>
-              <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md }}>
-                <input
-                  placeholder="Name"
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  style={{
-                    flex: 1, padding: spacing.md, background: colors.bg, border: '1px solid ' + colors.border,
-                    borderRadius: radius.sm, color: colors.text, fontFamily: fonts.sans, fontSize: 14,
-                  }}
-                />
-                <input
-                  placeholder="Phone (optional)"
-                  value={newPhone}
-                  onChange={e => setNewPhone(e.target.value)}
-                  style={{
-                    width: 130, padding: spacing.md, background: colors.bg, border: '1px solid ' + colors.border,
-                    borderRadius: radius.sm, color: colors.text, fontFamily: fonts.sans, fontSize: 14,
-                  }}
-                />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, marginBottom: spacing.md }}>
+                <div style={{ display: 'flex', gap: spacing.sm }}>
+                  <input
+                    placeholder="Name"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    style={{
+                      flex: 1, padding: spacing.md, background: colors.bg, border: '1px solid ' + colors.border,
+                      borderRadius: radius.sm, color: colors.text, fontFamily: fonts.sans, fontSize: 14,
+                      boxSizing: 'border-box' as const, minWidth: 0,
+                    }}
+                  />
+                  <input
+                    placeholder="Phone (opt.)"
+                    value={newPhone}
+                    onChange={e => setNewPhone(e.target.value)}
+                    style={{
+                      flex: 1, padding: spacing.md, background: colors.bg, border: '1px solid ' + colors.border,
+                      borderRadius: radius.sm, color: colors.text, fontFamily: fonts.sans, fontSize: 14,
+                      boxSizing: 'border-box' as const, minWidth: 0,
+                    }}
+                  />
+                </div>
                 <button onClick={handleAddPlayer} style={{
-                  padding: spacing.md + 'px ' + spacing.lg + 'px', background: colors.primary,
+                  width: '100%', padding: spacing.md + 'px', background: colors.primary,
                   border: 'none', borderRadius: radius.sm, color: '#000', fontWeight: 700,
-                  fontFamily: fonts.sans, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap',
+                  fontFamily: fonts.sans, fontSize: 14, cursor: 'pointer',
                 }}>
-                  Add
+                  Add Player
                 </button>
               </div>
               {addError && <p style={{ color: colors.destructive, fontSize: 14, margin: 0, marginBottom: spacing.sm }}>{addError}</p>}
