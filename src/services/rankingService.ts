@@ -21,6 +21,8 @@ export interface RankedPlayer {
   consecutiveWins: number;
   lastTournamentPoints: number | null; // points from latest tournament
   pointsDelta: number | null;          // change vs previous ranking score
+  winRate: number;                     // % of tournaments placed 1st
+  form: 'hot' | 'up' | 'down' | 'stable' | 'new'; // trend from last 3 tournaments
 }
 
 export interface RankingEntry {
@@ -222,6 +224,23 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       pointsDelta = score - prevScore;
     }
 
+    // Calculate win rate (1st place %)
+    const wins = entries.filter(e => e.placement === 1).length;
+    const winRate = entries.length > 0 ? Math.round((wins / entries.length) * 100) : 0;
+
+    // Calculate form from last 3 tournaments
+    let form: 'hot' | 'up' | 'down' | 'stable' | 'new' = 'new';
+    const recent = entries.slice(0, 3).map(e => e.placement);
+    if (recent.length >= 3) {
+      const allTop2 = recent.every(p => p <= 2);
+      if (allTop2) form = 'hot';
+      else if (recent[0] < recent[2]) form = 'up';
+      else if (recent[0] > recent[2]) form = 'down';
+      else form = 'stable';
+    } else if (recent.length === 2) {
+      form = recent[0] <= recent[1] ? 'up' : 'down';
+    }
+
     return {
       playerId: player.id,
       displayName: player.display_name,
@@ -233,6 +252,8 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       consecutiveWins: player.consecutive_wins,
       lastTournamentPoints,
       pointsDelta,
+      winRate,
+      form,
     };
   }).filter(p => p.tournamentsPlayed > 0);
 
