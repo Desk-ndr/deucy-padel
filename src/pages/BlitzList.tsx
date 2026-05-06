@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -25,12 +25,13 @@ export default function BlitzList() {
   const [myRank, setMyRank] = useState<{ position: number; score: number } | null>(null);
   const [myResults, setMyResults] = useState<Record<string, { placement: number; points: number }>>({});
 
-  const globalPlayer = getGlobalPlayer();
+  const globalPlayer = useMemo(() => getGlobalPlayer(), []);
 
   // Access gate
   useEffect(() => {
     if (!globalPlayer) navigate('/blitz/login');
-  }, [navigate, globalPlayer]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate]);
 
   const load = async () => {
     const { data } = await listTournaments();
@@ -67,7 +68,8 @@ export default function BlitzList() {
     };
     fetchRanking();
     return () => { cancelled = true; };
-  }, [globalPlayer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalPlayer?.playerId]);
 
   // Fetch my per-tournament results
   useEffect(() => {
@@ -82,7 +84,8 @@ export default function BlitzList() {
         for (const e of data) map[e.tournament_id] = { placement: e.placement, points: e.total_points };
         setMyResults(map);
       });
-  }, [globalPlayer]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalPlayer?.playerId]);
 
   const handleCreate = async () => {
     if (!name.trim()) return;
