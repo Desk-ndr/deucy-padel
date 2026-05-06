@@ -210,10 +210,7 @@ export default function BlitzList() {
                     padding: `${spacing.sm + 2}px ${spacing.sm}px`,
                     borderRadius: radius.md,
                     marginBottom: i < 2 ? spacing.xs : 0,
-                    ...(isFirst ? {
-                      background: 'rgba(34,197,94,0.06)',
-                      border: `1px solid rgba(34,197,94,0.12)`,
-                    } : {}),
+                    
                   }}
                 >
                   {/* Position number */}
@@ -262,6 +259,9 @@ export default function BlitzList() {
                   display: 'flex', alignItems: 'center',
                   padding: `${spacing.sm + 2}px ${spacing.sm}px`,
                   marginTop: spacing.xs,
+                  borderRadius: radius.md,
+                  background: 'rgba(34,197,94,0.06)',
+                  border: `1px solid rgba(34,197,94,0.12)`,
                 }}>
                   <span style={{
                     fontFamily: fonts.mono, fontSize: 14,
