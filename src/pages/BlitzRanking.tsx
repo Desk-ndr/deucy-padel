@@ -109,13 +109,13 @@ export default function BlitzRanking() {
         >
           ←
         </button>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'baseline', gap: spacing.sm, flexWrap: 'wrap' }}>
           <h1 style={{ fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize, fontWeight: 700, color: colors.text, margin: 0 }}>
             Overall Ranking
           </h1>
-          <p style={{ fontFamily: fonts.sans, fontSize: typeScale.body.fontSize, color: colors.textSecondary, margin: 0, marginTop: 2 }}>
-            Best 4 of last 6 tournaments
-          </p>
+          <span style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textMuted }}>
+            (best 4 of 6)
+          </span>
         </div>
         <button
           onClick={() => navigate('/blitz/how-it-works')}
