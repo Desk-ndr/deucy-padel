@@ -167,7 +167,7 @@ export default function BlitzList() {
                 color: colors.muted, letterSpacing: 1.5, textTransform: 'uppercase',
               }}>Ranking</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>
-                See all \u2192
+                See all →
               </span>
             </div>
 
@@ -237,7 +237,7 @@ export default function BlitzList() {
                     <div style={{
                       fontSize: 11, color: colors.muted, marginTop: 1,
                     }}>
-                      {player.tournamentsPlayed} played{player.winRate > 0 ? ` \u00B7 ${player.winRate}% W` : ''}
+                      {player.tournamentsPlayed} played{player.winRate > 0 ? ` · ${player.winRate}% W` : ''}
                     </div>
                   </div>
 
