@@ -63,7 +63,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
     let matchesPlayed = 0;
     let gameEarnings = 0;
     let betProfit = 0;
-    const ledger: { round: number; type: 'game' | 'bet'; label: string; amount: number; detail: string }[] = [];
+    const ledger: { round: number; type: 'game' | 'bet'; label: string; amount: number; detail: string; result?: 'win' | 'loss' | 'draw' }[] = [];
 
     for (const r of completedRounds) {
       const s = schedule[r.round_index - 1];
@@ -73,17 +73,23 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
       if (onA && r.team_a_score != null) {
         gamesWon += r.team_a_score;
         matchesPlayed += 1;
-        matchesWon += r.team_a_score > r.team_b_score! ? 1 : r.team_a_score === r.team_b_score! ? 0.5 : 0;
+        const won = r.team_a_score > r.team_b_score! ? 1 : r.team_a_score === r.team_b_score! ? 0.5 : 0;
+        matchesWon += won;
         const earned = r.team_a_score * EUROS_PER_GAME;
         gameEarnings += earned;
-        if (earned > 0) ledger.push({ round: r.round_index, type: 'game', label: 'Games won', amount: earned, detail: `${r.team_a_score} games` });
+        const result: 'win' | 'loss' | 'draw' = won === 1 ? 'win' : won === 0.5 ? 'draw' : 'loss';
+        const opponent = s.teamB.map(i => players[i]?.name?.split(' ')[0] || '?').join(' & ');
+        ledger.push({ round: r.round_index, type: 'game', label: `vs ${opponent}`, amount: earned, detail: `${r.team_a_score} - ${r.team_b_score}`, result });
       } else if (onB && r.team_b_score != null) {
         gamesWon += r.team_b_score;
         matchesPlayed += 1;
-        matchesWon += r.team_b_score > r.team_a_score! ? 1 : r.team_b_score === r.team_a_score! ? 0.5 : 0;
+        const won = r.team_b_score > r.team_a_score! ? 1 : r.team_b_score === r.team_a_score! ? 0.5 : 0;
+        matchesWon += won;
         const earned = r.team_b_score * EUROS_PER_GAME;
         gameEarnings += earned;
-        if (earned > 0) ledger.push({ round: r.round_index, type: 'game', label: 'Games won', amount: earned, detail: `${r.team_b_score} games` });
+        const result: 'win' | 'loss' | 'draw' = won === 1 ? 'win' : won === 0.5 ? 'draw' : 'loss';
+        const opponent = s.teamA.map(i => players[i]?.name?.split(' ')[0] || '?').join(' & ');
+        ledger.push({ round: r.round_index, type: 'game', label: `vs ${opponent}`, amount: earned, detail: `${r.team_b_score} - ${r.team_a_score}`, result });
       }
     }
 
@@ -323,7 +329,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                   borderBottom: `1px solid ${colors.border}`,
                 }}>
                   <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.sm }}>
-                    {tab === 'games' ? 'Game History' : 'Bet History'}
+                    {tab === 'games' ? 'Match History' : 'Bet History'}
                   </span>
 
                   {filteredLedger.length === 0 ? (
@@ -340,8 +346,11 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                           fontSize: 14,
                         }}>
                           <div style={{
-                            width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                            backgroundColor: theme.accent,
+                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                            backgroundColor: entry.result === 'win' ? colors.primary
+                              : entry.result === 'loss' ? colors.destructive
+                              : entry.result === 'draw' ? colors.accent
+                              : theme.accent,
                           }} />
                           <span style={{ color: colors.muted, fontFamily: fonts.mono, fontSize: 14, minWidth: 24 }}>
                             R{entry.round}
@@ -349,16 +358,20 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                           <span style={{ flex: 1, color: colors.textSecondary, fontFamily: fonts.sans, fontWeight: 500 }}>
                             {entry.label}
                           </span>
-                          <span style={{ color: colors.muted, fontSize: 14, marginRight: spacing.sm }}>
-                            {entry.detail}
-                          </span>
+                          {tab === 'betting' && (
+                            <span style={{ color: colors.muted, fontSize: 14, marginRight: spacing.sm }}>
+                              {entry.detail}
+                            </span>
+                          )}
                           <span style={{
                             fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
-                            color: entry.amount > 0 ? theme.accent : entry.amount < 0 ? colors.destructive : colors.muted,
+                            color: tab === 'games'
+                              ? (entry.result === 'win' ? colors.primary : entry.result === 'loss' ? colors.destructive : colors.accent)
+                              : (entry.amount > 0 ? theme.accent : entry.amount < 0 ? colors.destructive : colors.muted),
                           }}>
                             {tab === 'betting'
                               ? `${entry.amount > 0 ? '+' : ''}€${entry.amount}`
-                              : `+${entry.detail.split(' ')[0]}`
+                              : entry.detail
                             }
                           </span>
                         </div>
@@ -375,7 +388,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                           color: displayValue >= 0 ? theme.accent : colors.destructive,
                         }}>
                           {tab === 'games'
-                            ? `${mainStat} games`
+                            ? `${p.gamesWon} games`
                             : `${displayValue > 0 ? '+' : ''}€${displayValue}`
                           }
                         </span>

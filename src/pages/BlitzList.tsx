@@ -42,6 +42,7 @@ export default function BlitzList() {
   // Fetch ranking + my position (with retry)
   useEffect(() => {
     let cancelled = false;
+    setRankingLoading(true);
     const fetchRanking = async (attempt = 0) => {
       try {
         const { data, error } = await getRanking();
@@ -51,14 +52,17 @@ export default function BlitzList() {
           return;
         }
         setRanking(data);
+        setRankingLoading(false);
         if (globalPlayer) {
           const idx = data.findIndex(p => p.playerId === globalPlayer.playerId);
           if (idx >= 0) setMyRank({ position: idx + 1, score: data[idx].rankingScore });
         }
       } catch {
-        if (!cancelled && attempt < 2) setTimeout(() => fetchRanking(attempt + 1), 2000);
-      } finally {
-        if (!cancelled) setRankingLoading(false);
+        if (!cancelled && attempt < 2) {
+          setTimeout(() => fetchRanking(attempt + 1), 2000);
+        } else if (!cancelled) {
+          setRankingLoading(false);
+        }
       }
     };
     fetchRanking();
@@ -144,7 +148,7 @@ export default function BlitzList() {
         </div>
 
         {/* ── Ranking Mini-Podium ── */}
-        {(top3.length > 0 || rankingLoading) && (
+        {(top3.length > 0 || (rankingLoading && ranking.length === 0)) && (
           <div
             onClick={() => navigate('/blitz/ranking')}
             style={{
@@ -166,7 +170,7 @@ export default function BlitzList() {
             </div>
 
             {/* Loading skeleton */}
-            {rankingLoading && top3.length === 0 && (
+            {rankingLoading && ranking.length === 0 && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 gap: spacing.xl, padding: `${spacing.lg}px 0`,
