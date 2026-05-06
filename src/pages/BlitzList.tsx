@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { listTournaments, createTournament, deleteTournament, BlitzTournamentData } from '@/services/blitzService';
 import { getCrownHolder, RankedPlayer } from '@/services/rankingService';
-import { useBlitzIdentity } from '@/hooks/useBlitzIdentity';
+import { useBlitzIdentity, getGlobalPlayer } from '@/hooks/useBlitzIdentity';
 import { colors, spacing, radius, fonts, typeScale, shadows, animationCSS, formatBalance } from '@/lib/design-tokens';
 import { HeroCard, LiveBadge, MonoNumber } from '@/components/ui/deucy';
 
@@ -25,6 +25,13 @@ export default function BlitzList() {
     const { data } = await listTournaments();
     setTournaments(data || []);
   };
+
+  // Access gate: redirect if not logged in
+  useEffect(() => {
+    if (!getGlobalPlayer()) {
+      navigate('/blitz/login');
+    }
+  }, [navigate]);
 
   useEffect(() => { load(); }, []);
 
