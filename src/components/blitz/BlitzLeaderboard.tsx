@@ -30,7 +30,7 @@ const tabTheme = {
     label: 'Games',
     subtitle: 'Ranked by games won',
     valueLabel: 'W',
-    totalLabel: 'Rank',
+    totalLabel: 'pts_rank',
   },
   betting: {
     accent: colors.accent,         // amber
@@ -183,8 +183,8 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
           {tab === 'games' && (
             <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>Games</span>
           )}
-          <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>
-            {theme.totalLabel}
+          <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right', lineHeight: 1.3 }}>
+            {theme.totalLabel === 'pts_rank' ? (<>pts<br/><span style={{ fontSize: 10, opacity: 0.7 }}>(rank)</span></>) : theme.totalLabel}
           </span>
           <span />
         </div>
