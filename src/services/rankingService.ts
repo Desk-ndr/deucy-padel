@@ -243,11 +243,8 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       pointsDelta = score - prevScore;
     }
 
-    // Calculate win rate (1st place %)
-    // W% = total matches won / total matches played across all tournaments
-    const totalGamesWon = entries.reduce((sum, e) => sum + (e.gamesWon || 0), 0);
-    const totalGamesPlayed = entries.reduce((sum, e) => sum + (e.gamesPlayed || 0), 0);
-    const winRate = totalGamesPlayed > 0 ? Math.round((totalGamesWon / totalGamesPlayed) * 100) : 0;
+    // W% calculated dynamically below (after all players are mapped)
+    const winRate = 0; // placeholder, recalculated below
 
     // Calculate form from last 3 tournaments
     let form: 'hot' | 'up' | 'down' | 'stable' | 'new' = 'new';
@@ -277,6 +274,76 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       form,
     };
   }).filter(p => p.tournamentsPlayed > 0);
+
+  // ── Dynamic W% calculation from actual round data ──
+  // Get all tournament IDs referenced in ranking entries
+  const tournamentIds = [...new Set((allEntries || []).map(e => e.tournament_id))];
+  
+  if (tournamentIds.length > 0) {
+    // Fetch all tournaments and their rounds
+    const { data: tournaments } = await supabase
+      .from('blitz_tournaments')
+      .select('id, players, schedule')
+      .in('id', tournamentIds);
+    
+    const { data: allRounds } = await supabase
+      .from('blitz_rounds')
+      .select('tournament_id, round_index, team_a_score, team_b_score, status')
+      .in('tournament_id', tournamentIds)
+      .eq('status', 'completed');
+
+    // Build a map: playerId → { matchesWon, matchesPlayed }
+    const matchStats: Record<string, { won: number; played: number }> = {};
+
+    for (const t of (tournaments || [])) {
+      const tRounds = (allRounds || []).filter(r => r.tournament_id === t.id && r.team_a_score !== null);
+      const tPlayers: Array<{ name: string; player_id?: string }> = t.players || [];
+
+      // Build playerIndex → playerId map for this tournament
+      const indexToId: Record<number, string> = {};
+      for (let i = 0; i < tPlayers.length; i++) {
+        const pid = tPlayers[i].player_id;
+        if (pid) {
+          indexToId[i] = pid;
+        } else {
+          // Fallback: match by name
+          const found = (players || []).find(
+            p => p.display_name.toLowerCase() === tPlayers[i].name.toLowerCase()
+          );
+          if (found) indexToId[i] = found.id;
+        }
+      }
+
+      for (const round of tRounds) {
+        const sched = (t.schedule || [])[round.round_index - 1];
+        if (!sched) continue;
+        const aWon = round.team_a_score > round.team_b_score ? 1 : 0;
+        const bWon = round.team_b_score > round.team_a_score ? 1 : 0;
+        for (const idx of (sched.teamA || [])) {
+          const pid = indexToId[idx];
+          if (!pid) continue;
+          if (!matchStats[pid]) matchStats[pid] = { won: 0, played: 0 };
+          matchStats[pid].won += aWon;
+          matchStats[pid].played += 1;
+        }
+        for (const idx of (sched.teamB || [])) {
+          const pid = indexToId[idx];
+          if (!pid) continue;
+          if (!matchStats[pid]) matchStats[pid] = { won: 0, played: 0 };
+          matchStats[pid].won += bWon;
+          matchStats[pid].played += 1;
+        }
+      }
+    }
+
+    // Apply dynamic W% to ranked players
+    for (const p of ranked) {
+      const stats = matchStats[p.playerId];
+      if (stats && stats.played > 0) {
+        (p as any).winRate = Math.round((stats.won / stats.played) * 100);
+      }
+    }
+  }
 
   // Sort by ranking score
   ranked.sort((a, b) => b.rankingScore - a.rankingScore);
