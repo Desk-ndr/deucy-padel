@@ -177,8 +177,8 @@ export default function BlitzList() {
               marginTop: spacing.lg, marginBottom: spacing.xs,
             }}>
               <span style={{
-                fontFamily: fonts.mono, fontSize: 9, fontWeight: 600,
-                color: colors.muted, letterSpacing: 0.5,
+                fontFamily: fonts.mono, fontSize: 10, fontWeight: 600,
+                color: colors.textSecondary, letterSpacing: 0.5,
               }}>PTS</span>
             </div>
 
