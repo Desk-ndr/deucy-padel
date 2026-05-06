@@ -170,6 +170,24 @@ export const animationCSS = `
   0% { background-position: -200px 0; }
   100% { background-position: 200px 0; }
 }
+@keyframes confettiFall {
+  0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+@keyframes trophyEntrance {
+  0% { transform: scale(0) rotate(-15deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(5deg); opacity: 1; }
+  80% { transform: scale(0.95) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes winnerGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(34,197,94,0.2), 0 0 60px rgba(34,197,94,0.1); }
+  50% { box-shadow: 0 0 40px rgba(34,197,94,0.4), 0 0 80px rgba(34,197,94,0.2); }
+}
+@keyframes fadeSlideUp {
+  0% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
 @keyframes scaleIn {
   0% { transform: scale(0.95); opacity: 0.8; }
   100% { transform: scale(1); opacity: 1; }

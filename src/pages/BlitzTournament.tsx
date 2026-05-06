@@ -10,7 +10,7 @@ import {
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
 import { finalizeRanking } from '@/services/rankingService';
-import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
+import { colors, spacing, radius, fonts, typeScale, animationCSS } from '@/lib/design-tokens';
 import { DeucyBottomNav, type DeucyTab } from '@/components/ui/deucy';
 import BlitzSetup from '@/components/blitz/BlitzSetup';
 import BlitzMatchTab from '@/components/blitz/BlitzMatchTab';
@@ -175,6 +175,7 @@ export default function BlitzTournament() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.bg, paddingBottom: 80 }}>
+      <style>{animationCSS}</style>
       <div style={{ maxWidth: 430, margin: '0 auto' }}>
         {/* Header */}
         <div style={{

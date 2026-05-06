@@ -39,7 +39,7 @@ export default function BlitzMatchTab({
       ? tournament.schedule[tournament.current_round - 1]
       : null;
 
-  /* ── Finished state ─────────────────────────────────────────── */
+/* ── Finished state ─────────────────────────────────────────── */
   if (tournament.status === 'finished') {
     // Calculate matches won (0.5 for draws) + games won per player
     const completedAll = rounds.filter(r => r.status === 'completed');
@@ -83,37 +83,102 @@ export default function BlitzMatchTab({
     const winner = ranked[0];
     const POINTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
 
+    // Confetti particles
+    const confettiColors = [colors.primary, colors.accent, colors.info, colors.gold, '#FF6B6B', '#C084FC'];
+    const confettiParticles = Array.from({ length: 40 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 3,
+      duration: 2.5 + Math.random() * 2,
+      color: confettiColors[i % confettiColors.length],
+      size: 4 + Math.random() * 6,
+      rotation: Math.random() * 360,
+    }));
+
     return (
-      <div style={{ padding: spacing.lg, display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
-        <HeroCard glow="primary">
-          <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            gap: spacing.md, padding: spacing.xl, textAlign: 'center',
-          }}>
-            <svg width={56} height={56} viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <div style={{ padding: spacing.lg, display: 'flex', flexDirection: 'column', gap: spacing.lg, position: 'relative', overflow: 'hidden' }}>
+        {/* Confetti layer */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 0 }}>
+          {confettiParticles.map(p => (
+            <div key={p.id} style={{
+              position: 'absolute',
+              left: `${p.left}%`,
+              top: -20,
+              width: p.size,
+              height: p.size * 1.5,
+              backgroundColor: p.color,
+              borderRadius: p.size > 7 ? '50%' : 2,
+              transform: `rotate(${p.rotation}deg)`,
+              animation: `confettiFall ${p.duration}s ${p.delay}s ease-in infinite`,
+              opacity: 0.8,
+            }} />
+          ))}
+        </div>
+
+        {/* Trophy + Winner — celebration hero */}
+        <div style={{
+          position: 'relative', zIndex: 1,
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          gap: spacing.lg, padding: `${spacing.xxl}px ${spacing.lg}px`,
+          textAlign: 'center',
+          background: `radial-gradient(ellipse at center, ${colors.primaryMuted} 0%, transparent 70%)`,
+          borderRadius: radius.lg,
+          border: `1px solid ${colors.border}`,
+          animation: 'winnerGlow 3s ease-in-out infinite',
+        }}>
+          {/* Trophy with entrance animation */}
+          <div style={{ animation: 'trophyEntrance 0.8s ease-out forwards' }}>
+            <svg width={72} height={72} viewBox="0 0 24 24" fill="none" stroke={colors.gold} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
               <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
               <path d="M4 22h16" />
               <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22h10c0-2-.85-3.25-2.03-3.79A1.07 1.07 0 0 1 14 17v-2.34" />
               <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
             </svg>
-            <h2 style={{ ...typeScale.headline, color: colors.text, margin: 0 }}>
-              Tournament Complete
-            </h2>
-            <span style={{ ...typeScale.caption, color: colors.muted }}>Winner</span>
-            <span style={{ fontSize: 28, fontWeight: 900, fontFamily: fonts.sans, color: colors.primary }}>
+          </div>
+
+          {/* "Tournament Complete" label */}
+          <span style={{
+            ...typeScale.micro, color: colors.muted,
+            animation: 'fadeSlideUp 0.6s 0.3s ease-out both',
+          }}>
+            Tournament Complete
+          </span>
+
+          {/* Winner name — big and bold */}
+          <div style={{ animation: 'fadeSlideUp 0.6s 0.5s ease-out both' }}>
+            <span style={{
+              fontSize: 36, fontWeight: 900, fontFamily: fonts.sans,
+              color: colors.primary, letterSpacing: '-0.02em',
+              display: 'block',
+            }}>
               {winner?.name}
             </span>
-            <span style={{ ...typeScale.mono, color: colors.textSecondary }}>
-              {winner.matches % 1 === 0 ? winner.matches : winner.matches.toFixed(1)} matches won
+            <span style={{ ...typeScale.body, color: colors.textSecondary, marginTop: spacing.xs, display: 'block' }}>
+              {winner.matches % 1 === 0 ? winner.matches : winner.matches.toFixed(1)} matches won  /  {winner.games} games
             </span>
           </div>
-        </HeroCard>
 
-        {/* Ranking Points Summary — sorted by matchesWon then gamesWon */}
+          {/* Points badge */}
+          <div style={{
+            animation: 'fadeSlideUp 0.6s 0.7s ease-out both',
+            display: 'inline-flex', alignItems: 'center', gap: spacing.sm,
+            padding: `${spacing.sm}px ${spacing.lg}px`,
+            backgroundColor: 'rgba(34,197,94,0.12)',
+            borderRadius: radius.pill,
+            border: `1px solid rgba(34,197,94,0.25)`,
+          }}>
+            <span style={{ ...typeScale.mono, fontSize: 20, color: colors.primary }}>+{POINTS[1] || 0}</span>
+            <span style={{ ...typeScale.caption, color: colors.textSecondary, textTransform: 'none' as const, letterSpacing: 0 }}>ranking pts</span>
+          </div>
+        </div>
+
+        {/* Ranking Points Summary */}
         <div style={{
+          position: 'relative', zIndex: 1,
           padding: spacing.lg, backgroundColor: colors.surface,
           borderRadius: radius.md, border: `1px solid ${colors.border}`,
+          animation: 'fadeSlideUp 0.6s 0.9s ease-out both',
         }}>
           <h3 style={{ ...typeScale.title, color: colors.text, margin: 0, marginBottom: spacing.md, textAlign: 'center' }}>
             Ranking Points Earned
@@ -122,18 +187,24 @@ export default function BlitzMatchTab({
             {ranked.map((p, sortPos) => {
               const placement = placements[sortPos];
               const pts = POINTS[placement] || 0;
+              const medalColor = placement === 1 ? colors.gold : placement === 2 ? colors.silver : placement === 3 ? colors.bronze : undefined;
               return (
                 <div key={p.index} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: `${spacing.sm}px ${spacing.md}px`,
-                  backgroundColor: placement === 1 ? 'rgba(34,197,94,0.08)' : 'transparent',
+                  backgroundColor: placement <= 3 ? `rgba(${placement === 1 ? '255,215,0' : placement === 2 ? '192,192,192' : '205,127,50'},0.06)` : 'transparent',
                   borderRadius: radius.sm,
+                  animation: `fadeSlideUp 0.4s ${1 + sortPos * 0.08}s ease-out both`,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                    <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted, minWidth: 24 }}>
+                    <span style={{
+                      ...typeScale.mono, fontSize: 14,
+                      color: medalColor || colors.muted,
+                      minWidth: 28, fontWeight: medalColor ? 900 : 800,
+                    }}>
                       #{placement}
                     </span>
-                    <span style={{ ...typeScale.body, color: colors.text, fontWeight: placement === 1 ? 700 : 500 }}>
+                    <span style={{ ...typeScale.body, color: colors.text, fontWeight: placement <= 3 ? 700 : 500 }}>
                       {p.name}
                     </span>
                   </div>
@@ -144,6 +215,7 @@ export default function BlitzMatchTab({
                     <span style={{
                       ...typeScale.mono, fontSize: 14, fontWeight: 700,
                       color: pts > 0 ? colors.primary : colors.muted,
+                      minWidth: 32, textAlign: 'right',
                     }}>
                       +{pts}
                     </span>
@@ -158,10 +230,10 @@ export default function BlitzMatchTab({
             borderTop: `1px solid ${colors.border}`,
             display: 'flex', justifyContent: 'center', gap: spacing.md, flexWrap: 'wrap',
           }}>
-            <span style={{ ...typeScale.micro, color: colors.muted }}>
+            <span style={{ ...typeScale.micro, color: colors.muted, fontSize: 14 }}>
               Placement: 50 / 35 / 22 / 12 / 5
             </span>
-            <span style={{ ...typeScale.micro, color: colors.accent }}>
+            <span style={{ ...typeScale.micro, color: colors.accent, fontSize: 14 }}>
               Betting bonus: +8 / +5 / +3 / +1 / 0
             </span>
           </div>
@@ -169,12 +241,14 @@ export default function BlitzMatchTab({
 
         {/* Completed rounds with edit */}
         {isCreator && completedAll.length > 0 && (
-          <CompletedRounds
-            rounds={completedAll} tournament={tournament} isCreator={isCreator}
-            editingRound={editingRound} editScoreA={editScoreA} editScoreB={editScoreB}
-            setEditingRound={setEditingRound} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
-            onEditScore={onEditScore}
-          />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <CompletedRounds
+              rounds={completedAll} tournament={tournament} isCreator={isCreator}
+              editingRound={editingRound} editScoreA={editScoreA} editScoreB={editScoreB}
+              setEditingRound={setEditingRound} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
+              onEditScore={onEditScore}
+            />
+          </div>
         )}
       </div>
     );
