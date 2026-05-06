@@ -3,6 +3,8 @@ import { BlitzPlayer, BlitzRound, BlitzBet } from '@/services/blitzService';
 import { BlitzRoundSchedule, EUROS_PER_GAME } from '@/lib/blitz-schedule';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 
+const BETTING_BONUS_POINTS = [8, 5, 3, 1, 0];
+
 interface Props {
   crownPlayerName?: string | null;
   players: (BlitzPlayer & { index: number })[];
