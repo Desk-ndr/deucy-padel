@@ -105,6 +105,9 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
     return b.betProfit - a.betProfit;
   });
 
+  // Only show betting rank points if there's actual differentiation in profits
+  const allBettingZero = playerStats.every(p => p.betProfit === 0);
+
   const medalColors = [colors.gold, colors.silver, colors.bronze];
 
   return (
@@ -260,8 +263,8 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                   }
                 </span>
 
-                {/* Betting ranking points */}
-                {tab === 'betting' && (
+                {/* Betting ranking points — only if profits differ */}
+                {tab === 'betting' && !allBettingZero && (
                   <span style={{
                     fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
                     color: colors.primary, textAlign: 'center',
