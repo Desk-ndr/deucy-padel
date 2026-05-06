@@ -98,7 +98,6 @@ export default function BlitzRanking() {
     });
   }, []);
 
-  const crownHolder = ranking.find(p => p.isCrownHolder);
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bg, padding: `${spacing.xl}px ${spacing.lg}px` }}>
@@ -298,36 +297,6 @@ export default function BlitzRanking() {
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Crown Section */}
-      {crownHolder && (
-        <div style={{
-          background: `linear-gradient(135deg, ${colors.primaryMuted}, ${colors.accentMuted})`,
-          border: `1px solid ${colors.primary}`,
-          borderRadius: radius.lg,
-          padding: spacing.xl,
-          marginBottom: spacing.xl,
-          textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 32, marginBottom: spacing.sm }}>
-            {crownHolder.consecutiveWins >= 2 ? '👑🔥' : '👑'}
-          </div>
-          <p style={{ fontFamily: fonts.sans, fontSize: typeScale.caption.fontSize, color: colors.primary, margin: 0, marginBottom: spacing.xs, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
-            King of the Field
-          </p>
-          <p style={{ fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize, fontWeight: 700, color: colors.text, margin: 0 }}>
-            {crownHolder.displayName}
-          </p>
-          {crownHolder.consecutiveWins >= 2 && (
-            <p style={{ fontFamily: fonts.sans, fontSize: typeScale.body.fontSize, color: colors.accent, margin: 0, marginTop: spacing.xs }}>
-              Unbeaten — {crownHolder.consecutiveWins} consecutive wins
-            </p>
-          )}
-          <p style={{ fontFamily: fonts.mono, fontSize: typeScale.title.fontSize, color: colors.primary, margin: 0, marginTop: spacing.md, fontWeight: 700 }}>
-            {crownHolder.rankingScore} pts
-          </p>
         </div>
       )}
 
