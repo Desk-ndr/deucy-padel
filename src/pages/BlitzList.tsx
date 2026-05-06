@@ -111,28 +111,22 @@ export default function BlitzList() {
             gap: spacing.lg,
           }}
         >
-          <span style={{ fontSize: 24 }}>{crownHolder ? "👑" : "🏆"}</span>
+          <span style={{ fontSize: 24 }}>{"🏆"}</span>
           <div style={{ flex: 1 }}>
-            <p style={{ fontFamily: fonts.body, fontSize: typeScale.sm, color: colors.primary, margin: 0, fontWeight: 600 }}>
-              {crownHolder ? "King of the Field" : "Ranking"}
+            <p style={{ fontFamily: fonts.sans, fontSize: typeScale.base, color: colors.text, margin: 0, fontWeight: 700 }}>
+              Overall Ranking
             </p>
-            <p style={{ fontFamily: fonts.body, fontSize: typeScale.base, color: colors.text, margin: 0, fontWeight: 600 }}>
-              {crownHolder ? crownHolder.displayName : "View full ranking"}
-            </p>
-            {crownHolder && crownHolder.consecutiveWins >= 2 && (
-              <p style={{ fontFamily: fonts.body, fontSize: typeScale.xs, color: colors.accent, margin: 0, marginTop: 2 }}>
-                Unbeaten — {crownHolder.consecutiveWins} in a row
+            {crownHolder ? (
+              <p style={{ fontFamily: fonts.sans, fontSize: typeScale.sm, color: colors.textSecondary, margin: 0, marginTop: 2 }}>
+                {crownHolder.displayName} · {crownHolder.rankingScore} pts{crownHolder.consecutiveWins >= 2 ? ` · ${crownHolder.consecutiveWins} in a row` : ''}
+              </p>
+            ) : (
+              <p style={{ fontFamily: fonts.sans, fontSize: typeScale.sm, color: colors.textSecondary, margin: 0, marginTop: 2 }}>
+                View full ranking
               </p>
             )}
           </div>
-          <div style={{ textAlign: "right" }}>
-            {crownHolder && (
-              <p style={{ fontFamily: fonts.mono, fontSize: typeScale.lg, color: colors.primary, margin: 0, fontWeight: 700 }}>
-                {crownHolder.rankingScore} pts
-              </p>
-            )}
-            <p style={{ fontFamily: fonts.body, fontSize: typeScale.xs, color: colors.textSecondary, margin: 0 }}>→</p>
-          </div>
+          <span style={{ fontFamily: fonts.sans, fontSize: 18, color: colors.textSecondary }}>→</span>
         </div>
         {/* Live tournaments */}
         {liveTournaments.map(t => (
