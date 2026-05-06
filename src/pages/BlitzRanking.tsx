@@ -95,7 +95,7 @@ export default function BlitzRanking() {
       {!loading && ranking.length > 0 && (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '32px 1fr 48px 56px 48px 36px',
+          gridTemplateColumns: '32px 1fr 44px 52px 44px 32px',
           gap: spacing.sm,
           padding: `0 ${spacing.lg}px ${spacing.sm}px`,
           alignItems: 'center',
@@ -133,7 +133,7 @@ export default function BlitzRanking() {
             {/* Main row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '32px 1fr 48px 56px 48px 36px',
+              gridTemplateColumns: '32px 1fr 44px 52px 44px 32px',
               gap: spacing.sm,
               alignItems: 'center',
             }}>
