@@ -147,9 +147,9 @@ export async function finalizeRanking(
     if (!resolvedId) continue;
 
     const placement = gamePlacement[i];
-    const placementPts = PLACEMENT_POINTS[Math.min(placement, 5)] || 0;
+    const placementPts = PLACEMENT_POINTS[placement] || 0;
     const bettingPl = betPlacement[i];
-    const bettingBon = playerHasBets[i] ? (BETTING_BONUS[Math.min(bettingPl, 5)] || 0) : 0;
+    const bettingBon = playerHasBets[i] ? (BETTING_BONUS[bettingPl] || 0) : 0;
 
     entries.push({
       player_id: resolvedId,

@@ -121,7 +121,7 @@ export default function BlitzMatchTab({
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
             {ranked.map((p, sortPos) => {
               const placement = placements[sortPos];
-              const pts = POINTS[Math.min(placement, 5)] || 0;
+              const pts = POINTS[placement] || 0;
               return (
                 <div key={p.index} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
