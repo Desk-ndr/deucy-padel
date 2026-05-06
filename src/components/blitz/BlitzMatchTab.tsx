@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { BlitzTournamentData, BlitzRound } from '@/services/blitzService';
-import { EUROS_PER_GAME } from '@/lib/blitz-schedule';
 import { colors, spacing, radius, fonts, typeScale, shadows } from '@/lib/design-tokens';
 import { HeroCard } from '@/components/ui/deucy';
 import BlitzTimer from './BlitzTimer';
@@ -274,9 +273,7 @@ export default function BlitzMatchTab({
           display: 'flex', flexDirection: 'column', gap: spacing.md,
         }}>
           <p style={{ ...typeScale.title, color: colors.text, textAlign: 'center', margin: 0 }}>Enter Final Score</p>
-          <p style={{ ...typeScale.caption, color: colors.muted, textAlign: 'center', margin: 0 }}>
-            Each game won = {'€'}{EUROS_PER_GAME} per player
-          </p>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-end', gap: spacing.md }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
               <label style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center' }}>Team A</label>
@@ -288,12 +285,7 @@ export default function BlitzMatchTab({
               <input type="number" min="0" placeholder="0" value={scoreB} onChange={e => setScoreB(e.target.value)} style={inputStyle} />
             </div>
           </div>
-          {scoreA && scoreB && (
-            <div style={{ ...typeScale.caption, color: colors.muted, textAlign: 'center' }}>
-              <p style={{ margin: 0 }}>Team A earns: <span style={{ fontWeight: 700, color: colors.primary }}>{'€'}{parseInt(scoreA) * EUROS_PER_GAME}</span></p>
-              <p style={{ margin: `${spacing.xs}px 0 0` }}>Team B earns: <span style={{ fontWeight: 700, color: colors.primary }}>{'€'}{parseInt(scoreB) * EUROS_PER_GAME}</span></p>
-            </div>
-          )}
+
           <div style={{ display: 'flex', gap: spacing.sm }}>
             <button onClick={() => setShowScoreInput(false)} style={{
               flex: 1, padding: spacing.md, backgroundColor: colors.surfaceElevated, color: colors.textSecondary,
