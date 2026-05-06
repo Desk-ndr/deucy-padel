@@ -264,11 +264,8 @@ export async function resetTournament(id: string, playerNames: string[]) {
 
   await supabase.from('blitz_bets').delete().eq('tournament_id', id);
   await supabase.from('blitz_rounds').delete().eq('tournament_id', id);
-
-  // Remove ranking entries for this tournament
-  if (wasFinished) {
-    await supabase.from('ranking_entries').delete().eq('tournament_id', id);
-  }
+  // Always remove ranking entries on reset
+  await supabase.from('ranking_entries').delete().eq('tournament_id', id);
 
   const resetPlayers = playerNames.map(name => ({ name, balance: 10 }));
   const { error } = await supabase.from('blitz_tournaments').update({
@@ -277,7 +274,7 @@ export async function resetTournament(id: string, playerNames: string[]) {
   } as any).eq('id', id);
 
   // Recalculate crown holder after removing ranking entries
-  if (wasFinished) {
+  {
     await supabase.from('players').update({ crown_holder: false, crown_since: null, consecutive_wins: 0 }).eq('crown_holder', true);
     const { data: latestWinner } = await supabase
       .from('ranking_entries')
