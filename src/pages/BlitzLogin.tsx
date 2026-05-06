@@ -19,7 +19,8 @@ export default function BlitzLogin() {
   // Step 1: find player by phone, generate OTP
   const handleSendCode = async () => {
     setError('');
-    const cleaned = phone.replace(/\s/g, '').replace(/^(\+39)?/, '+39');
+    const cleaned = phone.replace(/\s/g, '');
+    // If no prefix, don't add one — match exactly what's stored
     if (cleaned.length < 10) {
       setError('Enter a valid phone number');
       return;

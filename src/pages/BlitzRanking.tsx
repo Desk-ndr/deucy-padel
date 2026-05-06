@@ -46,7 +46,7 @@ export default function BlitzRanking() {
   const handleAddPlayer = async () => {
     if (!newName.trim()) return;
     const insert: any = { display_name: newName.trim() };
-    if (newPhone.trim()) insert.phone = newPhone.trim().startsWith('+') ? newPhone.trim() : '+39' + newPhone.trim();
+    if (newPhone.trim()) insert.phone = newPhone.trim();
     const { data, error } = await supabase.from('players').insert(insert).select('id, display_name, access_token').single();
     if (error) { setAddError(error.message); return; }
     if (data) {
