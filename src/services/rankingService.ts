@@ -34,6 +34,8 @@ export interface RankingEntry {
   bettingPlacement: number | null;
   bettingBonus: number;
   totalPoints: number;
+  gamesWon: number;
+  gamesPlayed: number;
   createdAt: string;
 }
 
@@ -214,6 +216,8 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       bettingPlacement: entry.betting_placement,
       bettingBonus: entry.betting_bonus,
       totalPoints: entry.total_points,
+      gamesWon: entry.games_won || 0,
+      gamesPlayed: entry.games_played || 0,
       createdAt: entry.created_at,
     });
   }
@@ -241,8 +245,8 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
 
     // Calculate win rate (1st place %)
     // W% = total matches won / total matches played across all tournaments
-    const totalGamesWon = entries.reduce((sum, e) => sum + (e.games_won || 0), 0);
-    const totalGamesPlayed = entries.reduce((sum, e) => sum + (e.games_played || 0), 0);
+    const totalGamesWon = entries.reduce((sum, e) => sum + (e.gamesWon || 0), 0);
+    const totalGamesPlayed = entries.reduce((sum, e) => sum + (e.gamesPlayed || 0), 0);
     const winRate = totalGamesPlayed > 0 ? Math.round((totalGamesWon / totalGamesPlayed) * 100) : 0;
 
     // Calculate form from last 3 tournaments
@@ -310,6 +314,8 @@ export async function getPlayerHistory(playerId: string): Promise<{ data: Rankin
       bettingPlacement: entry.betting_placement,
       bettingBonus: entry.betting_bonus,
       totalPoints: entry.total_points,
+      gamesWon: entry.games_won || 0,
+      gamesPlayed: entry.games_played || 0,
       createdAt: entry.created_at,
     })),
     error: null,
