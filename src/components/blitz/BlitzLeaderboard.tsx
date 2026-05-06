@@ -245,7 +245,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                 <span style={{
                   fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
                   color: tab === 'games' ? theme.accent : (displayValue >= 0 ? theme.accent : colors.destructive),
-                  textAlign: 'right',
+                  textAlign: 'center',
                 }}>
                   {tab === 'games'
                     ? `+${[50,35,22,12,5][rank] ?? 0}`
