@@ -173,7 +173,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
         {/* Header row */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: tab === 'games' ? '36px 1fr 56px 80px 24px' : '36px 1fr 72px 24px',
+          gridTemplateColumns: tab === 'games' ? '36px 1fr 56px 80px 24px' : '36px 1fr 72px 80px 24px',
           alignItems: 'center', gap: spacing.sm,
           padding: `${spacing.sm}px ${spacing.md}px`,
           borderBottom: `1px solid ${colors.border}`,
@@ -186,6 +186,11 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
           <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center', lineHeight: 1.3 }}>
             {theme.totalLabel === 'pts_rank' ? (<>pts<br/><span style={{ fontSize: 10, opacity: 0.7 }}>(rank)</span></>) : theme.totalLabel}
           </span>
+          {tab === 'betting' && (
+            <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center', lineHeight: 1.3 }}>
+              pts<br/><span style={{ fontSize: 10, opacity: 0.7 }}>(rank)</span>
+            </span>
+          )}
           <span />
         </div>
 
@@ -203,7 +208,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                 onClick={() => setExpanded(isExpanded_ ? null : p.index)}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: tab === 'games' ? '36px 1fr 56px 80px 24px' : '36px 1fr 72px 24px',
+                  gridTemplateColumns: tab === 'games' ? '36px 1fr 56px 80px 24px' : '36px 1fr 72px 80px 24px',
                   alignItems: 'center', gap: spacing.sm,
                   padding: `${spacing.md}px`,
                   borderBottom: `1px solid ${colors.border}`,
@@ -252,6 +257,16 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                     : `${displayValue > 0 ? '+' : ''}€${displayValue}`
                   }
                 </span>
+
+                {/* Betting ranking points */}
+                {tab === 'betting' && (
+                  <span style={{
+                    fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
+                    color: colors.primary, textAlign: 'center',
+                  }}>
+                    +{BETTING_BONUS_POINTS[rank] ?? 0}
+                  </span>
+                )}
 
                 {/* Chevron */}
                 <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={colors.muted} strokeWidth={2.5}
