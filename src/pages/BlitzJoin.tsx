@@ -19,19 +19,19 @@ export default function BlitzJoin() {
         return;
       }
       const player = data[0];
-      // Save global identity to localStorage
       localStorage.setItem('deucy-player', JSON.stringify({
         playerId: player.player_id,
         playerName: player.display_name,
       }));
       setPlayerName(player.display_name);
       setStatus('welcome');
-      // Redirect after brief welcome
-      setTimeout(() => navigate('/blitz'), 1500);
     };
 
     validate();
   }, [token, navigate]);
+
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroid = /android/i.test(navigator.userAgent);
 
   return (
     <div style={{
@@ -46,10 +46,8 @@ export default function BlitzJoin() {
       )}
 
       {status === 'welcome' && (
-        <div style={{
-          textAlign: 'center',
-          animation: 'scaleIn 0.3s ease-out',
-        }}>
+        <div style={{ textAlign: 'center', maxWidth: 340 }}>
+          {/* Avatar */}
           <div style={{
             width: 80, height: 80, borderRadius: '50%',
             background: colors.primaryMuted, border: `2px solid ${colors.primary}`,
@@ -60,6 +58,7 @@ export default function BlitzJoin() {
               {playerName.charAt(0).toUpperCase()}
             </span>
           </div>
+
           <h1 style={{
             fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize,
             fontWeight: 700, color: colors.text, margin: 0, marginBottom: spacing.sm,
@@ -68,10 +67,49 @@ export default function BlitzJoin() {
           </h1>
           <p style={{
             fontFamily: fonts.sans, fontSize: typeScale.body.fontSize,
-            color: colors.textSecondary, margin: 0,
+            color: colors.textSecondary, margin: 0, marginBottom: spacing.xxl,
           }}>
-            You're in the pool. Redirecting...
+            You're in the Deucy pool.
           </p>
+
+          {/* CTA button */}
+          <button
+            onClick={() => navigate('/blitz')}
+            style={{
+              width: '100%', padding: `${spacing.lg}px`,
+              background: colors.primary, border: 'none', borderRadius: radius.sm,
+              color: '#000', fontFamily: fonts.sans, fontSize: typeScale.body.fontSize,
+              fontWeight: 700, cursor: 'pointer', marginBottom: spacing.xxl,
+            }}
+          >
+            Open Deucy
+          </button>
+
+          {/* Add to home screen tip */}
+          <div style={{
+            background: colors.surface, border: `1px solid ${colors.border}`,
+            borderRadius: radius.lg, padding: spacing.lg,
+            textAlign: 'left',
+          }}>
+            <p style={{
+              fontFamily: fonts.sans, fontSize: 14, fontWeight: 600,
+              color: colors.text, margin: 0, marginBottom: spacing.sm,
+            }}>
+              Add to Home Screen
+            </p>
+            <p style={{
+              fontFamily: fonts.sans, fontSize: 14,
+              color: colors.textSecondary, margin: 0, lineHeight: 1.5,
+            }}>
+              {isIos
+                ? 'Tap the share button at the bottom of Safari, then "Add to Home Screen".'
+                : isAndroid
+                ? 'Tap the menu (three dots) in Chrome, then "Add to Home Screen".'
+                : 'Use your browser menu to add this page to your home screen for quick access.'
+              }
+              {' '}Next time, just tap the Deucy icon — no link needed.
+            </p>
+          </div>
         </div>
       )}
 

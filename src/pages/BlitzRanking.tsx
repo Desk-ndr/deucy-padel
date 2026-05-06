@@ -119,6 +119,18 @@ export default function BlitzRanking() {
           </p>
         </div>
         <button
+          onClick={() => navigate('/blitz/how-it-works')}
+          style={{
+            background: 'none', border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm, width: 36, height: 36,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', opacity: 0.5, transition: 'opacity 0.2s',
+          }}
+          title="How it works"
+        >
+          <span style={{ fontFamily: fonts.sans, fontSize: 16, fontWeight: 700, color: colors.textSecondary }}>?</span>
+        </button>
+        <button
           onClick={() => setShowManage(!showManage)}
           style={{
             background: 'none', border: `1px solid ${colors.border}`,

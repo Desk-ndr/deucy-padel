@@ -128,6 +128,21 @@ export default function BlitzList() {
           </div>
           <span style={{ fontFamily: fonts.sans, fontSize: 18, color: colors.textSecondary }}>→</span>
         </div>
+        {/* How it works link */}
+        <div
+          onClick={() => navigate('/blitz/how-it-works')}
+          style={{
+            textAlign: 'center', marginBottom: spacing.lg,
+            cursor: 'pointer',
+          }}
+        >
+          <span style={{
+            fontFamily: fonts.sans, fontSize: 14, color: colors.textMuted,
+          }}>
+            How does scoring work?
+          </span>
+        </div>
+
         {/* Live tournaments */}
         {liveTournaments.map(t => (
           <div key={t.id} style={{ marginBottom: spacing.lg }}>

@@ -31,6 +31,7 @@ import BlitzTournament from "./pages/BlitzTournament";
 import BlitzRanking from "./pages/BlitzRanking";
 import BlitzJoin from "./pages/BlitzJoin";
 import BlitzLogin from "./pages/BlitzLogin";
+import BlitzHowItWorks from "./pages/BlitzHowItWorks";
 
 // Admin Pages
 import AdminLogin from "./pages/admin/AdminLogin";
@@ -56,6 +57,7 @@ const App = () => (
             <Route path="/blitz" element={<BlitzList />} />
             <Route path="/p/:token" element={<BlitzJoin />} />
             <Route path="/blitz/login" element={<BlitzLogin />} />
+            <Route path="/blitz/how-it-works" element={<BlitzHowItWorks />} />
             <Route path="/blitz/ranking" element={<BlitzRanking />} />
             <Route path="/blitz/:id" element={<BlitzTournament />} />
 
