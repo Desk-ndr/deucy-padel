@@ -333,13 +333,13 @@ export default function BlitzList() {
           </AlertDialogHeader>
           <div style={{ padding: '0 24px' }}>
             <p style={{ fontSize: 14, color: colors.muted, marginBottom: 8 }}>
-              Type <span style={{ fontFamily: fonts.mono, fontWeight: 700, color: colors.destructive }}>DELETE</span> to confirm
+              Enter the secret code to confirm
             </p>
             <input
               type="text"
               value={deleteCode}
               onChange={(e) => setDeleteCode(e.target.value)}
-              placeholder="Type DELETE"
+              placeholder="Secret code"
               autoComplete="off"
               style={{
                 width: '100%', padding: '10px 12px',
@@ -354,9 +354,9 @@ export default function BlitzList() {
             <AlertDialogCancel disabled={deleting} onClick={() => setDeleteCode('')}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={deleting || deleteCode !== 'DELETE'}
+              disabled={deleting || deleteCode !== 'Valencia2026'}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              style={{ opacity: deleteCode === 'DELETE' ? 1 : 0.4 }}
+              style={{ opacity: deleteCode === 'Valencia2026' ? 1 : 0.4 }}
             >
               {deleting ? 'Deleting…' : 'Delete'}
             </AlertDialogAction>
