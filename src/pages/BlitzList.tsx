@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -25,12 +25,12 @@ export default function BlitzList() {
   const [myRank, setMyRank] = useState<{ position: number; score: number } | null>(null);
   const [myResults, setMyResults] = useState<Record<string, { placement: number; points: number }>>({});
 
-  const globalPlayer = useMemo(() => getGlobalPlayer(), []);
+  const globalPlayerRef = useRef(getGlobalPlayer());
+  const globalPlayer = globalPlayerRef.current;
 
-  // Access gate
+  // Access gate (runs once)
   useEffect(() => {
-    if (!globalPlayer) navigate('/blitz/login');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!globalPlayerRef.current) navigate('/blitz/login');
   }, [navigate]);
 
   const load = async () => {
@@ -43,7 +43,6 @@ export default function BlitzList() {
   // Fetch ranking + my position (with retry)
   useEffect(() => {
     let cancelled = false;
-    setRankingLoading(true);
     const fetchRanking = async (attempt = 0) => {
       try {
         const { data, error } = await getRanking();
@@ -54,8 +53,9 @@ export default function BlitzList() {
         }
         setRanking(data);
         setRankingLoading(false);
-        if (globalPlayer) {
-          const idx = data.findIndex(p => p.playerId === globalPlayer.playerId);
+        const gp = globalPlayerRef.current;
+        if (gp) {
+          const idx = data.findIndex(p => p.playerId === gp.playerId);
           if (idx >= 0) setMyRank({ position: idx + 1, score: data[idx].rankingScore });
         }
       } catch {
@@ -68,24 +68,23 @@ export default function BlitzList() {
     };
     fetchRanking();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [globalPlayer?.playerId]);
+  }, []);
 
   // Fetch my per-tournament results
   useEffect(() => {
-    if (!globalPlayer) return;
+    const gp = globalPlayerRef.current;
+    if (!gp) return;
     supabase
       .from('ranking_entries')
       .select('tournament_id, placement, total_points')
-      .eq('player_id', globalPlayer.playerId)
+      .eq('player_id', gp.playerId)
       .then(({ data }) => {
         if (!data) return;
         const map: Record<string, { placement: number; points: number }> = {};
         for (const e of data) map[e.tournament_id] = { placement: e.placement, points: e.total_points };
         setMyResults(map);
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [globalPlayer?.playerId]);
+  }, []);
 
   const handleCreate = async () => {
     if (!name.trim()) return;
