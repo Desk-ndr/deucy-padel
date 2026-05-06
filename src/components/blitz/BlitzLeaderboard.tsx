@@ -183,7 +183,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
           {tab === 'games' && (
             <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>Games</span>
           )}
-          <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right', lineHeight: 1.3 }}>
+          <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center', lineHeight: 1.3 }}>
             {theme.totalLabel === 'pts_rank' ? (<>pts<br/><span style={{ fontSize: 10, opacity: 0.7 }}>(rank)</span></>) : theme.totalLabel}
           </span>
           <span />
