@@ -30,7 +30,7 @@ const tabTheme = {
     label: 'Games',
     subtitle: 'Ranked by games won',
     valueLabel: 'W',
-    totalLabel: 'Pts (ranking)',
+    totalLabel: 'Rank',
   },
   betting: {
     accent: colors.accent,         // amber
