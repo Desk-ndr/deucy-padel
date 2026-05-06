@@ -163,8 +163,8 @@ export default function BlitzList() {
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <span style={{
-                fontFamily: fonts.mono, fontSize: 10, fontWeight: 600,
-                color: colors.muted, letterSpacing: 1.5, textTransform: 'uppercase',
+                fontFamily: fonts.sans, fontSize: 16, fontWeight: 700,
+                color: colors.text, letterSpacing: 0,
               }}>Ranking</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>
                 See all →
