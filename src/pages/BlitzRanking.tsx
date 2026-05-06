@@ -25,6 +25,8 @@ export default function BlitzRanking() {
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [allPlayers, setAllPlayers] = useState<{ id: string; display_name: string; access_token: string }[]>([]);
   const [addError, setAddError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchAllPlayers = async () => {
     const { data } = await supabase.from('players').select('id, display_name, access_token').order('display_name');
@@ -60,9 +62,33 @@ export default function BlitzRanking() {
 
   const handleCopyLink = (token: string, name: string) => {
     const link = window.location.origin + '/p/' + token;
-    navigator.clipboard.writeText(link);
-    setCopiedLink(name);
-    setTimeout(() => setCopiedLink(null), 3000);
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedLink(name);
+      setTimeout(() => setCopiedLink(null), 2000);
+    }).catch(() => {
+      // Fallback: select text for manual copy
+      const el = document.createElement('textarea');
+      el.value = link;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopiedLink(name);
+      setTimeout(() => setCopiedLink(null), 2000);
+    });
+  };
+
+  const handleDeletePlayer = async (id: string) => {
+    setDeleting(true);
+    const { error } = await supabase.from('players').delete().eq('id', id);
+    setDeleting(false);
+    setDeleteConfirm(null);
+    if (error) {
+      setAddError(error.message);
+      setTimeout(() => setAddError(null), 3000);
+    } else {
+      fetchAllPlayers();
+    }
   };
 
   useEffect(() => {
@@ -192,17 +218,65 @@ export default function BlitzRanking() {
                     padding: spacing.sm + 'px ' + spacing.md + 'px',
                     background: colors.bg, borderRadius: radius.sm, border: '1px solid ' + colors.border,
                   }}>
-                    <span style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.text }}>{p.display_name}</span>
-                    <button
-                      onClick={() => handleCopyLink(p.access_token, p.display_name)}
-                      style={{
-                        background: 'none', border: '1px solid ' + colors.border, borderRadius: radius.sm,
-                        padding: spacing.xs + 'px ' + spacing.sm + 'px', cursor: 'pointer',
-                        fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary,
-                      }}
-                    >
-                      Copy Link
-                    </button>
+                    <span style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.text, flex: 1 }}>{p.display_name}</span>
+                    <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
+                      <button
+                        onClick={() => handleCopyLink(p.access_token, p.display_name)}
+                        style={{
+                          background: copiedLink === p.display_name ? colors.primaryMuted : 'none',
+                          border: '1px solid ' + (copiedLink === p.display_name ? colors.primary : colors.border),
+                          borderRadius: radius.sm,
+                          padding: spacing.xs + 'px ' + spacing.sm + 'px', cursor: 'pointer',
+                          fontFamily: fonts.sans, fontSize: 14,
+                          color: copiedLink === p.display_name ? colors.primary : colors.textSecondary,
+                          fontWeight: copiedLink === p.display_name ? 700 : 400,
+                          transition: 'all 0.2s',
+                          minWidth: 80, textAlign: 'center' as const,
+                        }}
+                      >
+                        {copiedLink === p.display_name ? 'Copied!' : 'Copy Link'}
+                      </button>
+                      {deleteConfirm === p.id ? (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button
+                            onClick={() => handleDeletePlayer(p.id)}
+                            disabled={deleting}
+                            style={{
+                              background: colors.destructive, border: 'none', borderRadius: radius.sm,
+                              padding: spacing.xs + 'px ' + spacing.sm + 'px', cursor: 'pointer',
+                              fontFamily: fonts.sans, fontSize: 14, color: '#fff', fontWeight: 700,
+                              opacity: deleting ? 0.5 : 1,
+                            }}
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirm(null)}
+                            style={{
+                              background: 'none', border: '1px solid ' + colors.border, borderRadius: radius.sm,
+                              padding: spacing.xs + 'px ' + spacing.sm + 'px', cursor: 'pointer',
+                              fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary,
+                            }}
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteConfirm(p.id)}
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            padding: spacing.xs + 'px', display: 'flex', alignItems: 'center',
+                            color: colors.muted, opacity: 0.5,
+                          }}
+                          title={'Remove ' + p.display_name}
+                        >
+                          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
