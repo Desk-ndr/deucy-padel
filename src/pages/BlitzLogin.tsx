@@ -19,7 +19,7 @@ export default function BlitzLogin() {
   // Step 1: find player by phone, generate OTP
   const handleSendCode = async () => {
     setError('');
-    const cleaned = phone.replace(/\s/g, '').replace(/^(\+34)?/, '+34');
+    const cleaned = phone.replace(/\s/g, '').replace(/^(\+39)?/, '+39');
     if (cleaned.length < 10) {
       setError('Enter a valid phone number');
       return;
@@ -128,7 +128,7 @@ export default function BlitzLogin() {
               </label>
               <input
                 type="tel"
-                placeholder="+34 612 345 678"
+                placeholder="+39 345 678 9012"
                 value={phone}
                 onChange={e => { setPhone(e.target.value); setError(''); }}
                 onKeyDown={e => e.key === 'Enter' && handleSendCode()}
