@@ -30,7 +30,7 @@ const tabTheme = {
       </svg>
     ),
     label: 'Games',
-    subtitle: 'Ranked by games won',
+    subtitle: 'Ranked by matches won',
     valueLabel: 'W',
     totalLabel: 'pts_rank',
   },
@@ -59,6 +59,8 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
 
   const getPlayerStats = (playerIndex: number) => {
     let gamesWon = 0;
+    let matchesWon = 0;   // 0.5 for draws
+    let matchesPlayed = 0;
     let gameEarnings = 0;
     let betProfit = 0;
     const ledger: { round: number; type: 'game' | 'bet'; label: string; amount: number; detail: string }[] = [];
@@ -70,11 +72,15 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
       const onB = s.teamB.includes(playerIndex);
       if (onA && r.team_a_score != null) {
         gamesWon += r.team_a_score;
+        matchesPlayed += 1;
+        matchesWon += r.team_a_score > r.team_b_score! ? 1 : r.team_a_score === r.team_b_score! ? 0.5 : 0;
         const earned = r.team_a_score * EUROS_PER_GAME;
         gameEarnings += earned;
         if (earned > 0) ledger.push({ round: r.round_index, type: 'game', label: 'Games won', amount: earned, detail: `${r.team_a_score} games` });
       } else if (onB && r.team_b_score != null) {
         gamesWon += r.team_b_score;
+        matchesPlayed += 1;
+        matchesWon += r.team_b_score > r.team_a_score! ? 1 : r.team_b_score === r.team_a_score! ? 0.5 : 0;
         const earned = r.team_b_score * EUROS_PER_GAME;
         gameEarnings += earned;
         if (earned > 0) ledger.push({ round: r.round_index, type: 'game', label: 'Games won', amount: earned, detail: `${r.team_b_score} games` });
@@ -95,13 +101,17 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
     }
 
     ledger.sort((a, b) => a.round - b.round);
-    return { gamesWon, gameEarnings, betProfit, ledger };
+    return { gamesWon, matchesWon, matchesPlayed, gameEarnings, betProfit, ledger };
   };
 
   const playerStats = players.map(p => ({ ...p, ...getPlayerStats(p.index) }));
 
   const sorted = [...playerStats].sort((a, b) => {
-    if (tab === 'games') return b.gamesWon - a.gamesWon;
+    if (tab === 'games') {
+      // Primary: matches won (draws = 0.5), tiebreaker: games won
+      if (b.matchesWon !== a.matchesWon) return b.matchesWon - a.matchesWon;
+      return b.gamesWon - a.gamesWon;
+    }
     return b.betProfit - a.betProfit;
   });
 
@@ -189,7 +199,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
           <span style={{ ...typeScale.micro, color: colors.muted }}>#</span>
           <span style={{ ...typeScale.micro, color: colors.muted }}>Player</span>
           {tab === 'games' && (
-            <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>Games</span>
+            <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>W</span>
           )}
           <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center', lineHeight: 1.3 }}>
             {theme.totalLabel === 'pts_rank' ? (<>pts<br/><span style={{ fontSize: 10, opacity: 0.7 }}>(rank)</span></>) : theme.totalLabel}
@@ -247,10 +257,10 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                   {p.name}
                 </span>
 
-                {/* Games won (only in games tab) */}
-                {tab === 'games' && mainStat !== null && (
+                {/* Matches won (only in games tab) */}
+                {tab === 'games' && (
                   <span style={{ ...typeScale.mono, fontSize: 14, color: colors.textSecondary, textAlign: 'right' }}>
-                    {mainStat}
+                    {p.matchesWon}/{p.matchesPlayed}
                   </span>
                 )}
 
@@ -364,14 +374,14 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
 /* ── Podium slot sub-component ────────────────────────────────── */
 
 function PodiumSlot({ player, rank, color, tall, tab }: {
-  player: { name: string; gamesWon: number; gameEarnings: number; betProfit: number };
+  player: { name: string; gamesWon: number; matchesWon: number; matchesPlayed: number; gameEarnings: number; betProfit: number };
   rank: number;
   color: string;
   tall?: boolean;
   tab: Tab;
 }) {
   const label = tab === 'games'
-    ? `${player.gamesWon} W`
+    ? `${player.matchesWon}/${player.matchesPlayed} W`
     : `${player.betProfit >= 0 ? '+' : ''}€${player.betProfit}`;
 
   return (

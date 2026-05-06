@@ -74,9 +74,9 @@ export async function finalizeRanking(
     // Games won (for placement ranking)
     schedule.teamA.forEach(i => { gamesWon[i] += scoreA; });
     schedule.teamB.forEach(i => { gamesWon[i] += scoreB; });
-    // Matches won/played (for W%)
-    const aWon = scoreA > scoreB ? 1 : 0;
-    const bWon = scoreB > scoreA ? 1 : 0;
+    // Matches won/played (for W%) — draw = 0.5 each
+    const aWon = scoreA > scoreB ? 1 : scoreA === scoreB ? 0.5 : 0;
+    const bWon = scoreB > scoreA ? 1 : scoreA === scoreB ? 0.5 : 0;
     schedule.teamA.forEach(i => { matchesWon[i] += aWon; matchesPlayed[i] += 1; });
     schedule.teamB.forEach(i => { matchesWon[i] += bWon; matchesPlayed[i] += 1; });
   }
@@ -89,11 +89,26 @@ export async function finalizeRanking(
     else if (bet.status === 'lost') betProfit[bet.bettor_index] -= bet.stake;
   }
 
-  // 3. Sort by gamesWon → placement
+  // 3. Sort by matchesWon desc → gamesWon tiebreak → shared placement if both equal
   const playerIndices = tournament.players.map((_, i) => i);
-  const sortedByGames = [...playerIndices].sort((a, b) => gamesWon[b] - gamesWon[a]);
+  const sortedByGames = [...playerIndices].sort((a, b) => {
+    if (matchesWon[b] !== matchesWon[a]) return matchesWon[b] - matchesWon[a];
+    return gamesWon[b] - gamesWon[a];
+  });
   const gamePlacement: number[] = new Array(tournament.players.length);
-  sortedByGames.forEach((playerIdx, rank) => { gamePlacement[playerIdx] = rank + 1; });
+  sortedByGames.forEach((playerIdx, sortPos) => {
+    if (sortPos === 0) {
+      gamePlacement[playerIdx] = 1;
+    } else {
+      const prevIdx = sortedByGames[sortPos - 1];
+      // Shared placement if same matchesWon AND same gamesWon
+      if (matchesWon[playerIdx] === matchesWon[prevIdx] && gamesWon[playerIdx] === gamesWon[prevIdx]) {
+        gamePlacement[playerIdx] = gamePlacement[prevIdx];
+      } else {
+        gamePlacement[playerIdx] = sortPos + 1;
+      }
+    }
+  });
 
   // 4. Sort by betProfit → betting placement
   // Track which players actually placed bets
@@ -317,8 +332,8 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       for (const round of tRounds) {
         const sched = (t.schedule || [])[round.round_index - 1];
         if (!sched) continue;
-        const aWon = round.team_a_score > round.team_b_score ? 1 : 0;
-        const bWon = round.team_b_score > round.team_a_score ? 1 : 0;
+        const aWon = round.team_a_score > round.team_b_score ? 1 : round.team_a_score === round.team_b_score ? 0.5 : 0;
+        const bWon = round.team_b_score > round.team_a_score ? 1 : round.team_b_score === round.team_a_score ? 0.5 : 0;
         for (const idx of (sched.teamA || [])) {
           const pid = indexToId[idx];
           if (!pid) continue;

@@ -73,14 +73,20 @@ export default function BlitzHowItWorks() {
         <Section title="The Blitz Format">
           <Text>
             A Blitz is a round-robin padel tournament. All players face each other across multiple rounds.
-            After each round, the schedule rotates automatically. At the end, players are ranked by games won.
+            After each round, the schedule rotates automatically.
+          </Text>
+          <Text>
+            At the end, players are ranked by matches won. A draw counts as half a win for both teams.
+            If two players have the same number of match wins, the one with more total games won breaks the tie.
+            If both are equal, they share the same placement and earn the same ranking points.
           </Text>
         </Section>
 
         {/* Scoring */}
         <Section title="Ranking Points">
           <Text>
-            After each tournament, players earn ranking points based on their final placement.
+            After each tournament, players earn ranking points based on their final placement
+            (determined by matches won, then games as tiebreaker).
             Your overall ranking uses your best 4 results from the last 6 tournaments.
           </Text>
           <div style={{
@@ -159,13 +165,7 @@ export default function BlitzHowItWorks() {
           </Text>
         </Section>
 
-        {/* Crown */}
-        <Section title="King of the Field">
-          <Text>
-            The player at the top of the overall ranking holds the crown. Win consecutive
-            tournaments to extend your streak. The crown is visible across the app.
-          </Text>
-        </Section>
+
 
         <div style={{ height: 40 }} />
       </div>
