@@ -21,7 +21,7 @@ export interface RankedPlayer {
   consecutiveWins: number;
   lastTournamentPoints: number | null; // points from latest tournament
   pointsDelta: number | null;          // change vs previous ranking score
-  winRate: number;                     // % of tournaments placed 1st
+  winRate: number;                     // % of games won across all tournaments
   form: 'hot' | 'up' | 'down' | 'stable' | 'new'; // trend from last 3 tournaments
 }
 
@@ -58,8 +58,9 @@ export async function finalizeRanking(
   const rounds: BlitzRound[] = (freshRounds || []) as any;
   const bets: BlitzBet[] = (freshBets || []) as any;
 
-  // 1. Calculate total games won per player (same logic as leaderboard)
+  // 1. Calculate total games won and played per player
   const gamesWon: number[] = tournament.players.map(() => 0);
+  const gamesPlayed: number[] = tournament.players.map(() => 0);
   const completedRounds = rounds.filter(r => r.status === 'completed' && r.team_a_score !== null);
 
   for (const round of completedRounds) {
@@ -67,8 +68,9 @@ export async function finalizeRanking(
     if (!schedule) continue;
     const scoreA = round.team_a_score!;
     const scoreB = round.team_b_score!;
-    schedule.teamA.forEach(i => { gamesWon[i] += scoreA; });
-    schedule.teamB.forEach(i => { gamesWon[i] += scoreB; });
+    const totalGames = scoreA + scoreB;
+    schedule.teamA.forEach(i => { gamesWon[i] += scoreA; gamesPlayed[i] += totalGames; });
+    schedule.teamB.forEach(i => { gamesWon[i] += scoreB; gamesPlayed[i] += totalGames; });
   }
 
   // 2. Calculate betting profit per player
@@ -111,6 +113,8 @@ export async function finalizeRanking(
     betting_placement: number;
     betting_bonus: number;
     total_points: number;
+    games_won: number;
+    games_played: number;
   }> = [];
 
   for (let i = 0; i < tournament.players.length; i++) {
@@ -230,8 +234,10 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
     }
 
     // Calculate win rate (1st place %)
-    const wins = entries.filter(e => e.placement === 1).length;
-    const winRate = entries.length > 0 ? Math.round((wins / entries.length) * 100) : 0;
+    // W% = total games won / total games played across all tournaments
+    const totalGamesWon = entries.reduce((sum, e) => sum + (e.games_won || 0), 0);
+    const totalGamesPlayed = entries.reduce((sum, e) => sum + (e.games_played || 0), 0);
+    const winRate = totalGamesPlayed > 0 ? Math.round((totalGamesWon / totalGamesPlayed) * 100) : 0;
 
     // Calculate form from last 3 tournaments
     let form: 'hot' | 'up' | 'down' | 'stable' | 'new' = 'new';
