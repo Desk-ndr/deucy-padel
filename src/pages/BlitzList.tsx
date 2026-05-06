@@ -148,7 +148,7 @@ export default function BlitzList() {
         </div>
 
         {/* ── Ranking Leaderboard Card ── */}
-        {(top3.length > 0 || (rankingLoading && ranking.length === 0)) && (
+        {(
           <div
             onClick={() => navigate('/blitz/ranking')}
             style={{
@@ -192,6 +192,17 @@ export default function BlitzList() {
                     animation: 'shimmer 1.5s ease-in-out infinite',
                   }} />
                 ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!rankingLoading && top3.length === 0 && (
+              <div style={{
+                textAlign: 'center', padding: `${spacing.xl}px 0`,
+              }}>
+                <span style={{ fontSize: 14, color: colors.muted }}>
+                  No players yet
+                </span>
               </div>
             )}
 
