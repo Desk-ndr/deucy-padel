@@ -324,16 +324,16 @@ export default function BlitzRanking() {
       {!loading && ranking.length > 0 && (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '32px 1fr 44px 52px 44px 32px',
+          gridTemplateColumns: '32px 1fr 56px 44px 44px 28px',
           gap: spacing.sm,
           padding: `0 ${spacing.lg}px ${spacing.sm}px`,
           alignItems: 'center',
         }}>
           <span style={{ ...headerStyle, textAlign: 'center' }}>#</span>
           <span style={headerStyle}>Player</span>
-          <span style={{ ...headerStyle, textAlign: 'center' }}>W%</span>
           <span style={{ ...headerStyle, textAlign: 'right' }}>Pts</span>
           <span style={{ ...headerStyle, textAlign: 'center' }}>+/-</span>
+          <span style={{ ...headerStyle, textAlign: 'center' }}>W%</span>
           <span style={{ ...headerStyle, textAlign: 'center' }}>Form</span>
         </div>
       )}
@@ -362,7 +362,7 @@ export default function BlitzRanking() {
             {/* Main row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '32px 1fr 44px 52px 44px 32px',
+              gridTemplateColumns: '32px 1fr 56px 44px 44px 28px',
               gap: spacing.sm,
               alignItems: 'center',
             }}>
@@ -393,20 +393,10 @@ export default function BlitzRanking() {
                 </p>
               </div>
 
-              {/* Win Rate */}
-              <div style={{ textAlign: 'center' }}>
-                <span style={{
-                  fontFamily: fonts.mono, fontSize: 14, fontWeight: 700,
-                  color: player.winRate >= 50 ? colors.primary : colors.textSecondary,
-                }}>
-                  {player.winRate}%
-                </span>
-              </div>
-
-              {/* Points */}
+              {/* Points — hero stat */}
               <div style={{ textAlign: 'right' }}>
                 <span style={{
-                  fontFamily: fonts.mono, fontSize: 16, fontWeight: 800,
+                  fontFamily: fonts.mono, fontSize: 18, fontWeight: 900,
                   color: isFirst ? colors.primary : colors.text,
                 }}>
                   {player.rankingScore}
@@ -423,8 +413,18 @@ export default function BlitzRanking() {
                     {player.pointsDelta > 0 ? '+' : ''}{player.pointsDelta}
                   </span>
                 ) : (
-                  <span style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.muted }}>—</span>
+                  <span style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.muted }}>\u2014</span>
                 )}
+              </div>
+
+              {/* Win Rate — secondary */}
+              <div style={{ textAlign: 'center' }}>
+                <span style={{
+                  fontFamily: fonts.mono, fontSize: 14, fontWeight: 500,
+                  color: colors.muted,
+                }}>
+                  {player.winRate}%
+                </span>
               </div>
 
               {/* Form */}
