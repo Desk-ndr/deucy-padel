@@ -173,7 +173,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
         {/* Header row */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: tab === 'games' ? '36px 1fr 48px 72px 24px' : '36px 1fr 72px 24px',
+          gridTemplateColumns: tab === 'games' ? '36px 1fr 56px 80px 24px' : '36px 1fr 72px 24px',
           alignItems: 'center', gap: spacing.sm,
           padding: `${spacing.sm}px ${spacing.md}px`,
           borderBottom: `1px solid ${colors.border}`,
@@ -203,7 +203,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                 onClick={() => setExpanded(isExpanded_ ? null : p.index)}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: tab === 'games' ? '36px 1fr 48px 72px 24px' : '36px 1fr 72px 24px',
+                  gridTemplateColumns: tab === 'games' ? '36px 1fr 56px 80px 24px' : '36px 1fr 72px 24px',
                   alignItems: 'center', gap: spacing.sm,
                   padding: `${spacing.md}px`,
                   borderBottom: `1px solid ${colors.border}`,
