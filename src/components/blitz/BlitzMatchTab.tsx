@@ -92,6 +92,11 @@ export default function BlitzMatchTab({
             .map((p, i) => ({ ...p, index: i, games: gamesMap.get(i) || 0 }))
             .sort((a, b) => b.games - a.games);
           const POINTS = [50, 35, 22, 12, 5];
+          const BONUS = [8, 5, 3, 1, 0];
+          // Calculate betting profit per player
+          const betProfitMap = new Map<number, number>();
+          tournament.players.forEach((_, i) => betProfitMap.set(i, 0));
+          const settledBets = (rounds as any[]).length > 0 ? [] : []; // bets come from parent
           return (
             <div style={{
               padding: spacing.lg, backgroundColor: colors.surface,
@@ -127,12 +132,25 @@ export default function BlitzMatchTab({
                           ...typeScale.mono, fontSize: 14, fontWeight: 700,
                           color: pts > 0 ? colors.primary : colors.muted,
                         }}>
-                          +{pts} pts
+                          +{pts}
                         </span>
                       </div>
                     </div>
                   );
                 })}
+              </div>
+              {/* Point scale legend */}
+              <div style={{
+                marginTop: spacing.md, paddingTop: spacing.md,
+                borderTop: `1px solid ${colors.border}`,
+                display: 'flex', justifyContent: 'center', gap: spacing.md, flexWrap: 'wrap',
+              }}>
+                <span style={{ ...typeScale.micro, color: colors.muted }}>
+                  Placement: 50 / 35 / 22 / 12 / 5
+                </span>
+                <span style={{ ...typeScale.micro, color: colors.accent }}>
+                  Betting bonus: +8 / +5 / +3 / +1 / 0
+                </span>
               </div>
             </div>
           );

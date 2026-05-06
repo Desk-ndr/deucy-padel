@@ -30,7 +30,7 @@ const tabTheme = {
     label: 'Games',
     subtitle: 'Ranked by games won',
     valueLabel: 'W',
-    totalLabel: 'Earned',
+    totalLabel: 'Pts',
   },
   betting: {
     accent: colors.accent,         // amber
@@ -181,7 +181,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
           <span style={{ ...typeScale.micro, color: colors.muted }}>#</span>
           <span style={{ ...typeScale.micro, color: colors.muted }}>Player</span>
           {tab === 'games' && (
-            <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>W</span>
+            <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>Games</span>
           )}
           <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>
             {theme.totalLabel}
@@ -247,7 +247,10 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                   color: tab === 'games' ? theme.accent : (displayValue >= 0 ? theme.accent : colors.destructive),
                   textAlign: 'right',
                 }}>
-                  {displayValue > 0 && tab === 'betting' ? '+' : ''}{'€'}{displayValue}
+                  {tab === 'games'
+                    ? `+${[50,35,22,12,5][rank] ?? 0}`
+                    : `${displayValue > 0 ? '+' : ''}€${displayValue}`
+                  }
                 </span>
 
                 {/* Chevron */}
@@ -299,7 +302,10 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                             fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
                             color: entry.amount > 0 ? theme.accent : entry.amount < 0 ? colors.destructive : colors.muted,
                           }}>
-                            {entry.amount > 0 ? '+' : ''}{'€'}{entry.amount}
+                            {tab === 'betting'
+                              ? `${entry.amount > 0 ? '+' : ''}€${entry.amount}`
+                              : `+${entry.detail.split(' ')[0]}`
+                            }
                           </span>
                         </div>
                       ))}
@@ -314,7 +320,10 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                           fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
                           color: displayValue >= 0 ? theme.accent : colors.destructive,
                         }}>
-                          {displayValue > 0 && tab === 'betting' ? '+' : ''}{'€'}{displayValue}
+                          {tab === 'games'
+                            ? `${mainStat} games`
+                            : `${displayValue > 0 ? '+' : ''}€${displayValue}`
+                          }
                         </span>
                       </div>
                     </div>
