@@ -191,7 +191,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
         {/* Header row */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: tab === 'games' ? '36px 1fr 56px 80px 24px' : '36px 1fr 72px 80px 24px',
+          gridTemplateColumns: tab === 'games' ? '36px 1fr 40px 48px 60px 24px' : '36px 1fr 72px 80px 24px',
           alignItems: 'center', gap: spacing.sm,
           padding: `${spacing.sm}px ${spacing.md}px`,
           borderBottom: `1px solid ${colors.border}`,
@@ -199,7 +199,10 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
           <span style={{ ...typeScale.micro, color: colors.muted }}>#</span>
           <span style={{ ...typeScale.micro, color: colors.muted }}>Player</span>
           {tab === 'games' && (
-            <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>W</span>
+            <>
+              <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>W</span>
+              <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'right' }}>G</span>
+            </>
           )}
           <span style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center', lineHeight: 1.3 }}>
             {theme.totalLabel === 'pts_rank' ? (<>pts<br/><span style={{ fontSize: 10, opacity: 0.7 }}>(rank)</span></>) : theme.totalLabel}
@@ -226,7 +229,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                 onClick={() => setExpanded(isExpanded_ ? null : p.index)}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: tab === 'games' ? '36px 1fr 56px 80px 24px' : '36px 1fr 72px 80px 24px',
+                  gridTemplateColumns: tab === 'games' ? '36px 1fr 40px 48px 60px 24px' : '36px 1fr 72px 80px 24px',
                   alignItems: 'center', gap: spacing.sm,
                   padding: `${spacing.md}px`,
                   borderBottom: `1px solid ${colors.border}`,
@@ -257,11 +260,16 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                   {p.name}
                 </span>
 
-                {/* Matches won (only in games tab) */}
+                {/* Matches won + Games won (only in games tab) */}
                 {tab === 'games' && (
-                  <span style={{ ...typeScale.mono, fontSize: 14, color: colors.textSecondary, textAlign: 'right' }}>
-                    {p.matchesWon}/{p.matchesPlayed}
-                  </span>
+                  <>
+                    <span style={{ fontFamily: fonts.mono, fontSize: 14, fontWeight: 700, color: colors.text, textAlign: 'right' }}>
+                      {p.matchesWon % 1 === 0 ? p.matchesWon : p.matchesWon.toFixed(1)}
+                    </span>
+                    <span style={{ fontFamily: fonts.mono, fontSize: 14, fontWeight: 500, color: colors.muted, textAlign: 'right' }}>
+                      {p.gamesWon}
+                    </span>
+                  </>
                 )}
 
                 {/* Value */}
@@ -381,7 +389,7 @@ function PodiumSlot({ player, rank, color, tall, tab }: {
   tab: Tab;
 }) {
   const label = tab === 'games'
-    ? `${player.matchesWon}/${player.matchesPlayed} W`
+    ? `${player.matchesWon % 1 === 0 ? player.matchesWon : player.matchesWon.toFixed(1)} W`
     : `${player.betProfit >= 0 ? '+' : ''}€${player.betProfit}`;
 
   return (
