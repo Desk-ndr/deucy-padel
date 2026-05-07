@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listTournaments, createTournament, subscribeAllTournaments, BlitzTournamentData } from '@/services/blitzService';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { getRanking, RankedPlayer } from '@/services/rankingService';
 import { supabase } from '@/integrations/supabase/client';
 import { useBlitzIdentity, getGlobalPlayer } from '@/hooks/useBlitzIdentity';
@@ -586,7 +590,7 @@ export default function BlitzList() {
         })}
 
         {/* ── Empty state ── */}
-        {tournaments.length === 0 && !showCreate && (
+        {tournaments.length === 0 && (
           <div style={{ textAlign: 'center', paddingTop: 64, paddingBottom: 32 }}>
             <div style={{
               width: 64, height: 64, borderRadius: '50%',
@@ -603,77 +607,82 @@ export default function BlitzList() {
           </div>
         )}
 
-        {/* ── Create form ── */}
-        {showCreate && (
-          <div style={{
-            padding: spacing.lg, backgroundColor: colors.surface,
-            borderRadius: radius.md, border: `1px solid ${colors.border}`,
-            marginBottom: spacing.lg,
-          }}>
-            <span style={{ ...typeScale.caption, color: colors.muted, display: 'block', marginBottom: spacing.md }}>
-              Tournament name
-            </span>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Saturday Blitz"
-              style={{
-                width: '100%', padding: spacing.md,
-                backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm, color: colors.text,
-                fontSize: 16, fontWeight: 600, fontFamily: fonts.sans,
-                outline: 'none', boxSizing: 'border-box', marginBottom: spacing.md,
-              }}
-            />
-            <div style={{ display: 'flex', gap: spacing.sm }}>
-              <button onClick={() => setShowCreate(false)} style={{
-                flex: 1, padding: spacing.md,
-                backgroundColor: colors.surfaceElevated, border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm, color: colors.textSecondary,
-                fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: fonts.sans,
-              }}>Cancel</button>
-              <button onClick={handleCreate} disabled={creating} style={{
-                flex: 1, padding: spacing.md,
-                backgroundColor: colors.primary, border: 'none', borderRadius: radius.sm,
-                color: colors.bg, fontSize: 14, fontWeight: 700,
-                cursor: 'pointer', fontFamily: fonts.sans,
-                opacity: creating ? 0.6 : 1,
-              }}>{creating ? 'Creating...' : 'Create'}</button>
-            </div>
-          </div>
-        )}
-
       </div>
 
       {/* ── FAB: New Blitz ── */}
-      {!showCreate && (
-        <button
-          onClick={() => setShowCreate(true)}
-          aria-label="Create new Blitz"
-          title="Create new Blitz"
-          style={{
-            position: 'fixed',
-            bottom: `calc(${spacing.lg}px + env(safe-area-inset-bottom, 0px))`,
-            right: spacing.lg,
-            width: 56, height: 56,
-            borderRadius: '50%',
-            background: colors.primary,
-            border: 'none',
-            color: colors.bg,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer',
-            boxShadow: `0 4px 16px rgba(34,197,94,0.35), 0 2px 6px rgba(0,0,0,0.4)`,
-            zIndex: 50,
-            transition: 'transform 0.15s, box-shadow 0.15s',
-          }}
-        >
-          <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
-      )}
+      <button
+        onClick={() => setShowCreate(true)}
+        aria-label="Create new Blitz"
+        title="Create new Blitz"
+        style={{
+          position: 'fixed',
+          bottom: `calc(${spacing.lg}px + env(safe-area-inset-bottom, 0px))`,
+          right: spacing.lg,
+          width: 56, height: 56,
+          borderRadius: '50%',
+          background: colors.primary,
+          border: 'none',
+          color: colors.bg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer',
+          boxShadow: `0 4px 16px rgba(34,197,94,0.35), 0 2px 6px rgba(0,0,0,0.4)`,
+          zIndex: 50,
+          transition: 'transform 0.15s, box-shadow 0.15s',
+        }}
+      >
+        <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
+
+      {/* ── Create dialog (modal) ── */}
+      <AlertDialog
+        open={showCreate}
+        onOpenChange={(open) => {
+          if (!open) setShowCreate(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>New Blitz</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose a name for your tournament.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div style={{ padding: '0 24px' }}>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && name.trim() && !creating) handleCreate();
+              }}
+              placeholder="e.g. Saturday Blitz"
+              autoFocus
+              style={{
+                width: '100%', padding: spacing.md,
+                backgroundColor: colors.bg,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                color: colors.text,
+                fontSize: 16, fontWeight: 600, fontFamily: fonts.sans,
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={creating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCreate}
+              disabled={creating || !name.trim()}
+              style={{ opacity: creating || !name.trim() ? 0.5 : 1 }}
+            >
+              {creating ? 'Creating...' : 'Create'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Bottom spacer */}
       <div style={{ height: 80 }} />
