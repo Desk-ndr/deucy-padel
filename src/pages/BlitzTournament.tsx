@@ -394,7 +394,11 @@ export default function BlitzTournament() {
             </>
           )}
           {activeTab === 'leaderboard' && (
-            <BlitzLeaderboard players={sortedPlayers} rounds={rounds} bets={bets} schedule={tournament.schedule} />
+            <BlitzLeaderboard
+              players={sortedPlayers} rounds={rounds} bets={bets}
+              schedule={tournament.schedule}
+              myPlayerIndex={playerIndex}
+            />
           )}
           {activeTab === 'calendar' && (
             <BlitzCalendarTab

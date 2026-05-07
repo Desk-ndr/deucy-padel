@@ -10,13 +10,20 @@ const BEST_OF = 4;
 
 // ── Types ──
 
+export interface BestResult {
+  points: number;
+  date: string; // ISO from ranking_entries.created_at
+  tournamentName: string;
+  tournamentId: string;
+}
+
 export interface RankedPlayer {
   playerId: string;
   displayName: string;
   phone: string;
   rankingScore: number;
   tournamentsPlayed: number;
-  bestResults: number[];
+  bestResults: BestResult[];
   isCrownHolder: boolean;
   consecutiveWins: number;
   lastTournamentPoints: number | null; // points from latest tournament
@@ -230,6 +237,19 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
     .order('created_at', { ascending: false });
   if (entriesError) return { data: [], error: entriesError.message };
 
+  // Fetch tournament names once for the bestResults enrichment.
+  const allTournamentIds = [...new Set((allEntries || []).map(e => e.tournament_id))];
+  const tournamentNamesMap: Record<string, string> = {};
+  if (allTournamentIds.length > 0) {
+    const { data: tNamesRows } = await supabase
+      .from('blitz_tournaments')
+      .select('id, name')
+      .in('id', allTournamentIds);
+    for (const t of (tNamesRows || [])) {
+      tournamentNamesMap[t.id] = t.name;
+    }
+  }
+
   // Group entries by player
   const playerEntries: Record<string, RankingEntry[]> = {};
   for (const entry of (allEntries || [])) {
@@ -253,8 +273,10 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
   // Calculate ranking for each player, including delta from last tournament
   const ranked: RankedPlayer[] = (players || []).map(player => {
     const entries = (playerEntries[player.id] || []).slice(0, WINDOW_SIZE);
-    const sorted = entries.map(e => e.totalPoints).sort((a, b) => b - a);
-    const best = sorted.slice(0, BEST_OF);
+    const sortedByPts = [...entries].sort((a, b) => b.totalPoints - a.totalPoints);
+    const bestEntries = sortedByPts.slice(0, BEST_OF);
+    const sorted = sortedByPts.map(e => e.totalPoints);  // kept for prevScore math below
+    const best = sortedByPts.slice(0, BEST_OF).map(e => e.totalPoints);
     const score = best.reduce((sum, pts) => sum + pts, 0);
 
     // Calculate what the score was BEFORE the most recent tournament
@@ -287,13 +309,20 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       form = recent[0] <= recent[1] ? 'up' : 'down';
     }
 
+    const bestResultsEnriched: BestResult[] = bestEntries.map(e => ({
+      points: e.totalPoints,
+      date: e.createdAt,
+      tournamentId: e.tournamentId,
+      tournamentName: tournamentNamesMap[e.tournamentId] || 'Tournament',
+    }));
+
     return {
       playerId: player.id,
       displayName: player.display_name,
       phone: player.phone,
       rankingScore: score,
       tournamentsPlayed: entries.length,
-      bestResults: best,
+      bestResults: bestResultsEnriched,
       isCrownHolder: player.crown_holder,
       consecutiveWins: player.consecutive_wins,
       lastTournamentPoints,

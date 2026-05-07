@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DndContext, DragEndEvent, KeyboardSensor, MouseSensor, TouchSensor,
   useSensor, useSensors, closestCenter,
@@ -21,6 +21,20 @@ interface Props {
 export default function BlitzCalendarTab({ tournament, rounds, isCreator = false, onReorder }: Props) {
   const [expandedRound, setExpandedRound] = useState<number | null>(null);
   const totalRounds = tournament.total_rounds;
+
+  // Auto-scroll to the active round on mount, so opening the Calendar
+  // tab in a long tournament (round 7/10) lands directly on the live
+  // card instead of forcing the user to scroll past completed history.
+  const activeRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (tournament.status !== 'live') return;
+    const t = setTimeout(() => {
+      activeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200); // small delay so the layout has settled
+    return () => clearTimeout(t);
+    // intentionally only on mount + when current_round changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournament.current_round]);
 
   // Pointer + touch + keyboard sensors so DnD works on desktop and mobile.
   // The 8px activation distance prevents tap-to-toggle from being misread
@@ -67,6 +81,7 @@ export default function BlitzCalendarTab({ tournament, rounds, isCreator = false
 
     return (
       <div
+        ref={isActive ? activeRef : undefined}
         onClick={() => setExpandedRound(expandedRound === roundNum ? null : roundNum)}
         style={{
           backgroundColor: colors.surface,

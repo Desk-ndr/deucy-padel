@@ -11,6 +11,8 @@ interface Props {
   rounds: BlitzRound[];
   bets: BlitzBet[];
   schedule: BlitzRoundSchedule[];
+  /** Logged-in player's index in the tournament — highlights their row */
+  myPlayerIndex?: number | null;
 }
 
 type Tab = 'games' | 'betting';
@@ -51,7 +53,7 @@ const tabTheme = {
   },
 };
 
-export default function BlitzLeaderboard({ players, rounds, bets, schedule, crownPlayerName }: Props) {
+export default function BlitzLeaderboard({ players, rounds, bets, schedule, crownPlayerName, myPlayerIndex }: Props) {
   const [tab, setTab] = useState<Tab>('games');
   const [expanded, setExpanded] = useState<number | null>(null);
   const completedRounds = rounds.filter(r => r.status === 'completed');
@@ -267,8 +269,13 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                   alignItems: 'center', gap: spacing.sm,
                   padding: `${spacing.md}px`,
                   borderBottom: `1px solid ${colors.border}`,
+                  borderLeft: p.index === myPlayerIndex
+                    ? `3px solid ${colors.primary}`
+                    : '3px solid transparent',
                   cursor: 'pointer',
-                  backgroundColor: rank === 0 ? (tab === 'games' ? colors.primaryMuted : colors.accentMuted) : 'transparent',
+                  backgroundColor: p.index === myPlayerIndex
+                    ? 'rgba(34,197,94,0.08)'
+                    : (rank === 0 ? (tab === 'games' ? colors.primaryMuted : colors.accentMuted) : 'transparent'),
                   transition: 'background-color 0.15s',
                 }}
               >

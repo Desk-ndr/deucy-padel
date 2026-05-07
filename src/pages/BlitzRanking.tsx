@@ -448,26 +448,73 @@ export default function BlitzRanking() {
                 <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, margin: 0, marginBottom: spacing.sm }}>
                   Best 4 results:
                 </p>
-                <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
-                  {player.bestResults.map((pts, i) => (
-                    <div key={i} style={{
-                      background: colors.surfaceElevated,
-                      borderRadius: radius.sm,
-                      padding: `${spacing.xs}px ${spacing.md}px`,
-                      fontFamily: fonts.mono,
-                      fontSize: 14,
-                      color: colors.primary,
-                      fontWeight: 600,
-                    }}>
-                      {pts}
-                    </div>
-                  ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                  {player.bestResults.map((br, i) => {
+                    const dateStr = br.date
+                      ? new Date(br.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : '';
+                    return (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: spacing.sm,
+                        background: colors.surfaceElevated,
+                        borderRadius: radius.sm,
+                        padding: `${spacing.xs}px ${spacing.md}px`,
+                      }}>
+                        <span style={{
+                          fontFamily: fonts.mono, fontSize: 14, fontWeight: 700,
+                          color: colors.primary, minWidth: 28,
+                        }}>
+                          {br.points}
+                        </span>
+                        <span style={{
+                          flex: 1, fontFamily: fonts.sans, fontSize: 14,
+                          color: colors.text, fontWeight: 500,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {br.tournamentName}
+                        </span>
+                        <span style={{
+                          fontFamily: fonts.sans, fontSize: 12, color: colors.muted,
+                        }}>
+                          {dateStr}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
         );
       })}
+
+      {/* Form legend */}
+      {!loading && ranking.length > 0 && (
+        <div style={{
+          marginTop: spacing.lg, padding: spacing.md,
+          background: colors.surface,
+          border: `1px solid ${colors.border}`,
+          borderRadius: radius.md,
+          display: 'flex', flexWrap: 'wrap',
+          justifyContent: 'center', gap: spacing.md,
+        }}>
+          {Object.entries(FORM_ICONS).map(([key, info]) => (
+            <span key={key} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontFamily: fonts.sans, fontSize: 13,
+              color: colors.textSecondary,
+            }}>
+              <span style={{
+                fontFamily: fonts.mono, fontWeight: 800,
+                color: info.color, minWidth: 18, textAlign: 'center',
+              }}>
+                {info.symbol}
+              </span>
+              {info.label}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Bottom spacer for nav */}
       <div style={{ height: 80 }} />
