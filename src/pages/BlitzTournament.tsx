@@ -38,8 +38,6 @@ export default function BlitzTournament() {
   const { playerIndex, isCreator, deviceId, isSpectator } = useBlitzIdentity(id, tournament?.created_by ?? null, stablePlayers);
   const timerProps = useBlitzTimer(tournament);
   const [activeTab, setActiveTab] = useState<DeucyTab>('match');
-  const tabInitRef = useRef(false);
-
   // Render-storm canary. If this component renders more than 200 times in
   // a 5s window, something is looping — log it once with a clue.
   const renderCountRef = useRef({ count: 0, t0: Date.now(), warned: false });
@@ -62,16 +60,11 @@ export default function BlitzTournament() {
     }
   }
 
-  // When the tournament data first arrives, set the default tab based on status.
-  // Finished tournaments open on Standings (the natural destination), live ones on Match.
-  useEffect(() => {
-    if (!tabInitRef.current && tournament) {
-      tabInitRef.current = true;
-      if (tournament.status === 'finished') {
-        setActiveTab('leaderboard');
-      }
-    }
-  }, [tournament]);
+  // Default tab is always Match. For live tournaments that's the round
+  // you're playing. For finished tournaments that's the celebration
+  // screen (trophy + confetti + ranking points). Users can still switch
+  // to Standings or Schedule via the bottom nav.
+  // (No tab switching effect needed — useState default already covers it.)
   
   // ── Handlers ──
 
@@ -112,11 +105,9 @@ export default function BlitzTournament() {
 
     const isLast = tournament.current_round >= tournament.total_rounds;
     if (isLast) {
-      // Eagerly switch to leaderboard so the user lands on the right tab
-      // without depending on the tabInitRef useEffect, which only fires
-      // on the first tournament arrival and can be racy in the middle of
-      // a cascade of realtime events.
-      setActiveTab('leaderboard');
+      // Stay on the Match tab — that's where the celebration screen
+      // lives (confetti, trophy, ranking points). User can still switch
+      // to Standings via the bottom nav if they want the table view.
       const rankResult = await finalizeRanking(tournament, rounds, bets);
       if (rankResult?.error) console.warn('Ranking finalization:', rankResult.error);
       toast({ title: 'Tournament complete!' });
