@@ -6,7 +6,7 @@ import { useBlitzIdentity } from '@/hooks/useBlitzIdentity';
 import { useBlitzTimer } from '@/hooks/useBlitzTimer';
 import {
   startTournament, startTimer, pauseTimer, resetTimer,
-  submitScore, placeBet, cancelBet, resetTournament, editScore, reorderRound, BlitzPlayer,
+  submitScore, placeBet, cancelBet, editScore, reorderRound, deleteTournament, BlitzPlayer,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
 import { finalizeRanking } from '@/services/rankingService';
@@ -18,6 +18,10 @@ import BlitzCalendarTab from '@/components/blitz/BlitzCalendarTab';
 import BlitzLeaderboard from '@/components/blitz/BlitzLeaderboard';
 import BlitzBettingCard from '@/components/blitz/BlitzBettingCard';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function BlitzTournament() {
   const { id } = useParams<{ id: string }>();
@@ -201,26 +205,19 @@ export default function BlitzTournament() {
     refetch();
   };
 
-  const handleReset = async () => {
-    if (!id || !tournament) return;
-    if (tournament.status === 'finished') {
-      const code = window.prompt('This tournament is finished. Resetting will delete ranking data.\nEnter secret code to confirm:');
-      if (code !== 'Valencia2026') {
-        if (code !== null) toast({ title: 'Wrong code', variant: 'destructive' });
-        return;
-      }
-    } else {
-      const ok = window.confirm('Reset this tournament? All rounds and scores will be lost.');
-      if (!ok) return;
-    }
-    await resetTournament(id, tournament.players.map(p => p.name));
-    toast({ title: 'Tournament reset!' }); refetch();
-  };
+  // Delete tournament dialog state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteCode, setDeleteCode] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
-  const handleShare = () => {
-    const url = window.location.href;
-    if (navigator.share) navigator.share({ title: tournament?.name || 'Blitz', url });
-    else { navigator.clipboard.writeText(url); toast({ title: 'Link copied!' }); }
+  const handleDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    await deleteTournament(id);
+    setDeleting(false);
+    setDeleteOpen(false);
+    setDeleteCode('');
+    navigate('/blitz');
   };
 
   // ── Render states ──
@@ -342,25 +339,20 @@ export default function BlitzTournament() {
           </h1>
 
           <div style={{ display: 'flex', gap: spacing.xs }}>
-            <button onClick={handleShare} style={{
-              background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary,
-              width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
+            <button
+              onClick={() => setDeleteOpen(true)}
+              aria-label="Delete tournament"
+              title="Delete tournament"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: colors.muted,
+                width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
               <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
               </svg>
             </button>
-            {isCreator && (
-              <button onClick={handleReset} style={{
-                background: 'none', border: 'none', cursor: 'pointer', color: colors.destructive,
-                width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-                </svg>
-              </button>
-            )}
           </div>
         </div>
 
@@ -416,6 +408,51 @@ export default function BlitzTournament() {
           onTabChange={(tab) => { if (tab === "home") navigate("/blitz"); else setActiveTab(tab); }}
         />
       </div>
+
+      {/* Delete dialog — secret code gate */}
+      <AlertDialog open={deleteOpen} onOpenChange={(v) => { if (!v) { setDeleteOpen(false); setDeleteCode(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{tournament?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {tournament?.status === 'finished'
+                ? 'This tournament has ranking data. Deleting it will recalculate the overall ranking for all players.'
+                : 'This will permanently remove the tournament.'}
+              {' '}This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div style={{ padding: '0 24px' }}>
+            <p style={{ fontSize: 14, color: colors.muted, marginBottom: 8 }}>
+              Enter the secret code to confirm
+            </p>
+            <input
+              type="text"
+              value={deleteCode}
+              onChange={(e) => setDeleteCode(e.target.value)}
+              placeholder="Secret code"
+              autoComplete="off"
+              style={{
+                width: '100%', padding: '10px 12px',
+                backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm, color: colors.text,
+                fontSize: 14, fontFamily: fonts.mono, fontWeight: 600,
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting} onClick={() => setDeleteCode('')}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting || deleteCode !== 'Valencia2026'}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              style={{ opacity: deleteCode === 'Valencia2026' ? 1 : 0.4 }}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

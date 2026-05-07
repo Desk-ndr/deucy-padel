@@ -1,10 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { listTournaments, createTournament, deleteTournament, subscribeAllTournaments, BlitzTournamentData } from '@/services/blitzService';
+import { listTournaments, createTournament, subscribeAllTournaments, BlitzTournamentData } from '@/services/blitzService';
 import { getRanking, RankedPlayer } from '@/services/rankingService';
 import { supabase } from '@/integrations/supabase/client';
 import { useBlitzIdentity, getGlobalPlayer } from '@/hooks/useBlitzIdentity';
@@ -17,9 +13,6 @@ export default function BlitzList() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('Saturday Blitz');
   const [creating, setCreating] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<BlitzTournamentData | null>(null);
-  const [deleteCode, setDeleteCode] = useState('');
-  const [deleting, setDeleting] = useState(false);
   const [ranking, setRanking] = useState<RankedPlayer[]>([]);
   const [rankingLoading, setRankingLoading] = useState(true);
   const [myRank, setMyRank] = useState<{ position: number; score: number } | null>(null);
@@ -130,16 +123,6 @@ export default function BlitzList() {
     const { data, error } = await createTournament(name, deviceId);
     setCreating(false);
     if (!error && data) navigate(`/blitz/${data.id}`);
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    await deleteTournament(deleteTarget.id);
-    setDeleting(false);
-    setDeleteTarget(null);
-    setDeleteCode('');
-    load();
   };
 
   const liveTournaments = tournaments.filter(t => t.status === 'live');
@@ -417,17 +400,6 @@ export default function BlitzList() {
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    padding: spacing.xs, color: colors.muted, display: 'flex',
-                  }}
-                >
-                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                  </svg>
-                </button>
                 <span style={{ fontSize: 22, color: colors.primary }}>→</span>
               </div>
             </div>
@@ -488,18 +460,6 @@ export default function BlitzList() {
                       </span>
                     </div>
                   )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      padding: spacing.xs, color: colors.muted, display: 'flex',
-                      opacity: 0.5,
-                    }}
-                  >
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                    </svg>
-                  </button>
                 </div>
               </div>
             </div>
@@ -588,18 +548,6 @@ export default function BlitzList() {
                       Did not play
                     </span>
                   )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      padding: spacing.xs, color: colors.muted, display: 'flex',
-                      opacity: 0.5,
-                    }}
-                  >
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                    </svg>
-                  </button>
                 </div>
               </div>
             </div>
@@ -695,51 +643,6 @@ export default function BlitzList() {
           </svg>
         </button>
       )}
-
-      {/* ── Delete dialog ── */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) { setDeleteTarget(null); setDeleteCode(''); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteTarget?.status === 'finished'
-                ? 'This tournament has ranking data. Deleting it will recalculate the overall ranking for all players.'
-                : 'This will permanently remove the tournament.'}
-              {' '}This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div style={{ padding: '0 24px' }}>
-            <p style={{ fontSize: 14, color: colors.muted, marginBottom: 8 }}>
-              Enter the secret code to confirm
-            </p>
-            <input
-              type="text"
-              value={deleteCode}
-              onChange={(e) => setDeleteCode(e.target.value)}
-              placeholder="Secret code"
-              autoComplete="off"
-              style={{
-                width: '100%', padding: '10px 12px',
-                backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm, color: colors.text,
-                fontSize: 14, fontFamily: fonts.mono, fontWeight: 600,
-                outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting} onClick={() => setDeleteCode('')}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={deleting || deleteCode !== 'Valencia2026'}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              style={{ opacity: deleteCode === 'Valencia2026' ? 1 : 0.4 }}
-            >
-              {deleting ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Bottom spacer */}
       <div style={{ height: 80 }} />
