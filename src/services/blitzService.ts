@@ -332,26 +332,30 @@ export async function cancelBet(
 }
 
 /**
- * Swap two rounds in the tournament schedule.
+ * Move a round from position fromIndex to position toIndex in the
+ * tournament schedule. The other rounds shift to fill the gap.
  *
- * Rules (also enforced backend-side here so a stale client cannot
- * bypass them):
- *  - Both rounds must exist (1 <= index <= total_rounds).
- *  - Neither round may be already completed.
- *  - We do not check the active-round-with-running-timer case here
- *    because the server cannot trivially see the timer state in the
- *    same transaction; the UI gates that case for the host.
+ * Example: rounds 1..5, move round 1 to position 5
+ *   before: [r1, r2, r3, r4, r5]
+ *    after: [r2, r3, r4, r5, r1]
  *
- * Implementation: read schedule, swap the two array slots, write
- * back. The `blitz_rounds` records keep their round_index — we only
- * change the team composition of each slot, which lives in the
- * tournament.schedule array.
+ * This is the move-style reorder a drag-and-drop UI produces, NOT a
+ * swap. Use this when the host drags a round card to a new spot.
+ *
+ * Rules:
+ *  - Both indices must be in range (1 <= idx <= total_rounds).
+ *  - The tournament must not be finished.
+ *  - The round being moved must not be completed.
+ *  - The destination position cannot be "earlier than" any
+ *    already-completed round (we don't allow reshuffling history).
+ *    Concretely: toIndex must be greater than every completed
+ *    round's index.
  */
-export async function swapRoundOrder(tournamentId: string, indexA: number, indexB: number) {
-  if (indexA === indexB) return { error: null };
+export async function reorderRound(tournamentId: string, fromIndex: number, toIndex: number) {
+  if (fromIndex === toIndex) return { error: null };
 
   const { data: t, error: tErr } = await supabase.from('blitz_tournaments')
-    .select('schedule, total_rounds, current_round, status')
+    .select('schedule, total_rounds, status')
     .eq('id', tournamentId)
     .single();
   if (tErr || !t) return { error: tErr?.message ?? 'Tournament not found' };
@@ -360,22 +364,38 @@ export async function swapRoundOrder(tournamentId: string, indexA: number, index
 
   const schedule = (t.schedule as BlitzRoundSchedule[] | null) ?? [];
   const total = t.total_rounds ?? schedule.length;
-  if (indexA < 1 || indexA > total || indexB < 1 || indexB > total) {
+  if (
+    fromIndex < 1 || fromIndex > total ||
+    toIndex < 1 || toIndex > total
+  ) {
     return { error: 'INVALID_INDEX' };
   }
 
-  // Verify neither round is already completed.
+  // Inspect round status — find completed rounds and the moved round.
   const { data: rData, error: rErr } = await supabase.from('blitz_rounds')
     .select('round_index, status')
-    .eq('tournament_id', tournamentId)
-    .in('round_index', [indexA, indexB]);
+    .eq('tournament_id', tournamentId);
   if (rErr) return { error: rErr.message };
-  for (const r of (rData || [])) {
-    if (r.status === 'completed') return { error: 'ROUND_COMPLETED' };
+
+  const completedIdxs = (rData || [])
+    .filter(r => r.status === 'completed')
+    .map(r => r.round_index);
+  const maxCompleted = completedIdxs.length > 0 ? Math.max(...completedIdxs) : 0;
+
+  // The round being moved cannot itself be completed.
+  if (completedIdxs.includes(fromIndex)) {
+    return { error: 'ROUND_COMPLETED' };
+  }
+  // Cannot move INTO the completed prefix (would push completed rounds
+  // around, corrupting the played history).
+  if (toIndex <= maxCompleted || fromIndex <= maxCompleted) {
+    return { error: 'ROUND_COMPLETED' };
   }
 
+  // Splice: remove from old position, insert at new position.
   const next = [...schedule];
-  [next[indexA - 1], next[indexB - 1]] = [next[indexB - 1], next[indexA - 1]];
+  const [moved] = next.splice(fromIndex - 1, 1);
+  next.splice(toIndex - 1, 0, moved);
 
   const { error: uErr } = await supabase.from('blitz_tournaments')
     .update({ schedule: next as any } as any)

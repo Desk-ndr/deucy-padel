@@ -6,7 +6,7 @@ import { useBlitzIdentity } from '@/hooks/useBlitzIdentity';
 import { useBlitzTimer } from '@/hooks/useBlitzTimer';
 import {
   startTournament, startTimer, pauseTimer, resetTimer,
-  submitScore, placeBet, cancelBet, resetTournament, editScore, swapRoundOrder, BlitzPlayer,
+  submitScore, placeBet, cancelBet, resetTournament, editScore, reorderRound, BlitzPlayer,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
 import { finalizeRanking } from '@/services/rankingService';
@@ -185,9 +185,9 @@ export default function BlitzTournament() {
     }
   };
 
-  const handleSwap = async (indexA: number, indexB: number) => {
-    if (!id) return;
-    const { error } = await swapRoundOrder(id, indexA, indexB);
+  const handleReorder = async (fromIndex: number, toIndex: number) => {
+    if (!id || fromIndex === toIndex) return;
+    const { error } = await reorderRound(id, fromIndex, toIndex);
     if (error) {
       const friendly =
         error === 'ROUND_COMPLETED' ? 'That round is already completed.' :
@@ -197,7 +197,7 @@ export default function BlitzTournament() {
       toast({ title: 'Cannot reorder', description: friendly, variant: 'destructive' });
       return;
     }
-    toast({ title: `Round ${indexA} \u2194 Round ${indexB}` });
+    toast({ title: `Round ${fromIndex} \u2192 position ${toIndex}` });
     refetch();
   };
 
@@ -400,7 +400,7 @@ export default function BlitzTournament() {
             <BlitzCalendarTab
               tournament={tournament} rounds={rounds}
               isCreator={isCreator}
-              onSwap={handleSwap}
+              onReorder={handleReorder}
             />
           )}
           </ErrorBoundary>
