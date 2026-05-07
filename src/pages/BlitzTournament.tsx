@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useBlitzRealtime } from '@/hooks/useBlitzRealtime';
@@ -26,6 +26,18 @@ export default function BlitzTournament() {
   const { playerIndex, isCreator, deviceId, isSpectator } = useBlitzIdentity(id, tournament?.created_by ?? null, tournament?.players);
   const timerProps = useBlitzTimer(tournament);
   const [activeTab, setActiveTab] = useState<DeucyTab>('match');
+  const tabInitRef = useRef(false);
+
+  // When the tournament data first arrives, set the default tab based on status.
+  // Finished tournaments open on Standings (the natural destination), live ones on Match.
+  useEffect(() => {
+    if (!tabInitRef.current && tournament) {
+      tabInitRef.current = true;
+      if (tournament.status === 'finished') {
+        setActiveTab('leaderboard');
+      }
+    }
+  }, [tournament]);
   
   // ── Handlers ──
 

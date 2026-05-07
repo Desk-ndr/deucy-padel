@@ -105,7 +105,8 @@ export default function BlitzList() {
   };
 
   const liveTournaments = tournaments.filter(t => t.status === 'live');
-  const otherTournaments = tournaments.filter(t => t.status !== 'live');
+  const upcomingTournaments = tournaments.filter(t => t.status === 'setup');
+  const finishedTournaments = tournaments.filter(t => t.status === 'finished');
   const top3 = ranking.slice(0, 3);
 
   const ordinalSuffix = (n: number) => {
@@ -186,7 +187,7 @@ export default function BlitzList() {
               <span style={{
                 fontFamily: fonts.sans, fontSize: 16, fontWeight: 700,
                 color: colors.text, letterSpacing: 0,
-              }}>Deucy Ranking#</span>
+              }}>Deucy Ranking</span>
             </div>
 
             {/* PTS column label — with breathing room from header */}
@@ -322,19 +323,23 @@ export default function BlitzList() {
           </div>
         )}
 
-        {/* ── Section label ── */}
-        {tournaments.length > 0 && (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            marginBottom: spacing.sm,
-          }}>
-            <span style={{ ...typeScale.micro, color: colors.muted, fontSize: 11 }}>
-              Tournaments
+        {/* ── Live section ── */}
+        {liveTournaments.length > 0 && (
+          <div style={{ marginBottom: spacing.sm }}>
+            <span style={{
+              ...typeScale.micro, color: colors.primary, fontSize: 11,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              display: 'flex', alignItems: 'center', gap: spacing.xs,
+            }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: colors.primary, display: 'inline-block',
+                animation: 'livePulse 1.6s ease-in-out infinite',
+              }} />
+              Live now
             </span>
           </div>
         )}
-
-        {/* ── Live Tournaments ── */}
         {liveTournaments.map(t => (
           <div
             key={t.id}
@@ -392,11 +397,20 @@ export default function BlitzList() {
           </div>
         ))}
 
-        {/* ── Finished / Setup Tournaments ── */}
-        {otherTournaments.map(t => {
+        {/* ── Upcoming section ── */}
+        {upcomingTournaments.length > 0 && (
+          <div style={{ marginTop: liveTournaments.length > 0 ? spacing.lg : 0, marginBottom: spacing.sm }}>
+            <span style={{
+              ...typeScale.micro, color: colors.muted, fontSize: 11,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+            }}>
+              Upcoming
+            </span>
+          </div>
+        )}
+        {upcomingTournaments.map(t => {
           const result = myResults[t.id];
           const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-
           return (
             <div
               key={t.id}
@@ -435,6 +449,86 @@ export default function BlitzList() {
                       }}>
                         {result.points > 0 ? `+${result.points}` : '0'}
                       </span>
+                    </div>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      padding: spacing.xs, color: colors.muted, display: 'flex',
+                      opacity: 0.5,
+                    }}
+                  >
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* ── History section ── */}
+        {finishedTournaments.length > 0 && (
+          <div style={{
+            marginTop: (liveTournaments.length > 0 || upcomingTournaments.length > 0) ? spacing.lg : 0,
+            marginBottom: spacing.sm,
+          }}>
+            <span style={{
+              ...typeScale.micro, color: colors.muted, fontSize: 11,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+            }}>
+              History
+            </span>
+          </div>
+        )}
+        {finishedTournaments.map(t => {
+          const result = myResults[t.id];
+          const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+          return (
+            <div
+              key={t.id}
+              onClick={() => navigate(`/blitz/${t.id}`)}
+              style={{
+                background: colors.surface,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.md,
+                padding: `${spacing.md}px`,
+                marginBottom: spacing.sm,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 15, fontWeight: 600, color: colors.textSecondary }}>
+                    {t.name}
+                  </span>
+                  <span style={{ display: 'block', fontSize: 12, color: colors.muted, marginTop: 2 }}>
+                    {t.players.length} players{dateStr ? ` · ${dateStr}` : ''}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                  {/* My result — highlighted */}
+                  {result && (
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: 12, color: colors.textSecondary, fontWeight: 600 }}>
+                        {result.placement}{ordinalSuffix(result.placement)}
+                      </span>
+                      <div style={{ marginTop: 4 }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          background: result.points > 0 ? colors.primaryMuted : 'transparent',
+                          border: result.points > 0 ? `1px solid rgba(34,197,94,0.25)` : '1px solid transparent',
+                          borderRadius: radius.pill,
+                          fontFamily: fonts.mono,
+                          fontSize: 12, fontWeight: 800,
+                          color: result.points > 0 ? colors.primary : colors.muted,
+                        }}>
+                          {result.points > 0 ? `+${result.points} pts` : '0 pts'}
+                        </span>
+                      </div>
                     </div>
                   )}
                   <button
@@ -513,23 +607,37 @@ export default function BlitzList() {
           </div>
         )}
 
-        {/* ── New Blitz button ── */}
+      </div>
+
+      {/* ── FAB: New Blitz ── */}
+      {!showCreate && (
         <button
-          onClick={() => setShowCreate(!showCreate)}
+          onClick={() => setShowCreate(true)}
+          aria-label="Create new Blitz"
+          title="Create new Blitz"
           style={{
-            width: '100%', padding: `${spacing.md}px`,
-            backgroundColor: showCreate ? 'transparent' : colors.primary,
-            border: showCreate ? `2px solid ${colors.primary}` : 'none',
-            borderRadius: radius.md,
-            color: showCreate ? colors.primary : colors.bg,
-            fontSize: 15, fontWeight: 800,
-            cursor: 'pointer', fontFamily: fonts.sans,
-            marginTop: spacing.sm,
+            position: 'fixed',
+            bottom: `calc(${spacing.lg}px + env(safe-area-inset-bottom, 0px))`,
+            right: spacing.lg,
+            width: 56, height: 56,
+            borderRadius: '50%',
+            background: colors.primary,
+            border: 'none',
+            color: colors.bg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: `0 4px 16px rgba(34,197,94,0.35), 0 2px 6px rgba(0,0,0,0.4)`,
+            zIndex: 50,
+            transition: 'transform 0.15s, box-shadow 0.15s',
           }}
         >
-          + New Blitz
+          <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
         </button>
-      </div>
+      )}
 
       {/* ── Delete dialog ── */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) { setDeleteTarget(null); setDeleteCode(''); } }}>
