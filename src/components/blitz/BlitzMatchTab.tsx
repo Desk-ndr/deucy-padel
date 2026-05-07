@@ -284,10 +284,10 @@ export default function BlitzMatchTab({
         </div>
 
         {/* Completed rounds with edit */}
-        {isCreator && completedAll.length > 0 && (
+        {canSubmit && completedAll.length > 0 && (
           <div style={{ position: 'relative', zIndex: 1 }}>
             <CompletedRounds
-              rounds={completedAll} tournament={tournament} isCreator={isCreator}
+              rounds={completedAll} tournament={tournament} canEdit={canSubmit}
               editingRound={editingRound} editScoreA={editScoreA} editScoreB={editScoreB}
               setEditingRound={setEditingRound} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
               onEditScore={onEditScore}
@@ -501,7 +501,7 @@ export default function BlitzMatchTab({
       {/* Completed rounds */}
       {completedRounds.length > 0 && (
         <CompletedRounds
-          rounds={completedRounds} tournament={tournament} isCreator={isCreator}
+          rounds={completedRounds} tournament={tournament} canEdit={canSubmit}
           editingRound={editingRound} editScoreA={editScoreA} editScoreB={editScoreB}
           setEditingRound={setEditingRound} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
           onEditScore={onEditScore}
@@ -514,10 +514,10 @@ export default function BlitzMatchTab({
 
 /* ── Completed Rounds sub-component with inline edit ──────────── */
 
-function CompletedRounds({ rounds, tournament, isCreator, editingRound, editScoreA, editScoreB, setEditingRound, setEditScoreA, setEditScoreB, onEditScore }: {
+function CompletedRounds({ rounds, tournament, canEdit, editingRound, editScoreA, editScoreB, setEditingRound, setEditScoreA, setEditScoreB, onEditScore }: {
   rounds: BlitzRound[];
   tournament: BlitzTournamentData;
-  isCreator: boolean;
+  canEdit: boolean;
   editingRound: BlitzRound | null;
   editScoreA: string;
   editScoreB: string;
@@ -608,7 +608,7 @@ function CompletedRounds({ rounds, tournament, isCreator, editingRound, editScor
                 }}>
                   {tournament.players[s.teamB[0]]?.name} & {tournament.players[s.teamB[1]]?.name}
                 </span>
-                {isCreator && (
+                {canEdit && (
                   <button onClick={() => {
                     setEditingRound(r);
                     setEditScoreA(String(r.team_a_score ?? 0));
