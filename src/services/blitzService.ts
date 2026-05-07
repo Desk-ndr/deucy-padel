@@ -13,6 +13,7 @@ export interface BlitzRound {
 export interface BlitzBet {
   id: string; round_index: number; bettor_index: number;
   predicted_winner: string; status: string; stake: number;
+  created_at?: string;
 }
 
 export interface BlitzTournamentData {
@@ -273,6 +274,36 @@ export async function placeBet(
 
   const { error: tErr } = await supabase.from('blitz_tournaments')
     .update({ players: updatedPlayers as any } as any).eq('id', tournamentId);
+  return { error: tErr?.message ?? null };
+}
+
+export async function cancelBet(
+  tournamentId: string, betId: string, bettorIndex: number,
+  refundStake: number, players: BlitzPlayer[],
+) {
+  // CAS: only delete if bet is still pending. If the round has already
+  // closed (status flipped to won/lost/draw by submitScore), the delete
+  // matches zero rows and we surface a soft error so the UI doesn't
+  // pretend it succeeded.
+  const { data: deleted, error: dErr } = await supabase.from('blitz_bets')
+    .delete()
+    .eq('id', betId)
+    .eq('status', 'pending')
+    .select('id');
+  if (dErr) return { error: dErr.message };
+  if (!deleted || deleted.length === 0) {
+    return { error: 'BET_ALREADY_SETTLED' };
+  }
+
+  // Refund the stake to the bettor.
+  const updatedPlayers = [...players];
+  updatedPlayers[bettorIndex] = {
+    ...updatedPlayers[bettorIndex],
+    balance: updatedPlayers[bettorIndex].balance + refundStake,
+  };
+  const { error: tErr } = await supabase.from('blitz_tournaments')
+    .update({ players: updatedPlayers as any } as any)
+    .eq('id', tournamentId);
   return { error: tErr?.message ?? null };
 }
 

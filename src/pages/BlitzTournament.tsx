@@ -6,7 +6,7 @@ import { useBlitzIdentity } from '@/hooks/useBlitzIdentity';
 import { useBlitzTimer } from '@/hooks/useBlitzTimer';
 import {
   startTournament, startTimer, pauseTimer, resetTimer,
-  submitScore, placeBet, resetTournament, editScore, BlitzPlayer,
+  submitScore, placeBet, cancelBet, resetTournament, editScore, BlitzPlayer,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
 import { finalizeRanking } from '@/services/rankingService';
@@ -106,6 +106,22 @@ export default function BlitzTournament() {
     const { error } = await placeBet(id, tournament.current_round, playerIndex, prediction, stake, updated);
     if (error) toast({ title: 'Error', description: error, variant: 'destructive' });
     else { toast({ title: `Prediction placed: Team ${prediction}` }); refetch(); }
+  };
+
+  const handleCancelBet = async (betId: string, refundStake: number) => {
+    if (!id || !tournament || playerIndex === null) return;
+    const { error } = await cancelBet(id, betId, playerIndex, refundStake, tournament.players);
+    if (error) {
+      if (error === 'BET_ALREADY_SETTLED') {
+        toast({ title: 'Too late', description: 'The round just closed — your bet is already settled.' });
+        refetch();
+        return;
+      }
+      toast({ title: 'Error', description: error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Prediction cancelled', description: `€${refundStake} refunded.` });
+      refetch();
+    }
   };
 
   const handleReset = async () => {
@@ -293,6 +309,7 @@ export default function BlitzTournament() {
                     existingBet={existingBet}
                     bets={bets}
                     onPlaceBet={handlePlaceBet}
+                    onCancelBet={handleCancelBet}
                   />
                 </div>
               )}
