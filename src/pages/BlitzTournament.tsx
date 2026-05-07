@@ -6,7 +6,7 @@ import { useBlitzIdentity } from '@/hooks/useBlitzIdentity';
 import { useBlitzTimer } from '@/hooks/useBlitzTimer';
 import {
   startTournament, startTimer, pauseTimer, resetTimer,
-  submitScore, placeBet, cancelBet, resetTournament, editScore, BlitzPlayer,
+  submitScore, placeBet, cancelBet, resetTournament, editScore, swapRoundOrder, BlitzPlayer,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
 import { finalizeRanking } from '@/services/rankingService';
@@ -183,6 +183,22 @@ export default function BlitzTournament() {
       toast({ title: 'Prediction cancelled', description: `€${refundStake} refunded.` });
       refetch();
     }
+  };
+
+  const handleSwap = async (indexA: number, indexB: number) => {
+    if (!id) return;
+    const { error } = await swapRoundOrder(id, indexA, indexB);
+    if (error) {
+      const friendly =
+        error === 'ROUND_COMPLETED' ? 'That round is already completed.' :
+        error === 'TOURNAMENT_FINISHED' ? 'Tournament is finished — order cannot change.' :
+        error === 'INVALID_INDEX' ? 'Invalid round.' :
+        error;
+      toast({ title: 'Cannot reorder', description: friendly, variant: 'destructive' });
+      return;
+    }
+    toast({ title: `Round ${indexA} \u2194 Round ${indexB}` });
+    refetch();
   };
 
   const handleReset = async () => {
@@ -381,7 +397,11 @@ export default function BlitzTournament() {
             <BlitzLeaderboard players={sortedPlayers} rounds={rounds} bets={bets} schedule={tournament.schedule} />
           )}
           {activeTab === 'calendar' && (
-            <BlitzCalendarTab tournament={tournament} rounds={rounds} />
+            <BlitzCalendarTab
+              tournament={tournament} rounds={rounds}
+              isCreator={isCreator}
+              onSwap={handleSwap}
+            />
           )}
           </ErrorBoundary>
         </div>

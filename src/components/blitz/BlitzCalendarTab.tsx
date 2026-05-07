@@ -6,9 +6,11 @@ import { BlitzTournamentData, BlitzRound } from '@/services/blitzService';
 interface Props {
   tournament: BlitzTournamentData;
   rounds: BlitzRound[];
+  isCreator?: boolean;
+  onSwap?: (indexA: number, indexB: number) => Promise<void>;
 }
 
-export default function BlitzCalendarTab({ tournament, rounds }: Props) {
+export default function BlitzCalendarTab({ tournament, rounds, isCreator = false, onSwap }: Props) {
   const [expandedRound, setExpandedRound] = useState<number | null>(null);
   const totalRounds = tournament.total_rounds;
 
@@ -102,6 +104,15 @@ export default function BlitzCalendarTab({ tournament, rounds }: Props) {
                       {round.team_a_score} - {round.team_b_score}
                     </span>
                   )}
+                  {/* Reorder controls — host only, non-completed rounds only */}
+                  {isCreator && onSwap && !isCompleted && (
+                    <ReorderControls
+                      roundNum={roundNum}
+                      total={totalRounds}
+                      rounds={rounds}
+                      onSwap={onSwap}
+                    />
+                  )}
                   {/* Chevron */}
                   <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={colors.muted}
                     strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
@@ -170,6 +181,67 @@ export default function BlitzCalendarTab({ tournament, rounds }: Props) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* ── Reorder controls (host only) ──────────────────────────────── */
+
+function ReorderControls({ roundNum, total, rounds, onSwap }: {
+  roundNum: number;
+  total: number;
+  rounds: BlitzRound[];
+  onSwap: (a: number, b: number) => Promise<void>;
+}) {
+  const isCompleted = (idx: number) =>
+    rounds.find(r => r.round_index === idx)?.status === 'completed';
+
+  const canMoveUp = roundNum > 1 && !isCompleted(roundNum - 1);
+  const canMoveDown = roundNum < total && !isCompleted(roundNum + 1);
+
+  const handle = (delta: number) => async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await onSwap(roundNum, roundNum + delta);
+  };
+
+  const btnStyle = (enabled: boolean): React.CSSProperties => ({
+    width: 24, height: 24, borderRadius: radius.sm,
+    background: 'transparent',
+    border: `1px solid ${enabled ? colors.border : 'transparent'}`,
+    color: enabled ? colors.textSecondary : colors.muted,
+    cursor: enabled ? 'pointer' : 'not-allowed',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: 0, opacity: enabled ? 1 : 0.3,
+  });
+
+  return (
+    <div style={{ display: 'flex', gap: 2 }} onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={canMoveUp ? handle(-1) : undefined}
+        disabled={!canMoveUp}
+        style={btnStyle(canMoveUp)}
+        title="Move up"
+        aria-label={`Move round ${roundNum} up`}
+      >
+        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="18 15 12 9 6 15" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={canMoveDown ? handle(1) : undefined}
+        disabled={!canMoveDown}
+        style={btnStyle(canMoveDown)}
+        title="Move down"
+        aria-label={`Move round ${roundNum} down`}
+      >
+        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
     </div>
   );
 }

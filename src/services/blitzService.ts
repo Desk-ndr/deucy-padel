@@ -331,6 +331,58 @@ export async function cancelBet(
   return { error: tErr?.message ?? null };
 }
 
+/**
+ * Swap two rounds in the tournament schedule.
+ *
+ * Rules (also enforced backend-side here so a stale client cannot
+ * bypass them):
+ *  - Both rounds must exist (1 <= index <= total_rounds).
+ *  - Neither round may be already completed.
+ *  - We do not check the active-round-with-running-timer case here
+ *    because the server cannot trivially see the timer state in the
+ *    same transaction; the UI gates that case for the host.
+ *
+ * Implementation: read schedule, swap the two array slots, write
+ * back. The `blitz_rounds` records keep their round_index — we only
+ * change the team composition of each slot, which lives in the
+ * tournament.schedule array.
+ */
+export async function swapRoundOrder(tournamentId: string, indexA: number, indexB: number) {
+  if (indexA === indexB) return { error: null };
+
+  const { data: t, error: tErr } = await supabase.from('blitz_tournaments')
+    .select('schedule, total_rounds, current_round, status')
+    .eq('id', tournamentId)
+    .single();
+  if (tErr || !t) return { error: tErr?.message ?? 'Tournament not found' };
+
+  if (t.status === 'finished') return { error: 'TOURNAMENT_FINISHED' };
+
+  const schedule = (t.schedule as BlitzRoundSchedule[] | null) ?? [];
+  const total = t.total_rounds ?? schedule.length;
+  if (indexA < 1 || indexA > total || indexB < 1 || indexB > total) {
+    return { error: 'INVALID_INDEX' };
+  }
+
+  // Verify neither round is already completed.
+  const { data: rData, error: rErr } = await supabase.from('blitz_rounds')
+    .select('round_index, status')
+    .eq('tournament_id', tournamentId)
+    .in('round_index', [indexA, indexB]);
+  if (rErr) return { error: rErr.message };
+  for (const r of (rData || [])) {
+    if (r.status === 'completed') return { error: 'ROUND_COMPLETED' };
+  }
+
+  const next = [...schedule];
+  [next[indexA - 1], next[indexB - 1]] = [next[indexB - 1], next[indexA - 1]];
+
+  const { error: uErr } = await supabase.from('blitz_tournaments')
+    .update({ schedule: next as any } as any)
+    .eq('id', tournamentId);
+  return { error: uErr?.message ?? null };
+}
+
 export async function resetTournament(id: string, playerNames: string[]) {
   // Check if tournament was finished — if so, clean ranking data
   const { data: tournamentData } = await supabase
