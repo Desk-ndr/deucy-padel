@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BlitzTournamentData, BlitzRound } from '@/services/blitzService';
 import { colors, spacing, radius, fonts, typeScale, shadows } from '@/lib/design-tokens';
 import { HeroCard } from '@/components/ui/deucy';
@@ -8,6 +8,7 @@ interface Props {
   tournament: BlitzTournamentData;
   rounds: BlitzRound[];
   isCreator: boolean;
+  playerIndex: number | null;
   timerProps: { secondsLeft: number; isRunning: boolean; isPaused: boolean; isExpired: boolean };
   onStartTimer: () => void;
   onPauseTimer: () => void;
@@ -18,7 +19,7 @@ interface Props {
 }
 
 export default function BlitzMatchTab({
-  tournament, rounds, isCreator, timerProps,
+  tournament, rounds, isCreator, playerIndex, timerProps,
   onStartTimer, onPauseTimer, onResetTimer, onSubmitScore, onEditScore, onBetClick,
 }: Props) {
   const [scoreA, setScoreA] = useState('');
@@ -27,6 +28,48 @@ export default function BlitzMatchTab({
   const [editingRound, setEditingRound] = useState<BlitzRound | null>(null);
   const [editScoreA, setEditScoreA] = useState('');
   const [editScoreB, setEditScoreB] = useState('');
+
+  // ── Timer expired feedback (audio beep + vibration) ─────────
+  // Fires once on the false → true transition of isExpired. Reset
+  // when the timer is restarted so a re-run will trigger again.
+  const wasExpiredRef = useRef(false);
+  useEffect(() => {
+    if (timerProps.isExpired && !wasExpiredRef.current) {
+      wasExpiredRef.current = true;
+
+      // 3 short beeps — works without any external audio asset.
+      try {
+        const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined;
+        if (Ctx) {
+          const ctx = new Ctx();
+          [0, 200, 400].forEach((delay) => {
+            window.setTimeout(() => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(880, ctx.currentTime);
+              gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.01);
+              gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.2);
+            }, delay);
+          });
+        }
+      } catch {
+        // Audio context blocked (autoplay policy, etc.) — silent fallback.
+      }
+
+      // Haptic feedback (mobile) — pattern: buzz / pause / buzz / pause / long.
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try { navigator.vibrate([200, 100, 200, 100, 400]); } catch {}
+      }
+    } else if (!timerProps.isExpired && wasExpiredRef.current) {
+      wasExpiredRef.current = false;
+    }
+  }, [timerProps.isExpired]);
 
   const totalRounds = tournament.total_rounds;
   const sortedPlayers = tournament.players
@@ -256,6 +299,32 @@ export default function BlitzMatchTab({
 
   if (!currentSchedule) return null;
 
+  // ── Player context for this round ───────────────────────────
+  const amResting = playerIndex !== null && currentSchedule.rest.includes(playerIndex);
+
+  // Next-round preview (only relevant if I'm resting now and there is a next round).
+  const nextSchedule = tournament.current_round < tournament.total_rounds
+    ? tournament.schedule[tournament.current_round] // 0-based index of NEXT round
+    : null;
+  let nextInfo: { partnerName: string; opp1: string; opp2: string } | null = null;
+  let nextRestAgain = false;
+  if (amResting && nextSchedule && playerIndex !== null) {
+    const onA = nextSchedule.teamA.includes(playerIndex);
+    const onB = nextSchedule.teamB.includes(playerIndex);
+    if (onA || onB) {
+      const myTeam = onA ? nextSchedule.teamA : nextSchedule.teamB;
+      const oppTeam = onA ? nextSchedule.teamB : nextSchedule.teamA;
+      const partnerIdx = myTeam.find(i => i !== playerIndex);
+      nextInfo = {
+        partnerName: partnerIdx !== undefined ? (tournament.players[partnerIdx]?.name ?? '?') : '?',
+        opp1: tournament.players[oppTeam[0]]?.name ?? '?',
+        opp2: tournament.players[oppTeam[1]]?.name ?? '?',
+      };
+    } else {
+      nextRestAgain = true;
+    }
+  }
+
   const handleSubmit = async () => {
     const a = parseInt(scoreA);
     const b = parseInt(scoreB);
@@ -318,8 +387,42 @@ export default function BlitzMatchTab({
         </div>
       </HeroCard>
 
-      {/* Resting */}
-      {currentSchedule.rest.length > 0 && (
+      {/* Resting — big card if it's me, small text for everyone else */}
+      {amResting ? (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: spacing.md,
+          padding: `${spacing.lg}px ${spacing.lg}px`,
+          background: colors.infoMuted,
+          border: `1px solid ${colors.info}`,
+          borderRadius: radius.md,
+        }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: '50%',
+            background: 'rgba(56,189,248,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={colors.info}
+              strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 4v16" /><path d="M22 4v16" />
+              <path d="M2 8h20" /><path d="M2 16h20" />
+              <path d="M2 12h20" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{
+              ...typeScale.title, color: colors.text, margin: 0, marginBottom: 2,
+            }}>
+              You're resting
+            </p>
+            <p style={{
+              ...typeScale.caption, color: colors.textSecondary, margin: 0,
+            }}>
+              Round {tournament.current_round} — bet on the match below
+            </p>
+          </div>
+        </div>
+      ) : currentSchedule.rest.length > 0 ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.sm }}>
           <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.info} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
@@ -329,7 +432,7 @@ export default function BlitzMatchTab({
             Resting: {currentSchedule.rest.map(i => tournament.players[i]?.name).join(', ')}
           </span>
         </div>
-      )}
+      ) : null}
 
       {/* Timer */}
       <BlitzTimer
@@ -395,6 +498,54 @@ export default function BlitzMatchTab({
           setEditingRound={setEditingRound} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
           onEditScore={onEditScore}
         />
+      )}
+
+      {/* ── Sticky next-round banner — shown only to resting players ── */}
+      {amResting && (nextInfo || nextRestAgain) && (
+        <div
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            left: 0, right: 0,
+            bottom: `calc(72px + env(safe-area-inset-bottom, 0px))`,
+            maxWidth: 430,
+            margin: '0 auto',
+            padding: `${spacing.sm}px ${spacing.lg}px`,
+            background: colors.surface,
+            borderTop: `1px solid ${colors.border}`,
+            borderBottom: `1px solid ${colors.border}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.sm,
+            zIndex: 40,
+            boxShadow: `0 -4px 12px rgba(0,0,0,0.4)`,
+          }}
+        >
+          <span style={{
+            ...typeScale.micro, color: colors.muted, fontSize: 11,
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+            flexShrink: 0,
+          }}>
+            Next R{tournament.current_round + 1}
+          </span>
+          {nextInfo ? (
+            <span style={{
+              ...typeScale.caption, color: colors.text,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              flex: 1,
+            }}>
+              with <strong style={{ color: colors.primary }}>{nextInfo.partnerName}</strong>
+              {' '}vs {nextInfo.opp1}, {nextInfo.opp2}
+            </span>
+          ) : (
+            <span style={{
+              ...typeScale.caption, color: colors.textSecondary,
+              flex: 1,
+            }}>
+              You rest again
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

@@ -269,6 +269,7 @@ export default function BlitzTournament() {
             <>
               <BlitzMatchTab
                 tournament={tournament} rounds={rounds} isCreator={isCreator}
+                playerIndex={playerIndex}
                 timerProps={timerProps} onStartTimer={handleStartTimer}
                 onPauseTimer={handlePauseTimer} onResetTimer={handleResetTimer}
                 onSubmitScore={handleSubmitScore} onEditScore={handleEditScore} onBetClick={() => {}}
