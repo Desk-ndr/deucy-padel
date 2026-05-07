@@ -6,66 +6,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBlitzIdentity, getGlobalPlayer } from '@/hooks/useBlitzIdentity';
 import { colors, spacing, radius, fonts, typeScale, animationCSS } from '@/lib/design-tokens';
 
-// ── Concept B helpers ─────────────────────────────────────────
-
-/**
- * 3-dot mini sparkline that visualizes the player's form trend.
- * Mapped from RankedPlayer.form ('hot' | 'up' | 'down' | 'stable' | 'new').
- *
- *   hot     →  ●●●  high, all primary
- *   up      →  ◯•●  ascending line, primary
- *   down    →  ●•◯  descending line, destructive
- *   stable  →  ─●─  flat line, secondary
- *   new     →  · · ·  unfilled dots, muted
- */
-function FormSparkline({ form }: { form: 'hot' | 'up' | 'down' | 'stable' | 'new' }) {
-  let ys: number[];
-  let stroke: string;
-  let withLine = true;
-  switch (form) {
-    case 'hot':    ys = [2, 2, 2]; stroke = '#22C55E'; break;
-    case 'up':     ys = [8, 5, 2]; stroke = '#22C55E'; break;
-    case 'down':   ys = [2, 5, 8]; stroke = '#EF4444'; break;
-    case 'stable': ys = [5, 5, 5]; stroke = '#A1A1AA'; break;
-    case 'new':
-    default:       ys = [5, 5, 5]; stroke = '#52525B'; withLine = false; break;
-  }
-  return (
-    <svg width={32} height={12} viewBox="0 0 32 12" aria-label={`form ${form}`} style={{ flexShrink: 0 }}>
-      {withLine && (
-        <polyline
-          points={`4,${ys[0]} 16,${ys[1]} 28,${ys[2]}`}
-          stroke={stroke} strokeWidth={1.5}
-          strokeLinecap="round" strokeLinejoin="round"
-          fill="none" opacity={0.55}
-        />
-      )}
-      <circle cx={4}  cy={ys[0]} r={2} fill={stroke} />
-      <circle cx={16} cy={ys[1]} r={2} fill={stroke} />
-      <circle cx={28} cy={ys[2]} r={2} fill={stroke} />
-    </svg>
-  );
-}
-
-/** Crown icon shown next to the leader's name when isCrownHolder. */
-function CrownIcon() {
-  return (
-    <svg width={12} height={12} viewBox="0 0 24 24" fill="#FFD700" stroke="none"
-      style={{ flexShrink: 0 }} aria-label="crown">
-      <path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z" />
-    </svg>
-  );
-}
-
-/** "1st" / "2nd" / "3rd" / "Nth" — used by the You-row gap label. */
-function ordinalLabel(n: number): string {
-  if (n <= 0) return '';
-  if (n === 1) return '1st';
-  if (n === 2) return '2nd';
-  if (n === 3) return '3rd';
-  return `${n}th`;
-}
-
 export default function BlitzList() {
   const navigate = useNavigate();
   const { deviceId } = useBlitzIdentity(undefined, null);
@@ -75,7 +15,7 @@ export default function BlitzList() {
   const [creating, setCreating] = useState(false);
   const [ranking, setRanking] = useState<RankedPlayer[]>([]);
   const [rankingLoading, setRankingLoading] = useState(true);
-  const [myRank, setMyRank] = useState<{ position: number; score: number; delta: number | null; gapToNext: number | null } | null>(null);
+  const [myRank, setMyRank] = useState<{ position: number; score: number; delta: number | null } | null>(null);
   const [myResults, setMyResults] = useState<Record<string, { placement: number; points: number }>>({});
   const [winners, setWinners] = useState<Record<string, string>>({});
 
@@ -122,13 +62,10 @@ export default function BlitzList() {
         if (gp) {
           const idx = data.findIndex(p => p.playerId === gp.playerId);
           if (idx >= 0) {
-            const me = data[idx];
-            const aboveMe = idx > 0 ? data[idx - 1] : null;
             setMyRank({
               position: idx + 1,
-              score: me.rankingScore,
-              delta: me.pointsDelta,
-              gapToNext: aboveMe ? aboveMe.rankingScore - me.rankingScore : null,
+              score: data[idx].rankingScore,
+              delta: data[idx].pointsDelta,
             });
           }
         }
@@ -317,7 +254,7 @@ export default function BlitzList() {
               </div>
             )}
 
-            {/* Top 3 rows — Concept B: form sparkline + delta + crown */}
+            {/* Top 3 rows */}
             {top3.map((player, i) => {
               const posColors = [colors.gold, colors.silver, colors.bronze];
               const isFirst = i === 0;
@@ -327,46 +264,44 @@ export default function BlitzList() {
                 <div
                   key={player.playerId}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: spacing.sm,
-                    padding: `${spacing.sm + 2}px ${spacing.sm}px ${spacing.sm + 2}px ${spacing.md}px`,
+                    display: 'flex', alignItems: 'center',
+                    padding: `${spacing.sm + 2}px ${spacing.sm}px`,
                     borderRadius: radius.md,
                     marginBottom: i < 2 ? spacing.xs : 0,
-                    background: isFirst ? 'rgba(34,197,94,0.06)' : 'transparent',
-                    borderLeft: `2px solid ${posColors[i]}`,
                   }}
                 >
                   {/* Position number */}
                   <span style={{
                     fontFamily: fonts.mono, fontSize: isFirst ? 18 : 16,
                     fontWeight: 900, color: posColors[i],
-                    minWidth: 20, textAlign: 'left',
+                    minWidth: 28,
                   }}>
                     {i + 1}
                   </span>
 
-                  {/* Name + crown */}
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-                    <span style={{
+                  {/* Name + stats */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{
                       fontSize: isFirst ? 15 : 14,
                       fontWeight: isFirst ? 600 : 500,
                       color: isFirst ? colors.text : colors.textSecondary,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {player.displayName}
-                    </span>
-                    {player.isCrownHolder && <CrownIcon />}
+                    </div>
+                    <div style={{
+                      fontSize: 11, color: colors.muted, marginTop: 1,
+                    }}>
+                      {player.tournamentsPlayed} played{player.winRate > 0 ? ` · ${player.winRate}% W` : ''}
+                    </div>
                   </div>
 
-                  {/* Form sparkline */}
-                  <FormSparkline form={player.form} />
-
-                  {/* Score + delta stack */}
-                  <div style={{ textAlign: 'right', minWidth: 52 }}>
+                  {/* Score + small delta below */}
+                  <div style={{ textAlign: 'right', minWidth: 48 }}>
                     <div style={{
                       fontFamily: fonts.mono,
                       fontSize: isFirst ? 18 : 16,
                       fontWeight: 900,
-                      color: isFirst ? colors.primary : colors.text,
+                      color: isFirst ? colors.primary : colors.textSecondary,
                       lineHeight: 1,
                     }}>
                       {player.rankingScore}
@@ -385,39 +320,31 @@ export default function BlitzList() {
               );
             })}
 
-            {/* My position — warmer, with gap-to-next + delta */}
+            {/* My position */}
             {myRank && (
               <>
-                <div style={{ height: 1, background: colors.border, marginTop: spacing.md }} />
+                <div style={{ height: 1, background: colors.border, marginTop: spacing.sm }} />
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: spacing.sm,
-                  padding: `${spacing.sm + 2}px ${spacing.sm}px ${spacing.sm + 2}px ${spacing.md}px`,
-                  marginTop: spacing.sm,
+                  display: 'flex', alignItems: 'center',
+                  padding: `${spacing.sm + 2}px ${spacing.sm}px`,
+                  marginTop: spacing.xs,
                   borderRadius: radius.md,
-                  background: 'rgba(34,197,94,0.10)',
-                  border: `1px solid rgba(34,197,94,0.22)`,
+                  background: 'rgba(34,197,94,0.06)',
+                  border: `1px solid rgba(34,197,94,0.12)`,
                 }}>
                   <span style={{
                     fontFamily: fonts.mono, fontSize: 14,
-                    fontWeight: 800, color: colors.text,
-                    minWidth: 20, textAlign: 'left',
+                    fontWeight: 700, color: colors.muted,
+                    minWidth: 28,
                   }}>
                     {myRank.position}
                   </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: 14, color: colors.text, fontWeight: 600 }}>
-                      You
-                    </span>
-                    {myRank.gapToNext !== null && myRank.gapToNext > 0 && (
-                      <div style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
-                        {myRank.gapToNext} pts to {ordinalLabel(myRank.position - 1)}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right', minWidth: 52 }}>
+                  <span style={{ flex: 1, fontSize: 14, color: colors.muted }}>You</span>
+                  <div style={{ textAlign: 'right', minWidth: 48 }}>
                     <div style={{
-                      fontFamily: fonts.mono, fontSize: 16, fontWeight: 800,
-                      color: colors.primary, lineHeight: 1,
+                      fontFamily: fonts.mono, fontSize: 14,
+                      fontWeight: 700, color: colors.muted,
+                      lineHeight: 1,
                     }}>
                       {myRank.score}
                     </div>
