@@ -31,10 +31,39 @@ export default function BlitzMatchTab({
   const [editScoreA, setEditScoreA] = useState('');
   const [editScoreB, setEditScoreB] = useState('');
 
+  // Render-storm canary (mirror of BlitzTournament's). Triggers a single
+  // console.error if we render 200+ times in 5s, with diagnostic context.
+  const matchRenderCountRef = useRef({ count: 0, t0: Date.now(), warned: false });
+  matchRenderCountRef.current.count++;
+  {
+    const elapsed = Date.now() - matchRenderCountRef.current.t0;
+    if (!matchRenderCountRef.current.warned && matchRenderCountRef.current.count > 200 && elapsed < 5000) {
+      matchRenderCountRef.current.warned = true;
+      console.error('[BlitzMatchTab] render storm detected', {
+        count: matchRenderCountRef.current.count,
+        elapsedMs: elapsed,
+        status: tournament.status,
+        current_round: tournament.current_round,
+        playerIndex,
+        showScoreInput,
+      });
+    } else if (elapsed > 5000) {
+      matchRenderCountRef.current = { count: 1, t0: Date.now(), warned: false };
+    }
+  }
+
   // ── Timer expired feedback (audio beep + vibration) ─────────
   // Fires once on the false → true transition of isExpired. Reset
   // when the timer is restarted so a re-run will trigger again.
   const wasExpiredRef = useRef(false);
+
+  // Confetti particles cache: avoids regenerating 40 random particles on
+  // every render of the finished branch (which can re-render in burst as
+  // realtime events for rounds / tournament / ranking finalize land).
+  const confettiCacheRef = useRef<{
+    tournamentId: string | null;
+    particles: Array<{ id: number; left: number; delay: number; duration: number; color: string; size: number; rotation: number }>;
+  }>({ tournamentId: null, particles: [] });
   useEffect(() => {
     if (timerProps.isExpired && !wasExpiredRef.current) {
       wasExpiredRef.current = true;
@@ -153,17 +182,25 @@ export default function BlitzMatchTab({
     const winner = ranked[0];
     const POINTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
 
-    // Confetti particles
+    // Confetti particles — memoized so each render in the finished branch
+    // doesn't allocate a fresh 40-particle array. Recomputed only when
+    // entering finished state for a different tournament.
     const confettiColors = [colors.primary, colors.accent, colors.info, colors.gold, '#FF6B6B', '#C084FC'];
-    const confettiParticles = Array.from({ length: 40 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      delay: Math.random() * 3,
-      duration: 2.5 + Math.random() * 2,
-      color: confettiColors[i % confettiColors.length],
-      size: 4 + Math.random() * 6,
-      rotation: Math.random() * 360,
-    }));
+    const confettiParticles = confettiCacheRef.current.tournamentId === tournament.id
+      ? confettiCacheRef.current.particles
+      : (() => {
+          const arr = Array.from({ length: 40 }, (_, i) => ({
+            id: i,
+            left: Math.random() * 100,
+            delay: Math.random() * 3,
+            duration: 2.5 + Math.random() * 2,
+            color: confettiColors[i % confettiColors.length],
+            size: 4 + Math.random() * 6,
+            rotation: Math.random() * 360,
+          }));
+          confettiCacheRef.current = { tournamentId: tournament.id, particles: arr };
+          return arr;
+        })();
 
     return (
       <div style={{ padding: spacing.lg, display: 'flex', flexDirection: 'column', gap: spacing.lg, position: 'relative', overflow: 'hidden' }}>

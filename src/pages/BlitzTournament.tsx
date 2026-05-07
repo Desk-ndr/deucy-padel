@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useBlitzRealtime } from '@/hooks/useBlitzRealtime';
@@ -24,10 +24,43 @@ export default function BlitzTournament() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { tournament, rounds, bets, loading, error: realtimeError, refetch } = useBlitzRealtime(id);
-  const { playerIndex, isCreator, deviceId, isSpectator } = useBlitzIdentity(id, tournament?.created_by ?? null, tournament?.players);
+
+  // Stabilize the players array reference passed to useBlitzIdentity.
+  // tournament.players gets a new reference on every realtime UPDATE (the
+  // parser rebuilds the array). useBlitzIdentity has it as a useEffect dep
+  // and would fire identity recalculation on every refetch, which during
+  // the cascade of updates at "submit last round" used to participate in a
+  // re-render storm hitting React error #300 (max update depth exceeded).
+  // Comparing by JSON keeps the same reference until the actual content
+  // changes (player added / renamed / linked).
+  const playersJson = tournament ? JSON.stringify(tournament.players) : '';
+  const stablePlayers = useMemo(() => tournament?.players, [playersJson]);
+  const { playerIndex, isCreator, deviceId, isSpectator } = useBlitzIdentity(id, tournament?.created_by ?? null, stablePlayers);
   const timerProps = useBlitzTimer(tournament);
   const [activeTab, setActiveTab] = useState<DeucyTab>('match');
   const tabInitRef = useRef(false);
+
+  // Render-storm canary. If this component renders more than 200 times in
+  // a 5s window, something is looping — log it once with a clue.
+  const renderCountRef = useRef({ count: 0, t0: Date.now(), warned: false });
+  renderCountRef.current.count++;
+  if (!renderCountRef.current.warned) {
+    const elapsed = Date.now() - renderCountRef.current.t0;
+    if (renderCountRef.current.count > 200 && elapsed < 5000) {
+      renderCountRef.current.warned = true;
+      console.error('[BlitzTournament] render storm detected', {
+        count: renderCountRef.current.count,
+        elapsedMs: elapsed,
+        tournamentStatus: tournament?.status,
+        currentRound: tournament?.current_round,
+        totalRounds: tournament?.total_rounds,
+        activeTab,
+      });
+    } else if (elapsed > 5000) {
+      // reset window
+      renderCountRef.current = { count: 1, t0: Date.now(), warned: false };
+    }
+  }
 
   // When the tournament data first arrives, set the default tab based on status.
   // Finished tournaments open on Standings (the natural destination), live ones on Match.
