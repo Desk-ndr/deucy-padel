@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { BlitzTournamentData, BlitzRound } from '@/services/blitzService';
+import { BlitzTournamentData, BlitzRound, BlitzBet } from '@/services/blitzService';
 import { colors, spacing, radius, fonts, typeScale, shadows } from '@/lib/design-tokens';
 import { HeroCard } from '@/components/ui/deucy';
 import BlitzTimer from './BlitzTimer';
@@ -10,6 +10,7 @@ interface Props {
   rounds: BlitzRound[];
   isCreator: boolean;
   playerIndex: number | null;
+  bets: BlitzBet[];
   timerProps: { secondsLeft: number; isRunning: boolean; isPaused: boolean; isExpired: boolean };
   onStartTimer: () => void;
   onPauseTimer: () => void;
@@ -20,7 +21,7 @@ interface Props {
 }
 
 export default function BlitzMatchTab({
-  tournament, rounds, isCreator, playerIndex, timerProps,
+  tournament, rounds, isCreator, playerIndex, bets, timerProps,
   onStartTimer, onPauseTimer, onResetTimer, onSubmitScore, onEditScore, onBetClick,
 }: Props) {
   const [scoreA, setScoreA] = useState('');
@@ -450,6 +451,14 @@ export default function BlitzMatchTab({
         onStart={onStartTimer} onPause={onPauseTimer} onReset={onResetTimer}
       />
 
+      {/* Live predictions on this round */}
+      <LivePredictions
+        bets={bets}
+        tournament={tournament}
+        currentRound={tournament.current_round}
+        myPlayerIndex={playerIndex}
+      />
+
       {/* Submit score trigger — any player in this tournament can submit */}
       {canSubmit && !showScoreInput && (
         <button onClick={() => setShowScoreInput(true)} style={{
@@ -628,6 +637,115 @@ function CompletedRounds({ rounds, tournament, canEdit, editingRound, editScoreA
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ── Live Predictions: who's betting on this round and how much ── */
+
+function LivePredictions({ bets, tournament, currentRound, myPlayerIndex }: {
+  bets: BlitzBet[];
+  tournament: BlitzTournamentData;
+  currentRound: number;
+  myPlayerIndex: number | null;
+}) {
+  const roundBets = bets
+    .filter(b => b.round_index === currentRound && b.status === 'pending')
+    .slice()
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
+
+  if (roundBets.length === 0) return null;
+
+  const totalA = roundBets.filter(b => b.predicted_winner === 'A').reduce((s, b) => s + b.stake, 0);
+  const totalB = roundBets.filter(b => b.predicted_winner === 'B').reduce((s, b) => s + b.stake, 0);
+
+  return (
+    <div style={{
+      backgroundColor: colors.surface,
+      border: `1px solid ${colors.border}`,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      display: 'flex', flexDirection: 'column', gap: spacing.sm,
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{
+          ...typeScale.micro, color: colors.muted, fontSize: 11,
+          textTransform: 'uppercase', letterSpacing: '0.08em',
+        }}>
+          Live predictions · {roundBets.length}
+        </span>
+        <span style={{
+          fontFamily: fonts.mono, fontSize: 12, color: colors.muted,
+        }}>
+          <span style={{ color: colors.primary, fontWeight: 700 }}>€{totalA}</span>
+          {' / '}
+          <span style={{ color: colors.accent, fontWeight: 700 }}>€{totalB}</span>
+        </span>
+      </div>
+
+      {/* Bet rows */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+        {roundBets.map(bet => {
+          const playerName = tournament.players[bet.bettor_index]?.name ?? '?';
+          const isMine = myPlayerIndex !== null && bet.bettor_index === myPlayerIndex;
+          const teamColor = bet.predicted_winner === 'A' ? colors.primary : colors.accent;
+
+          return (
+            <div key={bet.id} style={{
+              display: 'flex', alignItems: 'center', gap: spacing.sm,
+              padding: `${spacing.xs}px ${spacing.sm}px`,
+              borderRadius: radius.sm,
+              background: isMine ? 'rgba(34,197,94,0.06)' : 'transparent',
+              border: isMine ? `1px solid rgba(34,197,94,0.18)` : '1px solid transparent',
+            }}>
+              {/* Avatar */}
+              <div style={{
+                width: 26, height: 26, borderRadius: '50%',
+                background: colors.surfaceElevated,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 700, color: colors.textSecondary,
+                flexShrink: 0,
+              }}>
+                {playerName.charAt(0).toUpperCase()}
+              </div>
+
+              {/* Name */}
+              <span style={{
+                flex: 1, fontFamily: fonts.sans, fontSize: 14, fontWeight: 500,
+                color: colors.text,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {playerName}{isMine ? ' (you)' : ''}
+              </span>
+
+              {/* Team badge */}
+              <span style={{
+                padding: `2px ${spacing.sm}px`,
+                background: `${teamColor}1A`,
+                border: `1px solid ${teamColor}`,
+                borderRadius: radius.pill,
+                fontSize: 11, fontWeight: 800,
+                color: teamColor,
+                fontFamily: fonts.sans,
+                letterSpacing: '0.04em',
+              }}>
+                {bet.predicted_winner}
+              </span>
+
+              {/* Stake */}
+              <span style={{
+                fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
+                color: colors.text, minWidth: 44, textAlign: 'right',
+              }}>
+                €{bet.stake}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
