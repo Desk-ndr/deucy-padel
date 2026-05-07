@@ -9,6 +9,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  autoRecovering: boolean;
   message: string;
   stack: string;
 }
@@ -23,7 +24,7 @@ interface State {
  * user screenshot of DevTools.
  */
 export default class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, message: '', stack: '' };
+  state: State = { hasError: false, autoRecovering: false, message: '', stack: '' };
   // Track whether we've already attempted an auto-recovery for transient
   // errors (React #300 max-update-depth, etc). One shot — if it crashes
   // again after the auto-reset, show the fallback for real.
@@ -31,9 +32,16 @@ export default class ErrorBoundary extends Component<Props, State> {
   private recoverTimerId: ReturnType<typeof setTimeout> | null = null;
 
   static getDerivedStateFromError(err: Error): State {
+    const msg = err.message ?? 'Unknown error';
+    const looksTransient =
+      /invariant=300|Maximum update depth|while rendering a different component/i.test(msg);
     return {
       hasError: true,
-      message: err.message ?? 'Unknown error',
+      // Flag transient burst so render() can show a silent placeholder
+      // instead of the red fallback while we wait for the auto-recover
+      // setTimeout to reset the boundary.
+      autoRecovering: looksTransient,
+      message: msg,
       stack: err.stack ?? '',
     };
   }
@@ -63,13 +71,13 @@ export default class ErrorBoundary extends Component<Props, State> {
         `[ErrorBoundary${this.props.label ? ' · ' + this.props.label : ''}] attempting auto-recover in 500ms`,
       );
       this.recoverTimerId = setTimeout(() => {
-        this.setState({ hasError: false, message: '', stack: '' });
+        this.setState({ hasError: false, autoRecovering: false, message: '', stack: '' });
       }, 500);
     }
   }
 
   reset = () => {
-    this.setState({ hasError: false, message: '', stack: '' });
+    this.setState({ hasError: false, autoRecovering: false, message: '', stack: '' });
   };
 
   reload = () => {
@@ -78,6 +86,19 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (!this.state.hasError) return this.props.children;
+
+    // Silent placeholder during the brief auto-recovery window so the
+    // user never sees the red fallback for transient render storms.
+    // Returning null collapses the subtree for ~500ms, then setState
+    // clears autoRecovering and we render children again. If the next
+    // render also crashes, autoRecoverAttempted is already true, the
+    // boundary stays in this branch but autoRecovering will be true
+    // again — which is fine, the placeholder is harmless. The user
+    // could see the real fallback only if autoRecovering is false,
+    // i.e. the error was NOT transient.
+    if (this.state.autoRecovering) {
+      return null;
+    }
 
     return (
       <div style={{
