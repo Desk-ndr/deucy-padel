@@ -21,7 +21,12 @@ export interface BlitzTournamentData {
   current_round: number; total_rounds: number; round_duration_seconds: number;
   schedule: BlitzRoundSchedule[]; timer_started_at: string | null;
   timer_paused_remaining: number | null; created_by: string | null;
+  finished_at: string | null;
 }
+
+// 10-minute window after a tournament finishes during which scores
+// can still be edited. After that the data is locked.
+export const EDIT_WINDOW_MS = 10 * 60 * 1000;
 
 // ── Helpers ──
 
@@ -263,7 +268,9 @@ export async function submitScore(
   if (isLast) {
     const { error } = await supabase.from('blitz_tournaments').update({
       players: updatedPlayers as any, current_round: roundIndex,
-      status: 'finished', timer_started_at: null, timer_paused_remaining: null,
+      status: 'finished',
+      finished_at: new Date().toISOString(),  // start the 10-min edit window
+      timer_started_at: null, timer_paused_remaining: null,
     } as any).eq('id', id);
     return { error: error?.message ?? null };
   }
@@ -375,6 +382,18 @@ export async function editScore(
   tournament: BlitzTournamentData, bets: BlitzBet[],
   allRounds: BlitzRound[],
 ) {
+  // 0. Edit window check — once a tournament is finished, scores can
+  // be corrected for EDIT_WINDOW_MS (10 minutes). After that the
+  // record is locked. Backend gate; the UI hides the edit button
+  // independently but this protects against stale clients and direct
+  // API calls.
+  if (tournament.status === 'finished' && tournament.finished_at) {
+    const finishedAt = new Date(tournament.finished_at).getTime();
+    if (!isNaN(finishedAt) && Date.now() - finishedAt > EDIT_WINDOW_MS) {
+      return { error: 'EDIT_WINDOW_EXPIRED' };
+    }
+  }
+
   // 1. Update the round scores
   const { error: rErr } = await supabase.from('blitz_rounds')
     .update({ team_a_score: newScoreA, team_b_score: newScoreB }).eq('id', roundId);

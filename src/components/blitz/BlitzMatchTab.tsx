@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { BlitzTournamentData, BlitzRound, BlitzBet } from '@/services/blitzService';
+import { BlitzTournamentData, BlitzRound, BlitzBet, EDIT_WINDOW_MS } from '@/services/blitzService';
 import { colors, spacing, radius, fonts, typeScale, shadows } from '@/lib/design-tokens';
 import { HeroCard } from '@/components/ui/deucy';
 import BlitzTimer from './BlitzTimer';
@@ -30,6 +30,10 @@ export default function BlitzMatchTab({
   const [editingRound, setEditingRound] = useState<BlitzRound | null>(null);
   const [editScoreA, setEditScoreA] = useState('');
   const [editScoreB, setEditScoreB] = useState('');
+  // Used to force a re-render when the edit window closes (10 min after
+  // a tournament finishes) so the pencil button disappears live.
+  const [, setLockTick] = useState(0);
+  const lockTickRef = useRef<number>(0);
 
   // Render-storm canary (mirror of BlitzTournament's). Triggers a single
   // console.error if we render 200+ times in 5s, with diagnostic context.
@@ -137,6 +141,31 @@ export default function BlitzMatchTab({
   // a chance to switch to the leaderboard tab.
   const canSubmit = playerIndex !== null;
   const amResting = playerIndex !== null && currentSchedule !== null && currentSchedule.rest.includes(playerIndex);
+
+  // Edit window: scores remain editable while the tournament is live,
+  // and for EDIT_WINDOW_MS (10 minutes) after it finishes. Backend
+  // mirrors this rule via editScore; the UI just hides the pencil so
+  // users don't tap a button that would fail.
+  const finishedAt = tournament.finished_at ? new Date(tournament.finished_at).getTime() : null;
+  const msUntilLock = (tournament.status === 'finished' && finishedAt !== null)
+    ? Math.max(0, finishedAt + EDIT_WINDOW_MS - Date.now())
+    : Infinity;
+  const editWindowOpen = tournament.status !== 'finished' || msUntilLock > 0;
+  const canEdit = canSubmit && editWindowOpen;
+
+  // If we are inside a finite edit window, schedule a re-render right
+  // when it closes so the pencil disappears live without a refresh.
+  // (Math.min cap so the timer is always reasonable.)
+  useEffect(() => {
+    if (msUntilLock === Infinity || msUntilLock <= 0) return;
+    const t = setTimeout(() => {
+      // No-op state update via ref bump to force a fresh render. The
+      // editWindowOpen check above will then evaluate to false.
+      lockTickRef.current = Date.now();
+      setLockTick(prev => prev + 1);
+    }, Math.min(msUntilLock + 250, 2_147_000_000));
+    return () => clearTimeout(t);
+  }, [msUntilLock]);
 
 /* ── Finished state ─────────────────────────────────────────── */
   if (tournament.status === 'finished') {
@@ -352,7 +381,7 @@ export default function BlitzMatchTab({
         {canSubmit && completedAll.length > 0 && (
           <div style={{ position: 'relative', zIndex: 1 }}>
             <CompletedRounds
-              rounds={completedAll} tournament={tournament} canEdit={canSubmit}
+              rounds={completedAll} tournament={tournament} canEdit={canEdit}
               editingRound={editingRound} editScoreA={editScoreA} editScoreB={editScoreB}
               setEditingRound={setEditingRound} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
               onEditScore={onEditScore}
@@ -581,7 +610,7 @@ export default function BlitzMatchTab({
       {/* Completed rounds */}
       {completedRounds.length > 0 && (
         <CompletedRounds
-          rounds={completedRounds} tournament={tournament} canEdit={canSubmit}
+          rounds={completedRounds} tournament={tournament} canEdit={canEdit}
           editingRound={editingRound} editScoreA={editScoreA} editScoreB={editScoreB}
           setEditingRound={setEditingRound} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
           onEditScore={onEditScore}

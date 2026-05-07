@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS blitz_tournaments (
   timer_started_at timestamptz,
   timer_paused_remaining integer,
   -- NEW: creator identity for permissions
-  created_by text
+  created_by text,
+  -- NEW: marker for the 10-min post-tournament edit window
+  finished_at timestamptz
 );
 
 CREATE TABLE IF NOT EXISTS blitz_rounds (

@@ -140,15 +140,24 @@ export default function BlitzTournament() {
   const handleEditScore = async (roundId: string, roundIndex: number, scoreA: number, scoreB: number) => {
     if (!id || !tournament) return;
     const { error } = await editScore(id, roundId, roundIndex, scoreA, scoreB, tournament, bets, rounds);
-    if (error) toast({ title: "Error", description: error, variant: "destructive" });
-    else {
-      // Re-finalize ranking if tournament is already finished
-      if (tournament.status === 'finished') {
-        await finalizeRanking(tournament);
+    if (error) {
+      if (error === 'EDIT_WINDOW_EXPIRED') {
+        toast({
+          title: 'Edit window closed',
+          description: 'Scores can only be changed within 10 minutes of finishing the tournament.',
+        });
+        refetch();
+        return;
       }
-      toast({ title: `Round ${roundIndex} score updated!` });
-      refetch();
+      toast({ title: 'Error', description: error, variant: 'destructive' });
+      return;
     }
+    // Re-finalize ranking if tournament is already finished
+    if (tournament.status === 'finished') {
+      await finalizeRanking(tournament);
+    }
+    toast({ title: `Round ${roundIndex} score updated!` });
+    refetch();
   };
 
   const handlePlaceBet = async (prediction: 'A' | 'B', stake: number) => {
