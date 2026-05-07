@@ -24,6 +24,7 @@ export default function BlitzList() {
   const [rankingLoading, setRankingLoading] = useState(true);
   const [myRank, setMyRank] = useState<{ position: number; score: number } | null>(null);
   const [myResults, setMyResults] = useState<Record<string, { placement: number; points: number }>>({});
+  const [winners, setWinners] = useState<Record<string, string>>({});
 
   const globalPlayerRef = useRef(getGlobalPlayer());
   const globalPlayer = globalPlayerRef.current;
@@ -81,7 +82,9 @@ export default function BlitzList() {
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch my per-tournament results
+  // Fetch my per-tournament results — re-runs when the tournaments list
+  // changes so newly-finished tournaments get their result populated
+  // without a manual refresh.
   useEffect(() => {
     const gp = globalPlayerRef.current;
     if (!gp) return;
@@ -95,7 +98,31 @@ export default function BlitzList() {
         for (const e of data) map[e.tournament_id] = { placement: e.placement, points: e.total_points };
         setMyResults(map);
       });
-  }, []);
+  }, [tournaments]);
+
+  // Fetch the winner (placement=1) for every finished tournament. We
+  // join players to get the display name in a single round trip. This
+  // powers the "… · won by Bruno" line on the History cards.
+  useEffect(() => {
+    const finishedIds = tournaments.filter(t => t.status === 'finished').map(t => t.id);
+    if (finishedIds.length === 0) {
+      setWinners({});
+      return;
+    }
+    supabase
+      .from('ranking_entries')
+      .select('tournament_id, players(display_name)')
+      .eq('placement', 1)
+      .in('tournament_id', finishedIds)
+      .then(({ data }) => {
+        const map: Record<string, string> = {};
+        for (const e of (data || [])) {
+          const name = (e.players as any)?.display_name as string | undefined;
+          if (name) map[(e as any).tournament_id] = name;
+        }
+        setWinners(map);
+      });
+  }, [tournaments]);
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -495,6 +522,7 @@ export default function BlitzList() {
         )}
         {finishedTournaments.map(t => {
           const result = myResults[t.id];
+          const winnerName = winners[t.id];
           const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
           return (
             <div
@@ -514,13 +542,18 @@ export default function BlitzList() {
                   <span style={{ fontSize: 15, fontWeight: 600, color: colors.textSecondary }}>
                     {t.name}
                   </span>
-                  <span style={{ display: 'block', fontSize: 12, color: colors.muted, marginTop: 2 }}>
-                    {t.players.length} players{dateStr ? ` · ${dateStr}` : ''}
+                  <span style={{
+                    display: 'block', fontSize: 12, color: colors.muted, marginTop: 2,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {t.players.length} players
+                    {dateStr ? ` · ${dateStr}` : ''}
+                    {winnerName ? ` · won by ${winnerName}` : ''}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                  {/* My result — highlighted */}
-                  {result && (
+                  {/* My result — highlighted, or "Did not play" pill if I wasn't in the pool */}
+                  {result ? (
                     <div style={{ textAlign: 'right' }}>
                       <span style={{ fontSize: 12, color: colors.textSecondary, fontWeight: 600 }}>
                         {result.placement}{ordinalSuffix(result.placement)}
@@ -540,6 +573,20 @@ export default function BlitzList() {
                         </span>
                       </div>
                     </div>
+                  ) : (
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 10px',
+                      background: 'transparent',
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: radius.pill,
+                      fontFamily: fonts.sans,
+                      fontSize: 11, fontWeight: 600,
+                      color: colors.muted,
+                      whiteSpace: 'nowrap',
+                    }}>
+                      Did not play
+                    </span>
                   )}
                   <button
                     onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
