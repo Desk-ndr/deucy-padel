@@ -38,6 +38,17 @@ export default function BlitzTournament() {
   const { playerIndex, isCreator, deviceId, isSpectator } = useBlitzIdentity(id, tournament?.created_by ?? null, stablePlayers);
   const timerProps = useBlitzTimer(tournament);
   const [activeTab, setActiveTab] = useState<DeucyTab>('match');
+
+  // Diagnostic: log every activeTab change so we can see in DevTools who
+  // changed it (user click on bottom nav, or some auto-switch we missed).
+  useEffect(() => {
+    console.log(`[BlitzTournament] activeTab changed -> ${activeTab}`, {
+      ts: new Date().toISOString(),
+      tournamentStatus: tournament?.status,
+      currentRound: tournament?.current_round,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
   // Render-storm canary. If this component renders more than 200 times in
   // a 5s window, something is looping — log it once with a clue.
   const renderCountRef = useRef({ count: 0, t0: Date.now(), warned: false });
