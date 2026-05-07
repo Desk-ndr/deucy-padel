@@ -121,18 +121,33 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
     return b.betProfit - a.betProfit;
   });
 
-  // Calculate shared placements (so tied players show same ranking points)
+  // Calculate shared placements (so tied players show same ranking points).
+  // Built imperatively: each iteration may reference the previous slot, so we
+  // must populate the array in order. Using .map() with `placements[rank-1]`
+  // crashes with a TDZ ReferenceError when ties exist (e.g. all players 0-0
+  // before any round is played) — that's what was breaking the Standings tab.
   const PLACEMENT_PTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
-  const placements: number[] = sorted.map((p, rank) => {
-    if (rank === 0) return 1;
+  const placements: number[] = [];
+  for (let rank = 0; rank < sorted.length; rank++) {
+    if (rank === 0) {
+      placements.push(1);
+      continue;
+    }
+    const p = sorted[rank];
     const prev = sorted[rank - 1];
     if (tab === 'games') {
-      if (p.matchesWon === prev.matchesWon && p.gamesWon === prev.gamesWon) return placements[rank - 1];
+      if (p.matchesWon === prev.matchesWon && p.gamesWon === prev.gamesWon) {
+        placements.push(placements[rank - 1]);
+        continue;
+      }
     } else {
-      if (p.betProfit === prev.betProfit) return placements[rank - 1];
+      if (p.betProfit === prev.betProfit) {
+        placements.push(placements[rank - 1]);
+        continue;
+      }
     }
-    return rank + 1;
-  });
+    placements.push(rank + 1);
+  }
 
   // Only show betting rank points if there's meaningful differentiation
   // (at least 2 players with different non-zero profits)
