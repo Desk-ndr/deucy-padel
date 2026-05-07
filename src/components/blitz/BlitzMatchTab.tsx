@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useToast } from '@/hooks/use-toast';
 import { BlitzTournamentData, BlitzRound } from '@/services/blitzService';
 import { colors, spacing, radius, fonts, typeScale, shadows } from '@/lib/design-tokens';
 import { HeroCard } from '@/components/ui/deucy';
@@ -299,8 +300,36 @@ export default function BlitzMatchTab({
 
   if (!currentSchedule) return null;
 
+  const { toast } = useToast();
+
+  // ── Watch for round advance mid-edit ─────────────────────────
+  // If current_round changes while we have the score form open, it means
+  // another player beat us to it. Close the form, clear the inputs, and
+  // toast the user so they don't wonder what happened.
+  const prevRoundRef = useRef(tournament.current_round);
+  useEffect(() => {
+    if (prevRoundRef.current !== tournament.current_round) {
+      const wasEditing = showScoreInput;
+      prevRoundRef.current = tournament.current_round;
+      if (wasEditing) {
+        setShowScoreInput(false);
+        setScoreA('');
+        setScoreB('');
+        toast({
+          title: 'Round was just submitted',
+          description: 'Another player entered the score first.',
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournament.current_round]);
+
   // ── Player context for this round ───────────────────────────
   const amResting = playerIndex !== null && currentSchedule.rest.includes(playerIndex);
+  const amPlaying = playerIndex !== null && (
+    currentSchedule.teamA.includes(playerIndex) ||
+    currentSchedule.teamB.includes(playerIndex)
+  );
 
   const handleSubmit = async () => {
     const a = parseInt(scoreA);
@@ -419,8 +448,8 @@ export default function BlitzMatchTab({
         onStart={onStartTimer} onPause={onPauseTimer} onReset={onResetTimer}
       />
 
-      {/* Submit score trigger */}
-      {isCreator && !showScoreInput && (
+      {/* Submit score trigger — anyone playing this round can submit */}
+      {amPlaying && !showScoreInput && (
         <button onClick={() => setShowScoreInput(true)} style={{
           width: '100%', padding: spacing.md,
           backgroundColor: colors.primary, color: colors.bg,
@@ -432,7 +461,7 @@ export default function BlitzMatchTab({
       )}
 
       {/* Score input card */}
-      {isCreator && showScoreInput && (
+      {amPlaying && showScoreInput && (
         <div style={{
           padding: spacing.lg, backgroundColor: colors.surface,
           borderRadius: radius.md, border: `1px solid ${colors.border}`,

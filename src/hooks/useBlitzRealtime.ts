@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getTournament, getRounds, getBets,
-  subscribeTournament, subscribeBets,
+  subscribeTournament, subscribeBets, subscribeRounds,
   BlitzTournamentData, BlitzRound, BlitzBet,
 } from '@/services/blitzService';
 
@@ -51,7 +51,15 @@ export function useBlitzRealtime(id: string | undefined) {
       getBets(id).then(res => setBets(res.data));
       getTournament(id).then(res => { if (res.data) setTournament(res.data); });
     });
-    return () => { tChannel.unsubscribe(); bChannel.unsubscribe(); };
+    // Rounds: refetch rounds AND tournament whenever a round row changes
+    // (e.g. another device just completed the active round). Tournament
+    // refetch is needed because submitScore advances current_round and
+    // mutates player balances on the same transaction.
+    const rChannel = subscribeRounds(id, () => {
+      getRounds(id).then(res => setRounds(res.data));
+      getTournament(id).then(res => { if (res.data) setTournament(res.data); });
+    });
+    return () => { tChannel.unsubscribe(); bChannel.unsubscribe(); rChannel.unsubscribe(); };
   }, [id]);
 
   return { tournament, rounds, bets, loading, error, refetch };

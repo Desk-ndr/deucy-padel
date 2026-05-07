@@ -83,6 +83,16 @@ export function subscribeBets(tournamentId: string, callback: () => void) {
   return channel;
 }
 
+export function subscribeRounds(tournamentId: string, callback: () => void) {
+  const channel = supabase
+    .channel(`blitz-rounds-${tournamentId}`)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'blitz_rounds', filter: `tournament_id=eq.${tournamentId}`,
+    }, () => { callback(); })
+    .subscribe();
+  return channel;
+}
+
 // ── Mutations ──
 
 export async function createTournament(name: string, createdBy: string) {
@@ -182,10 +192,20 @@ export async function submitScore(
   scoreA: number, scoreB: number,
   tournament: BlitzTournamentData, bets: BlitzBet[],
 ) {
-  // 1. Complete the round
-  const { error: rErr } = await supabase.from('blitz_rounds')
-    .update({ team_a_score: scoreA, team_b_score: scoreB, status: 'completed' }).eq('id', roundId);
+  // 1. Complete the round — compare-and-swap on status to prevent
+  // double-submission when multiple players hit Submit simultaneously.
+  // Only the first request finds status='active' and succeeds; the second
+  // matches zero rows and we return ALREADY_COMPLETED, which the UI shows
+  // as a soft toast instead of crashing.
+  const { data: updatedRound, error: rErr } = await supabase.from('blitz_rounds')
+    .update({ team_a_score: scoreA, team_b_score: scoreB, status: 'completed' })
+    .eq('id', roundId)
+    .eq('status', 'active')
+    .select('id');
   if (rErr) return { error: rErr.message };
+  if (!updatedRound || updatedRound.length === 0) {
+    return { error: 'ALREADY_COMPLETED' };
+  }
 
   // 2. Calculate new balances
   const updatedPlayers = [...tournament.players];

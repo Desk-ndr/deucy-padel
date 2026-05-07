@@ -65,8 +65,16 @@ export default function BlitzTournament() {
     const round = rounds.find(r => r.round_index === tournament.current_round);
     if (!round) return;
     const { error } = await submitScore(id, round.id, round.round_index, scoreA, scoreB, tournament, bets);
-    if (error) toast({ title: 'Error', description: error, variant: 'destructive' });
-    else {
+    if (error) {
+      // Soft handling: another player beat us to it. Realtime will update
+      // the UI. Don't show a destructive toast — the round-change watcher
+      // in BlitzMatchTab already informs the user.
+      if (error === 'ALREADY_COMPLETED') {
+        refetch();
+        return;
+      }
+      toast({ title: 'Error', description: error, variant: 'destructive' });
+    } else {
       const isLast = tournament.current_round >= tournament.total_rounds;
       if (isLast) {
         const rankResult = await finalizeRanking(tournament, rounds, bets);
