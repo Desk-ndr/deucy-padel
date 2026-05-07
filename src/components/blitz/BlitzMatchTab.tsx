@@ -326,10 +326,12 @@ export default function BlitzMatchTab({
 
   // ── Player context for this round ───────────────────────────
   const amResting = playerIndex !== null && currentSchedule.rest.includes(playerIndex);
-  const amPlaying = playerIndex !== null && (
-    currentSchedule.teamA.includes(playerIndex) ||
-    currentSchedule.teamB.includes(playerIndex)
-  );
+  // Anyone with an identity in this tournament can submit the score —
+  // including resting players, who often have their hands free and are
+  // the natural ones to record the result. Pure spectators (no
+  // playerIndex, e.g. someone opened the share link without being in
+  // the pool) cannot submit.
+  const canSubmit = playerIndex !== null;
 
   const handleSubmit = async () => {
     const a = parseInt(scoreA);
@@ -448,8 +450,8 @@ export default function BlitzMatchTab({
         onStart={onStartTimer} onPause={onPauseTimer} onReset={onResetTimer}
       />
 
-      {/* Submit score trigger — anyone playing this round can submit */}
-      {amPlaying && !showScoreInput && (
+      {/* Submit score trigger — any player in this tournament can submit */}
+      {canSubmit && !showScoreInput && (
         <button onClick={() => setShowScoreInput(true)} style={{
           width: '100%', padding: spacing.md,
           backgroundColor: colors.primary, color: colors.bg,
@@ -461,7 +463,7 @@ export default function BlitzMatchTab({
       )}
 
       {/* Score input card */}
-      {amPlaying && showScoreInput && (
+      {canSubmit && showScoreInput && (
         <div style={{
           padding: spacing.lg, backgroundColor: colors.surface,
           borderRadius: radius.md, border: `1px solid ${colors.border}`,
