@@ -175,10 +175,24 @@ export default function BlitzJoin() {
               width: '100%', padding: `${spacing.lg}px`,
               background: colors.primary, border: 'none', borderRadius: radius.sm,
               color: '#000', fontFamily: fonts.sans, fontSize: typeScale.body.fontSize,
-              fontWeight: 700, cursor: 'pointer', marginBottom: spacing.lg,
+              fontWeight: 700, cursor: 'pointer', marginBottom: spacing.md,
             }}
           >
             Open Deucy
+          </button>
+
+          {/* Secondary: How it works */}
+          <button
+            onClick={() => navigate('/blitz/how-it-works')}
+            style={{
+              width: '100%', padding: `${spacing.sm}px`,
+              background: 'transparent', border: 'none',
+              color: colors.textSecondary,
+              fontFamily: fonts.sans, fontSize: 14, fontWeight: 600,
+              cursor: 'pointer', marginBottom: spacing.lg,
+            }}
+          >
+            How it works →
           </button>
 
           {/* Add to Home Screen */}

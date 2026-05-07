@@ -131,6 +131,27 @@ export default function BlitzList() {
             fontFamily: fonts.brand, color: colors.text,
           }}>deucy</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+            {/* How it works — entry point for new users */}
+            <button
+              onClick={() => navigate('/blitz/how-it-works')}
+              aria-label="How it works"
+              title="How it works"
+              style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: 'transparent',
+                border: `1px solid ${colors.border}`,
+                color: colors.textSecondary,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', padding: 0,
+              }}
+            >
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </button>
             {globalPlayer && (
               <span style={{ fontSize: 14, color: colors.textSecondary }}>
                 {globalPlayer.playerName}

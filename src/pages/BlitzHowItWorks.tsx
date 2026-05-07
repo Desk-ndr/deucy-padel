@@ -76,6 +76,11 @@ export default function BlitzHowItWorks() {
             After each round, the schedule rotates automatically.
           </Text>
           <Text>
+            Each round, two players form Team A, two form Team B, and any extra players sit out and rest.
+            Partners and opponents rotate so you don't keep playing with or against the same people.
+            The resting role rotates fairly: over the course of a tournament, every player rests a similar number of rounds.
+          </Text>
+          <Text>
             At the end, players are ranked by matches won. A draw counts as half a win for both teams.
             If two players have the same number of match wins, the one with more total games won breaks the tie.
             If both are equal, they share the same placement and earn the same ranking points.
@@ -122,8 +127,13 @@ export default function BlitzHowItWorks() {
         {/* Betting */}
         <Section title="Betting Bonus">
           <Text>
-            When you're resting (not playing a round), you can predict the winner. If you bet and your prediction
-            is correct, you earn profit. At the end, the best bettors earn bonus ranking points.
+            When you're resting (not playing a round), you can predict which team will win.
+            If your prediction is correct, you receive 2× your stake (your stake back, plus an equal profit).
+            If the match is a draw, your stake is refunded. If you lose, the stake is gone.
+          </Text>
+          <Text>
+            At the end of the tournament, the players with the highest betting profit earn bonus ranking points
+            on top of their placement points.
           </Text>
           <Text>
             Only players who actually placed bets are eligible for the bonus. If nobody bets, no bonus is awarded.
@@ -155,6 +165,15 @@ export default function BlitzHowItWorks() {
               </div>
             ))}
           </div>
+        </Section>
+
+        {/* Crown */}
+        <Section title="The Crown">
+          <Text>
+            The crown belongs to the player who currently holds the most consecutive tournament wins.
+            It changes hands when someone else takes 1st place in a tournament.
+            It's a status marker — no extra ranking points attached.
+          </Text>
         </Section>
 
         {/* Best of */}
