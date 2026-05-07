@@ -4,13 +4,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { normalizePhone } from '@/lib/phone';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 
-type State = 'idle' | 'searching' | 'not_found' | 'error';
+type State = 'idle' | 'searching' | 'not_found' | 'error' | 'admin_recovery' | 'admin_creating';
+
+const ADMIN_CODE = 'Valencia2026';
 
 export default function BlitzLogin() {
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
   const [state, setState] = useState<State>('idle');
   const [error, setError] = useState('');
+
+  // admin recovery form fields
+  const [adminCode, setAdminCode] = useState('');
+  const [adminName, setAdminName] = useState('');
+
+  const normalizeForLookup = (raw: string): string => {
+    const trimmed = raw.trim();
+    const withPrefix = trimmed.startsWith('+') ? trimmed : `+39${trimmed}`;
+    return normalizePhone(withPrefix);
+  };
 
   const handleLogin = async () => {
     setError('');
@@ -19,20 +31,16 @@ export default function BlitzLogin() {
       setError('Enter a valid phone number');
       return;
     }
-    // Auto-prepend +39 if user typed only digits.
-    const withPrefix = trimmed.startsWith('+') ? trimmed : `+39${trimmed}`;
-    const normalized = normalizePhone(withPrefix);
+    const normalized = normalizeForLookup(trimmed);
 
     setState('searching');
 
-    // Try exact match first.
     let { data, error: err } = await supabase
       .from('players')
       .select('id, display_name')
       .eq('phone', normalized)
       .maybeSingle();
 
-    // Fallback: try without country code (legacy records).
     if (!data && !err) {
       const localOnly = normalized.replace(/^\+\d{2}/, '');
       const fallback = await supabase
@@ -54,7 +62,6 @@ export default function BlitzLogin() {
       return;
     }
 
-    // Save identity and redirect straight to home.
     localStorage.setItem('deucy-player', JSON.stringify({
       playerId: data.id,
       playerName: data.display_name,
@@ -67,8 +74,105 @@ export default function BlitzLogin() {
     setError('');
   };
 
+  const handleStartAdminRecovery = () => {
+    setState('admin_recovery');
+    setError('');
+    setAdminCode('');
+    setAdminName('');
+  };
+
+  const handleSubmitAdminRecovery = async () => {
+    setError('');
+    if (adminCode.trim() !== ADMIN_CODE) {
+      setError('Wrong admin code');
+      return;
+    }
+    if (!adminName.trim()) {
+      setError('Enter your name');
+      return;
+    }
+    if (phone.trim().length < 6) {
+      setError('Enter a valid phone number');
+      return;
+    }
+
+    const normalized = normalizeForLookup(phone);
+    setState('admin_creating');
+
+    const { data, error: err } = await supabase
+      .from('players')
+      .insert({ display_name: adminName.trim(), phone: normalized })
+      .select('id, display_name')
+      .single();
+
+    if (err || !data) {
+      setState('admin_recovery');
+      // Postgres unique-violation code 23505
+      if (err && (err.code === '23505' || /duplicate|unique/i.test(err.message))) {
+        setError('A player with this phone already exists. Try logging in instead.');
+      } else {
+        setError(err?.message || 'Could not create profile. Try again.');
+      }
+      return;
+    }
+
+    localStorage.setItem('deucy-player', JSON.stringify({
+      playerId: data.id,
+      playerName: data.display_name,
+    }));
+    navigate('/blitz');
+  };
+
   const isSearching = state === 'searching';
-  const showInputBlock = state === 'idle' || state === 'searching' || state === 'error';
+  const isCreating = state === 'admin_creating';
+  const showLoginInput = state === 'idle' || state === 'searching' || state === 'error';
+
+  // ── Reusable styles ─────────────────────────────────────────
+
+  const inputStyle = (hasError: boolean): React.CSSProperties => ({
+    width: '100%',
+    padding: `${spacing.md}px ${spacing.lg}px`,
+    background: colors.surface,
+    border: `1px solid ${hasError ? colors.destructive : colors.border}`,
+    borderRadius: radius.sm,
+    color: colors.text,
+    fontFamily: fonts.mono,
+    fontSize: typeScale.body.fontSize,
+    outline: 'none',
+    boxSizing: 'border-box',
+  });
+
+  const primaryBtn: React.CSSProperties = {
+    width: '100%',
+    padding: `${spacing.md}px`,
+    background: colors.primary,
+    border: 'none',
+    borderRadius: radius.sm,
+    color: '#000',
+    fontFamily: fonts.sans,
+    fontSize: typeScale.body.fontSize,
+    fontWeight: 700,
+    cursor: 'pointer',
+  };
+
+  const secondaryBtn: React.CSSProperties = {
+    width: '100%',
+    padding: `${spacing.md}px`,
+    background: 'transparent',
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.sm,
+    color: colors.text,
+    fontFamily: fonts.sans,
+    fontSize: typeScale.body.fontSize,
+    fontWeight: 600,
+    cursor: 'pointer',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontFamily: fonts.sans,
+    fontSize: typeScale.caption.fontSize, color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  };
 
   return (
     <div style={{
@@ -88,45 +192,32 @@ export default function BlitzLogin() {
             fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize,
             fontWeight: 700, color: colors.text, margin: 0, marginBottom: spacing.sm,
           }}>
-            Lost your link?
+            {state === 'admin_recovery' || state === 'admin_creating'
+              ? 'Admin recovery'
+              : 'Lost your link?'}
           </h1>
           <p style={{
             fontFamily: fonts.sans, fontSize: typeScale.body.fontSize,
             color: colors.textSecondary, margin: 0, lineHeight: 1.5,
           }}>
-            Enter your phone number to log in.
+            {state === 'admin_recovery' || state === 'admin_creating'
+              ? 'Enter the admin code and create your profile.'
+              : 'Enter your phone number to log in.'}
           </p>
         </div>
 
-        {/* Idle / searching / error → input + login button */}
-        {showInputBlock && (
+        {/* Login (idle / searching / error) */}
+        {showLoginInput && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
             <div>
-              <label style={{
-                display: 'block', fontFamily: fonts.sans,
-                fontSize: typeScale.caption.fontSize, color: colors.textSecondary,
-                marginBottom: spacing.xs,
-              }}>
-                Phone number
-              </label>
+              <label style={labelStyle}>Phone number</label>
               <input
                 type="tel"
                 placeholder="+39 345 678 9012"
                 value={phone}
                 onChange={e => { setPhone(e.target.value); setError(''); }}
                 onKeyDown={e => e.key === 'Enter' && !isSearching && handleLogin()}
-                style={{
-                  width: '100%',
-                  padding: `${spacing.md}px ${spacing.lg}px`,
-                  background: colors.surface,
-                  border: `1px solid ${state === 'error' ? colors.destructive : colors.border}`,
-                  borderRadius: radius.sm,
-                  color: colors.text,
-                  fontFamily: fonts.mono,
-                  fontSize: typeScale.body.fontSize,
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
+                style={inputStyle(state === 'error')}
                 autoFocus
                 disabled={isSearching}
               />
@@ -144,26 +235,14 @@ export default function BlitzLogin() {
             <button
               onClick={handleLogin}
               disabled={isSearching}
-              style={{
-                width: '100%',
-                padding: `${spacing.md}px`,
-                background: colors.primary,
-                border: 'none',
-                borderRadius: radius.sm,
-                color: '#000',
-                fontFamily: fonts.sans,
-                fontSize: typeScale.body.fontSize,
-                fontWeight: 700,
-                cursor: 'pointer',
-                opacity: isSearching ? 0.6 : 1,
-              }}
+              style={{ ...primaryBtn, opacity: isSearching ? 0.6 : 1 }}
             >
               {isSearching ? 'Logging in...' : 'Log in'}
             </button>
           </div>
         )}
 
-        {/* Not found */}
+        {/* Not found — with admin recovery escape hatch */}
         {state === 'not_found' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
             <div style={{
@@ -184,22 +263,96 @@ export default function BlitzLogin() {
                 you'll get a personal invite link via WhatsApp.
               </p>
             </div>
+
+            <button onClick={handleReset} style={secondaryBtn}>
+              Try a different number
+            </button>
+
+            {/* Admin recovery escape hatch */}
             <button
-              onClick={handleReset}
+              onClick={handleStartAdminRecovery}
               style={{
-                width: '100%',
-                padding: `${spacing.md}px`,
-                background: 'transparent',
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm,
-                color: colors.text,
-                fontFamily: fonts.sans,
-                fontSize: typeScale.body.fontSize,
-                fontWeight: 600,
-                cursor: 'pointer',
+                background: 'none', border: 'none',
+                color: colors.muted, fontFamily: fonts.sans,
+                fontSize: typeScale.caption.fontSize, fontWeight: 600,
+                cursor: 'pointer', textAlign: 'center', padding: spacing.sm,
+                textDecoration: 'underline', textDecorationColor: colors.muted,
+                textUnderlineOffset: 3,
               }}
             >
-              Try a different number
+              Are you admin?
+            </button>
+          </div>
+        )}
+
+        {/* Admin recovery form */}
+        {(state === 'admin_recovery' || state === 'admin_creating') && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+            <div>
+              <label style={labelStyle}>Admin code</label>
+              <input
+                type="password"
+                placeholder="••••••"
+                value={adminCode}
+                onChange={e => { setAdminCode(e.target.value); setError(''); }}
+                style={inputStyle(false)}
+                autoFocus
+                disabled={isCreating}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Your name</label>
+              <input
+                type="text"
+                placeholder="Andrea"
+                value={adminName}
+                onChange={e => { setAdminName(e.target.value); setError(''); }}
+                style={{ ...inputStyle(false), fontFamily: fonts.sans }}
+                disabled={isCreating}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Phone number</label>
+              <input
+                type="tel"
+                placeholder="+39 345 678 9012"
+                value={phone}
+                onChange={e => { setPhone(e.target.value); setError(''); }}
+                style={inputStyle(false)}
+                disabled={isCreating}
+              />
+            </div>
+
+            {error && (
+              <p style={{
+                fontFamily: fonts.sans, fontSize: typeScale.caption.fontSize,
+                color: colors.destructive, margin: 0,
+              }}>
+                {error}
+              </p>
+            )}
+
+            <button
+              onClick={handleSubmitAdminRecovery}
+              disabled={isCreating}
+              style={{ ...primaryBtn, opacity: isCreating ? 0.6 : 1 }}
+            >
+              {isCreating ? 'Creating profile...' : 'Create my profile'}
+            </button>
+
+            <button
+              onClick={handleReset}
+              disabled={isCreating}
+              style={{
+                background: 'none', border: 'none',
+                color: colors.textSecondary, fontFamily: fonts.sans,
+                fontSize: typeScale.caption.fontSize, fontWeight: 600,
+                cursor: 'pointer', textAlign: 'center', padding: spacing.sm,
+              }}
+            >
+              ← Back to login
             </button>
           </div>
         )}
