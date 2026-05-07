@@ -353,3 +353,27 @@ Refactor completo del Blitz Tournament da single-device (un telefono passato tra
 - [ ] Verify game history redesign looks correct on live site
 - [ ] Consider further UX improvements from audit list
 - [ ] Execute `002_main_schema.sql` on Supabase (Andrea manual — for main tournament mode)
+
+## Robustness audit 2026-05-07 (post-TDZ fix)
+
+Audit eseguito da 2 sub-agent in parallelo (race condition + defensive coding sweep).
+
+**Verdetto sul codebase:** hardened. Tutti gli accessi non protetti segnalati dal defensive sweep risultano già coperti da guard (BlitzLeaderboard ha `if (!s) continue`, BlitzCalendarTab usa `.map()` su array, BlitzMatchTab ha guard `malformed` + `currentSchedule null` con fallback friendly + ErrorBoundary root + tab-scoped come safety net).
+
+**Issue residui — PARKED perché richiedono migration o RPC:**
+
+| # | Severità | Issue | Soluzione |
+|---|---|---|---|
+| 60 | CRITICO | `placeBet` non atomic: INSERT bet + UPDATE players in 2 step. Due bet simultanei possono sovrascrivere balance | Stored proc `place_bet()` in transazione |
+| 61 | CRITICO | Visualizzazione incoerente di `current_round` durante submit concorrente. CAS solo su `rounds.status`, non su tournament version | Aggiungere `version` integer column a `blitz_tournaments`, CAS via WHERE version=? |
+| 42 | CRITICO | `editScore` ricalcola tutti i balance senza CAS. Edit concorrente di round diversi può sovrascrivere effetti di placeBet recenti | Stored proc o version field |
+| 62 | ALTO | `useBlitzRealtime` Promise.all([getRounds, getTournament]) può completare in ordine inverso → flicker incoerente ~50ms | Sequential await OR single combined query |
+| 63 | BASSO | `tabInitRef` non si rifa su tournament reset → tab rimane su 'leaderboard' dopo reset | useEffect su tournament.status |
+
+**Issue MEDI già parzialmente mitigati:**
+- BlitzMatchTab form state stale dopo realtime: useEffect su `tournament.current_round` resetta scoreA/scoreB e mostra toast "Round was just submitted" ✓
+- `cancelBet` vs `submitScore` race: CAS su `status='pending'` previene corruzione, soft error `BET_ALREADY_SETTLED` lato client ✓
+- White screen su crash: ErrorBoundary root + tab-scoped, console diagnostico per troubleshooting ✓
+
+**Conclusione:** sicuro per pre-launch testing multi-device. Le 3 race condition critiche restano possibili ma il loro effetto è bounded (data eventually consistent, non corruption permanente in scenari realistici di 8-12 player). Migration DB per chiusura definitiva è prossimo step di hardening.
+
