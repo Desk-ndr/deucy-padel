@@ -125,6 +125,20 @@ export async function createTournament(name: string, createdBy: string) {
   return { data: parseTournament(data), error: null };
 }
 
+/**
+ * Rename a tournament. Sent to the DB as a single UPDATE on `name`.
+ * Realtime subscription on blitz_tournaments propagates the new name
+ * to every other connected device within ~500ms.
+ */
+export async function renameTournament(id: string, newName: string) {
+  const trimmed = newName.trim();
+  if (!trimmed) return { error: 'EMPTY_NAME' };
+  const { error } = await supabase.from('blitz_tournaments')
+    .update({ name: trimmed } as any)
+    .eq('id', id);
+  return { error: error?.message ?? null };
+}
+
 export async function deleteTournament(id: string) {
   // ranking_entries are CASCADE-deleted automatically via FK
   await supabase.from('blitz_bets').delete().eq('tournament_id', id);

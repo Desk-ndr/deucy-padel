@@ -6,7 +6,7 @@ import { useBlitzIdentity } from '@/hooks/useBlitzIdentity';
 import { useBlitzTimer } from '@/hooks/useBlitzTimer';
 import {
   startTournament, startTimer, pauseTimer, resetTimer,
-  submitScore, placeBet, cancelBet, editScore, reorderRound, deleteTournament, BlitzPlayer,
+  submitScore, placeBet, cancelBet, editScore, reorderRound, deleteTournament, renameTournament, BlitzPlayer,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
 import { finalizeRanking } from '@/services/rankingService';
@@ -40,6 +40,9 @@ export default function BlitzTournament() {
   const playersJson = tournament ? JSON.stringify(tournament.players) : '';
   const stablePlayers = useMemo(() => tournament?.players, [playersJson]);
   const { playerIndex, isCreator, deviceId, isSpectator } = useBlitzIdentity(id, tournament?.created_by ?? null, stablePlayers);
+  // Anyone in the tournament pool can rename / submit / edit. Pure
+  // spectators (no playerIndex) cannot.
+  const canSubmit = playerIndex !== null;
   const timerProps = useBlitzTimer(tournament);
   const [activeTab, setActiveTab] = useState<DeucyTab>('match');
 
@@ -210,6 +213,39 @@ export default function BlitzTournament() {
   const [deleteCode, setDeleteCode] = useState('');
   const [deleting, setDeleting] = useState(false);
 
+  // Inline rename state — tap the title to edit, Enter/blur to save,
+  // Esc to cancel. Anyone in the tournament pool can rename.
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [renaming, setRenaming] = useState(false);
+
+  const handleStartRename = () => {
+    if (!tournament) return;
+    setDraftName(tournament.name);
+    setIsEditingName(true);
+  };
+
+  const handleSaveRename = async () => {
+    if (!id || !tournament) return;
+    const trimmed = draftName.trim();
+    if (!trimmed || trimmed === tournament.name) {
+      setIsEditingName(false);
+      return;
+    }
+    setRenaming(true);
+    const { error } = await renameTournament(id, trimmed);
+    setRenaming(false);
+    setIsEditingName(false);
+    if (error) {
+      toast({ title: 'Could not rename', description: error, variant: 'destructive' });
+    }
+  };
+
+  const handleCancelRename = () => {
+    setIsEditingName(false);
+    setDraftName('');
+  };
+
   const handleDelete = async () => {
     if (!id) return;
     setDeleting(true);
@@ -328,15 +364,48 @@ export default function BlitzTournament() {
             </svg>
           </button>
 
-          <h1 style={{
-            ...typeScale.title, color: colors.text, margin: 0,
-            display: 'flex', alignItems: 'center', gap: spacing.sm,
-          }}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-            {tournament.name}
-          </h1>
+          {isEditingName ? (
+            <input
+              autoFocus
+              value={draftName}
+              disabled={renaming}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={handleSaveRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); handleSaveRename(); }
+                else if (e.key === 'Escape') { e.preventDefault(); handleCancelRename(); }
+              }}
+              style={{
+                flex: 1,
+                background: colors.bg,
+                border: `1px solid ${colors.primary}`,
+                borderRadius: radius.sm,
+                color: colors.text,
+                fontFamily: fonts.sans, fontSize: 16, fontWeight: 700,
+                padding: `${spacing.xs}px ${spacing.sm}px`,
+                outline: 'none',
+                textAlign: 'center',
+                margin: `0 ${spacing.sm}px`,
+              }}
+              maxLength={40}
+            />
+          ) : (
+            <h1
+              onClick={canSubmit ? handleStartRename : undefined}
+              style={{
+                ...typeScale.title, color: colors.text, margin: 0,
+                display: 'flex', alignItems: 'center', gap: spacing.sm,
+                cursor: canSubmit ? 'pointer' : 'default',
+                userSelect: 'none',
+              }}
+              title={canSubmit ? 'Tap to rename' : undefined}
+            >
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
+              {tournament.name}
+            </h1>
+          )}
 
           <div style={{ display: 'flex', gap: spacing.xs }}>
             <button
