@@ -73,6 +73,23 @@ export default function BlitzMatchTab({
     }
   }, [timerProps.isExpired]);
 
+  // Defensive: guard against malformed tournament rows. Should never
+  // fire in practice; if it does, the console log makes the bug visible
+  // instead of silently rendering null and showing a blank page.
+  if (!Array.isArray(tournament.players) || !Array.isArray(tournament.schedule)) {
+    console.error('[BlitzMatchTab] malformed tournament', {
+      id: tournament.id,
+      status: tournament.status,
+      hasPlayers: Array.isArray(tournament.players),
+      hasSchedule: Array.isArray(tournament.schedule),
+    });
+    return (
+      <div style={{ padding: spacing.lg, textAlign: 'center', color: colors.muted }}>
+        Tournament data is incomplete. Reloading in a moment…
+      </div>
+    );
+  }
+
   const totalRounds = tournament.total_rounds;
   const sortedPlayers = tournament.players
     .map((p, i) => ({ ...p, index: i }))
@@ -83,6 +100,14 @@ export default function BlitzMatchTab({
     tournament.schedule.length > 0
       ? tournament.schedule[tournament.current_round - 1]
       : null;
+
+  // Hoisted derived flags so they are in scope for BOTH the finished
+  // branch and the active-round branch below. This prevents a TDZ
+  // ReferenceError that crashed the page when finished tournaments
+  // tried to read canSubmit (declared further down) before React had
+  // a chance to switch to the leaderboard tab.
+  const canSubmit = playerIndex !== null;
+  const amResting = playerIndex !== null && currentSchedule !== null && currentSchedule.rest.includes(playerIndex);
 
 /* ── Finished state ─────────────────────────────────────────── */
   if (tournament.status === 'finished') {
@@ -197,11 +222,13 @@ export default function BlitzMatchTab({
               color: colors.primary, letterSpacing: '-0.02em',
               display: 'block',
             }}>
-              {winner?.name}
+              {winner?.name ?? '—'}
             </span>
-            <span style={{ ...typeScale.body, color: colors.textSecondary, marginTop: spacing.xs, display: 'block' }}>
-              {winner.matches % 1 === 0 ? winner.matches : winner.matches.toFixed(1)} matches won  /  {winner.games} games
-            </span>
+            {winner && (
+              <span style={{ ...typeScale.body, color: colors.textSecondary, marginTop: spacing.xs, display: 'block' }}>
+                {winner.matches % 1 === 0 ? winner.matches : winner.matches.toFixed(1)} matches won  /  {winner.games} games
+              </span>
+            )}
           </div>
 
           {/* Points badge */}
@@ -299,7 +326,20 @@ export default function BlitzMatchTab({
     );
   }
 
-  if (!currentSchedule) return null;
+  if (!currentSchedule) {
+    console.error('[BlitzMatchTab] currentSchedule is null', {
+      id: tournament.id,
+      status: tournament.status,
+      currentRound: tournament.current_round,
+      totalRounds: tournament.total_rounds,
+      scheduleLen: tournament.schedule.length,
+    });
+    return (
+      <div style={{ padding: spacing.lg, textAlign: 'center', color: colors.muted }}>
+        No active round. The tournament may need to be restarted.
+      </div>
+    );
+  }
 
   const { toast } = useToast();
 
@@ -325,14 +365,8 @@ export default function BlitzMatchTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournament.current_round]);
 
-  // ── Player context for this round ───────────────────────────
-  const amResting = playerIndex !== null && currentSchedule.rest.includes(playerIndex);
-  // Anyone with an identity in this tournament can submit the score —
-  // including resting players, who often have their hands free and are
-  // the natural ones to record the result. Pure spectators (no
-  // playerIndex, e.g. someone opened the share link without being in
-  // the pool) cannot submit.
-  const canSubmit = playerIndex !== null;
+  // amResting + canSubmit are hoisted at the top of the component so
+  // they remain in scope for the finished-branch render too. See above.
 
   const handleSubmit = async () => {
     const a = parseInt(scoreA);

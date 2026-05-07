@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { PlayerProvider } from "@/contexts/PlayerContext";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Auth Components
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -48,6 +49,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ErrorBoundary label="root">
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Navigate to="/blitz" replace />} />
@@ -91,6 +93,7 @@ const App = () => (
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </ErrorBoundary>
         </BrowserRouter>
       </PlayerProvider>
     </TooltipProvider>

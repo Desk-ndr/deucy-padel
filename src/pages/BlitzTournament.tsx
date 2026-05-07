@@ -17,6 +17,7 @@ import BlitzMatchTab from '@/components/blitz/BlitzMatchTab';
 import BlitzCalendarTab from '@/components/blitz/BlitzCalendarTab';
 import BlitzLeaderboard from '@/components/blitz/BlitzLeaderboard';
 import BlitzBettingCard from '@/components/blitz/BlitzBettingCard';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export default function BlitzTournament() {
   const { id } = useParams<{ id: string }>();
@@ -289,6 +290,7 @@ export default function BlitzTournament() {
 
         {/* Tab content */}
         <div style={{ padding: spacing.lg }}>
+          <ErrorBoundary key={activeTab} label={`tab:${activeTab}`}>
           {activeTab === 'match' && (
             <>
               <BlitzMatchTab
@@ -321,6 +323,7 @@ export default function BlitzTournament() {
           {activeTab === 'calendar' && (
             <BlitzCalendarTab tournament={tournament} rounds={rounds} />
           )}
+          </ErrorBoundary>
         </div>
 
         {/* Bottom Nav */}

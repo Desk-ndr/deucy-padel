@@ -21,11 +21,12 @@ export function useBlitzRealtime(id: string | undefined) {
       ]);
       if (tRes.error) setError(tRes.error);
       if (tRes.data) setTournament(tRes.data);
-      setRounds(rRes.data);
-      setBets(bRes.data);
+      setRounds(rRes.data ?? []);
+      setBets(bRes.data ?? []);
       setLoading(false);
       retryCount.current = 0;
     } catch (err) {
+      console.error('[useBlitzRealtime] refetch failed', err);
       // Auto-retry up to 3 times with backoff
       if (retryCount.current < 3) {
         retryCount.current += 1;
@@ -48,7 +49,7 @@ export function useBlitzRealtime(id: string | undefined) {
     if (!id) return;
     const tChannel = subscribeTournament(id, (t) => setTournament(t));
     const bChannel = subscribeBets(id, () => {
-      getBets(id).then(res => setBets(res.data));
+      getBets(id).then(res => setBets(res.data ?? []));
       getTournament(id).then(res => { if (res.data) setTournament(res.data); });
     });
     // Rounds: refetch rounds AND tournament whenever a round row changes
@@ -56,7 +57,7 @@ export function useBlitzRealtime(id: string | undefined) {
     // refetch is needed because submitScore advances current_round and
     // mutates player balances on the same transaction.
     const rChannel = subscribeRounds(id, () => {
-      getRounds(id).then(res => setRounds(res.data));
+      getRounds(id).then(res => setRounds(res.data ?? []));
       getTournament(id).then(res => { if (res.data) setTournament(res.data); });
     });
     return () => { tChannel.unsubscribe(); bChannel.unsubscribe(); rChannel.unsubscribe(); };
