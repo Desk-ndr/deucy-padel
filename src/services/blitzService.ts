@@ -171,18 +171,30 @@ export async function startTournament(
   players: BlitzPlayer[],
   schedule: BlitzRoundSchedule[],
 ) {
+  // Insert rounds FIRST, then flip the tournament to 'live'. Reversed
+  // order vs the obvious one: this way, if the rounds insert fails
+  // (network drop, RLS issue, etc.), the tournament stays in 'setup'
+  // and the host can simply retry. The previous order would leave the
+  // tournament status='live' WITHOUT any rounds in the DB, which made
+  // BlitzMatchTab fall through to its "no active round" diagnostic.
+  const roundInserts = Array.from({ length: config.totalRounds }, (_, i) => ({
+    tournament_id: id, round_index: i + 1, status: i === 0 ? 'active' : 'pending',
+  }));
+  const { error: rErr } = await supabase.from('blitz_rounds').insert(roundInserts);
+  if (rErr) return { error: rErr.message };
+
+  // Now that rounds exist, flip the tournament. Worst case here (the
+  // tournament UPDATE fails) leaves a few orphan round rows in the DB
+  // but status stays 'setup', so the user-facing state is consistent
+  // and the next retry just re-inserts (we can leave the orphans;
+  // ON DELETE CASCADE on tournament_id cleans them up if the user
+  // deletes the tournament).
   const { error: tErr } = await supabase.from('blitz_tournaments').update({
     players: players as any, status: 'live', current_round: 1,
     total_rounds: config.totalRounds, round_duration_seconds: config.roundDurationSeconds,
     schedule: schedule as any,
   } as any).eq('id', id);
-  if (tErr) return { error: tErr.message };
-
-  const roundInserts = Array.from({ length: config.totalRounds }, (_, i) => ({
-    tournament_id: id, round_index: i + 1, status: i === 0 ? 'active' : 'pending',
-  }));
-  const { error: rErr } = await supabase.from('blitz_rounds').insert(roundInserts);
-  return { error: rErr?.message ?? null };
+  return { error: tErr?.message ?? null };
 }
 
 // ── Timer ──
