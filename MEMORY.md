@@ -377,3 +377,18 @@ Audit eseguito da 2 sub-agent in parallelo (race condition + defensive coding sw
 
 **Conclusione:** sicuro per pre-launch testing multi-device. Le 3 race condition critiche restano possibili ma il loro effetto è bounded (data eventually consistent, non corruption permanente in scenari realistici di 8-12 player). Migration DB per chiusura definitiva è prossimo step di hardening.
 
+## Realtime fix 2026-05-07
+
+**Bug critico:** gli aggiornamenti score/bet non si propagavano agli altri device senza refresh manuale.
+
+**Root cause:** la tabella `blitz_rounds` non era nella publication `supabase_realtime` (mancava in `001_blitz_schema.sql`). Quando uno faceva submitScore, il database aggiornava `blitz_rounds.status` da 'active' a 'completed' MA Supabase non broadcastava l'evento. Il `subscribeRounds` aggiunto in commit `58f64ab` rimaneva sordo.
+
+**Fix:** eseguito via MCP execute_sql:
+- `ALTER PUBLICATION supabase_realtime ADD TABLE blitz_rounds`
+- `ALTER TABLE blitz_tournaments REPLICA IDENTITY FULL`
+- `ALTER TABLE blitz_rounds REPLICA IDENTITY FULL`
+- `ALTER TABLE blitz_bets REPLICA IDENTITY FULL`
+
+**Perché REPLICA IDENTITY FULL:** Supabase realtime con il default `REPLICA IDENTITY DEFAULT` include nei eventi UPDATE/DELETE solo le colonne PK nel record OLD. I filter client-side `tournament_id=eq.${id}` su tabelle dove `tournament_id` non è la PK (cioè `blitz_rounds` e `blitz_bets`) silenziosamente droppano gli eventi. Con `REPLICA IDENTITY FULL` tutto il record OLD è broadcastato, il filter matcha correttamente.
+
+`001_blitz_schema.sql` aggiornato di conseguenza per future istanze fresh.

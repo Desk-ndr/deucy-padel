@@ -95,5 +95,17 @@ CREATE POLICY "blitz_pledges_delete" ON blitz_pledges FOR DELETE USING (true);
 -- REALTIME
 -- ============================================
 
+-- Add all three tables to the realtime publication so client
+-- subscriptions receive INSERT/UPDATE/DELETE events.
 ALTER PUBLICATION supabase_realtime ADD TABLE blitz_tournaments;
 ALTER PUBLICATION supabase_realtime ADD TABLE blitz_bets;
+ALTER PUBLICATION supabase_realtime ADD TABLE blitz_rounds;
+
+-- REPLICA IDENTITY FULL is required for client-side filtering on
+-- non-PK columns (e.g. tournament_id=eq.X). With the default
+-- REPLICA IDENTITY DEFAULT, only PK columns are present in the OLD
+-- record of UPDATE/DELETE events, so a filter on tournament_id
+-- silently drops events from blitz_rounds and blitz_bets.
+ALTER TABLE blitz_tournaments REPLICA IDENTITY FULL;
+ALTER TABLE blitz_rounds REPLICA IDENTITY FULL;
+ALTER TABLE blitz_bets REPLICA IDENTITY FULL;
