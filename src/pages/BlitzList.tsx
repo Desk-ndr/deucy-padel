@@ -4,7 +4,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { listTournaments, createTournament, deleteTournament, BlitzTournamentData } from '@/services/blitzService';
+import { listTournaments, createTournament, deleteTournament, subscribeAllTournaments, BlitzTournamentData } from '@/services/blitzService';
 import { getRanking, RankedPlayer } from '@/services/rankingService';
 import { supabase } from '@/integrations/supabase/client';
 import { useBlitzIdentity, getGlobalPlayer } from '@/hooks/useBlitzIdentity';
@@ -39,6 +39,17 @@ export default function BlitzList() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Realtime: re-pull the tournament list whenever ANY change happens to
+  // blitz_tournaments. Covers INSERT (someone created a new Blitz),
+  // UPDATE (status setup -> live -> finished), DELETE. So Andrea sees
+  // Bruno's new tournament appear within ~500ms without refreshing.
+  useEffect(() => {
+    const channel = subscribeAllTournaments(() => {
+      load();
+    });
+    return () => { channel.unsubscribe(); };
+  }, []);
 
   // Fetch ranking + my position (with retry)
   useEffect(() => {

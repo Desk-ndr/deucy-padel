@@ -94,6 +94,23 @@ export function subscribeRounds(tournamentId: string, callback: () => void) {
   return channel;
 }
 
+/**
+ * Subscribe to ALL changes on the blitz_tournaments table (INSERT,
+ * UPDATE, DELETE). Used by the home page (BlitzList) so that when
+ * any user creates a new tournament, advances a tournament from
+ * setup to live, finishes it, or deletes it, every other connected
+ * device sees the change within ~500ms — no manual refresh needed.
+ */
+export function subscribeAllTournaments(callback: () => void) {
+  const channel = supabase
+    .channel('blitz-tournaments-all')
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'blitz_tournaments',
+    }, () => { callback(); })
+    .subscribe();
+  return channel;
+}
+
 // ── Mutations ──
 
 export async function createTournament(name: string, createdBy: string) {
