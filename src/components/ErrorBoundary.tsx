@@ -24,6 +24,11 @@ interface State {
  */
 export default class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, message: '', stack: '' };
+  // Track whether we've already attempted an auto-recovery for transient
+  // errors (React #300 max-update-depth, etc). One shot — if it crashes
+  // again after the auto-reset, show the fallback for real.
+  private autoRecoverAttempted = false;
+  private recoverTimerId: ReturnType<typeof setTimeout> | null = null;
 
   static getDerivedStateFromError(err: Error): State {
     return {
@@ -33,6 +38,10 @@ export default class ErrorBoundary extends Component<Props, State> {
     };
   }
 
+  componentWillUnmount() {
+    if (this.recoverTimerId) clearTimeout(this.recoverTimerId);
+  }
+
   componentDidCatch(err: Error, info: React.ErrorInfo) {
     console.error(
       `[ErrorBoundary${this.props.label ? ' · ' + this.props.label : ''}] caught render error`,
@@ -40,6 +49,23 @@ export default class ErrorBoundary extends Component<Props, State> {
       '\n  stack:', err.stack,
       '\n  componentStack:', info.componentStack,
     );
+
+    // Auto-recovery for transient bursts (React #300 = max update depth,
+    // "rendering a different component" warnings, etc). One attempt only
+    // — if the second render also crashes the user sees the fallback.
+    const looksTransient =
+      /invariant=300|Maximum update depth|while rendering a different component/i.test(
+        err.message ?? '',
+      );
+    if (looksTransient && !this.autoRecoverAttempted) {
+      this.autoRecoverAttempted = true;
+      console.info(
+        `[ErrorBoundary${this.props.label ? ' · ' + this.props.label : ''}] attempting auto-recover in 500ms`,
+      );
+      this.recoverTimerId = setTimeout(() => {
+        this.setState({ hasError: false, message: '', stack: '' });
+      }, 500);
+    }
   }
 
   reset = () => {

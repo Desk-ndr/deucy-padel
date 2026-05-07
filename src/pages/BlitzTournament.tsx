@@ -104,19 +104,35 @@ export default function BlitzTournament() {
       // the UI. Don't show a destructive toast — the round-change watcher
       // in BlitzMatchTab already informs the user.
       if (error === 'ALREADY_COMPLETED') {
-        refetch();
-        return;
+        return; // realtime subscriptions will pull the new state
       }
       toast({ title: 'Error', description: error, variant: 'destructive' });
-    } else {
-      const isLast = tournament.current_round >= tournament.total_rounds;
-      if (isLast) {
-        const rankResult = await finalizeRanking(tournament, rounds, bets);
-        if (rankResult?.error) console.warn('Ranking finalization:', rankResult.error);
-      }
-      toast({ title: isLast ? 'Tournament complete!' : `Round ${tournament.current_round} done!` });
-      refetch();
+      return;
     }
+
+    const isLast = tournament.current_round >= tournament.total_rounds;
+    if (isLast) {
+      // Eagerly switch to leaderboard so the user lands on the right tab
+      // without depending on the tabInitRef useEffect, which only fires
+      // on the first tournament arrival and can be racy in the middle of
+      // a cascade of realtime events.
+      setActiveTab('leaderboard');
+      const rankResult = await finalizeRanking(tournament, rounds, bets);
+      if (rankResult?.error) console.warn('Ranking finalization:', rankResult.error);
+      toast({ title: 'Tournament complete!' });
+      // No explicit refetch: subscribeTournament + subscribeRounds +
+      // subscribeBets already deliver fresh data within ~500ms. Calling
+      // refetch here would stack a redundant Promise.all of setState
+      // calls on top of the realtime burst and was contributing to the
+      // re-render storm that triggered React #300.
+      return;
+    }
+
+    toast({ title: `Round ${tournament.current_round} done!` });
+    // For non-last rounds we still benefit from a refetch as a belt-and-
+    // suspenders sync, since the cascade is small and realtime alone
+    // sometimes has a noticeable lag for rounds.
+    refetch();
   };
 
   const handleEditScore = async (roundId: string, roundIndex: number, scoreA: number, scoreB: number) => {
