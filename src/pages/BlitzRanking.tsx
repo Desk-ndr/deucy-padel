@@ -119,9 +119,11 @@ export default function BlitzRanking() {
           flex: 1, minWidth: 0,
           fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize, fontWeight: 700,
           color: colors.text, margin: 0, lineHeight: 1.1,
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          Overall Ranking
+          Deucy Ranking
         </h1>
         <button
           onClick={() => navigate('/blitz/how-it-works')}
