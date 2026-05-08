@@ -348,8 +348,8 @@ export default function BlitzList() {
               );
             })}
 
-            {/* My position */}
-            {myRank && (
+            {/* My position — only if user is outside the visible top 3 */}
+            {myRank && myRank.position > 3 && (
               <>
                 <div style={{ height: 1, background: colors.border, marginTop: spacing.sm }} />
                 <div style={{
