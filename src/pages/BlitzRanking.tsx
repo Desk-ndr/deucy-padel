@@ -172,9 +172,40 @@ export default function BlitzRanking() {
       {/* Manage Players Panel */}
       {showManage && (
         <div style={{
+          position: 'relative',
           background: colors.surface, border: '1px solid ' + colors.border,
           borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.xl,
         }}>
+          {/* Close (top-right) — also clears the admin gate so reopening
+              requires the code again. */}
+          <button
+            onClick={() => {
+              setShowManage(false);
+              setAdminCode('');
+              setAdminVerified(false);
+              setAddError(null);
+            }}
+            aria-label="Close"
+            title="Close"
+            style={{
+              position: 'absolute',
+              top: spacing.sm,
+              right: spacing.sm,
+              width: 24, height: 24, borderRadius: '50%',
+              background: 'transparent',
+              border: 'none',
+              color: colors.textSecondary,
+              cursor: 'pointer', padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+
           {!adminVerified ? (
             <div>
               <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, margin: 0, marginBottom: spacing.md }}>
