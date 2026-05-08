@@ -152,18 +152,14 @@ export default function BlitzRanking() {
         <button
           onClick={() => setShowManage(!showManage)}
           style={{
-            background: 'transparent',
-            border: `1px solid ${colors.border}`,
-            borderRadius: '50%',
-            width: 23, height: 23,
+            background: 'none', border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm, width: 36, height: 36,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', padding: 0, flexShrink: 0,
-            color: colors.textSecondary,
+            cursor: 'pointer', opacity: 0.5, transition: 'opacity 0.2s',
           }}
-          aria-label="Manage players"
           title="Manage players"
         >
-          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary}
             strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
             <circle cx="8.5" cy="7" r="4" />
