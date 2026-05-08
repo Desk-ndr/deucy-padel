@@ -556,32 +556,29 @@ export default function BlitzList() {
                 cursor: 'pointer',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'baseline', gap: spacing.sm,
-                    overflow: 'hidden', whiteSpace: 'nowrap',
-                  }}>
+                  {dateStr && (
                     <span style={{
-                      fontSize: 15, fontWeight: 600, color: colors.textSecondary,
-                      flexShrink: 0,
+                      display: 'block', fontSize: 11, color: colors.muted,
+                      textTransform: 'uppercase', letterSpacing: '0.06em',
+                      fontWeight: 600, marginBottom: 2,
                     }}>
-                      {t.name}
+                      {dateStr}
                     </span>
-                    {winnerName && (
-                      <span style={{
-                        fontSize: 14, fontWeight: 500, color: colors.textSecondary,
-                        overflow: 'hidden', textOverflow: 'ellipsis',
-                      }}>
-                        · won by {winnerName}
-                      </span>
-                    )}
-                  </div>
+                  )}
+                  <span style={{
+                    display: 'block', fontSize: 15, fontWeight: 600, color: colors.textSecondary,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {t.name}
+                  </span>
                   <span style={{
                     display: 'block', fontSize: 12, color: colors.muted, marginTop: 2,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
-                    {t.players.length} players{dateStr ? ` · ${dateStr}` : ''}
+                    {t.players.length} players
+                    {winnerName ? ` · won by ${winnerName}` : ''}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
