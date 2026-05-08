@@ -330,7 +330,16 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       winRate,
       form,
     };
-  }).filter(p => p.tournamentsPlayed > 0);
+  });
+
+  // Sort: by rankingScore desc, then by displayName asc as a deterministic
+  // tiebreaker. Players who haven't played yet share rankingScore=0 and
+  // get listed alphabetically — no longer hidden, so the home page shows
+  // the full pool even before the first tournament.
+  ranked.sort((a, b) => {
+    if (b.rankingScore !== a.rankingScore) return b.rankingScore - a.rankingScore;
+    return a.displayName.localeCompare(b.displayName);
+  });
 
   // ── Dynamic W% calculation from actual round data ──
   // Get all tournament IDs referenced in ranking entries
