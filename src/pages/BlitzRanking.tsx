@@ -117,7 +117,7 @@ export default function BlitzRanking() {
         </button>
         <h1 style={{
           flex: 1, minWidth: 0,
-          fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize, fontWeight: 700,
+          fontFamily: fonts.sans, fontSize: 18, fontWeight: 700,
           color: colors.text, margin: 0, lineHeight: 1.1,
           textTransform: 'uppercase',
           letterSpacing: '0.04em',
