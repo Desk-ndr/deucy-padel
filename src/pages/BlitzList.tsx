@@ -220,11 +220,22 @@ export default function BlitzList() {
               </button>
             </div>
 
-            {/* PTS column label — with breathing room from header */}
+            {/* Column headers — # / NAME / PTS, aligned with the rows below */}
             <div style={{
-              display: 'flex', justifyContent: 'flex-end',
+              display: 'flex', alignItems: 'center',
+              padding: `0 ${spacing.sm}px`,
               marginTop: spacing.lg, marginBottom: spacing.xs,
             }}>
+              <span style={{
+                fontFamily: fonts.mono, fontSize: 10, fontWeight: 600,
+                color: colors.textSecondary, letterSpacing: 0.5,
+                minWidth: 28,
+              }}>#</span>
+              <span style={{
+                flex: 1,
+                fontFamily: fonts.mono, fontSize: 10, fontWeight: 600,
+                color: colors.textSecondary, letterSpacing: 0.5,
+              }}>NAME</span>
               <span style={{
                 fontFamily: fonts.mono, fontSize: 10, fontWeight: 600,
                 color: colors.textSecondary, letterSpacing: 0.5,
