@@ -558,16 +558,30 @@ export default function BlitzList() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: 15, fontWeight: 600, color: colors.textSecondary }}>
-                    {t.name}
-                  </span>
+                  <div style={{
+                    display: 'flex', alignItems: 'baseline', gap: spacing.sm,
+                    overflow: 'hidden', whiteSpace: 'nowrap',
+                  }}>
+                    <span style={{
+                      fontSize: 15, fontWeight: 600, color: colors.textSecondary,
+                      flexShrink: 0,
+                    }}>
+                      {t.name}
+                    </span>
+                    {winnerName && (
+                      <span style={{
+                        fontSize: 14, fontWeight: 500, color: colors.textSecondary,
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        · won by {winnerName}
+                      </span>
+                    )}
+                  </div>
                   <span style={{
                     display: 'block', fontSize: 12, color: colors.muted, marginTop: 2,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
-                    {t.players.length} players
-                    {dateStr ? ` · ${dateStr}` : ''}
-                    {winnerName ? ` · won by ${winnerName}` : ''}
+                    {t.players.length} players{dateStr ? ` · ${dateStr}` : ''}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
