@@ -556,17 +556,20 @@ export default function BlitzList() {
                 cursor: 'pointer',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              {/* Date sits at the top-left, on its own row */}
+              {dateStr && (
+                <span style={{
+                  display: 'block', fontSize: 11, color: colors.muted,
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  fontWeight: 600, marginBottom: spacing.xs,
+                }}>
+                  {dateStr}
+                </span>
+              )}
+              {/* Title + sub-line on the left, placement + pill on the right,
+                  vertically centered as a pair */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {dateStr && (
-                    <span style={{
-                      display: 'block', fontSize: 11, color: colors.muted,
-                      textTransform: 'uppercase', letterSpacing: '0.06em',
-                      fontWeight: 600, marginBottom: 2,
-                    }}>
-                      {dateStr}
-                    </span>
-                  )}
                   <span style={{
                     display: 'block', fontSize: 15, fontWeight: 600, color: colors.textSecondary,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
