@@ -196,7 +196,9 @@ export default function BlitzList() {
             }}>
               <span style={{
                 fontFamily: fonts.sans, fontSize: 16, fontWeight: 700,
-                color: colors.text, letterSpacing: 0,
+                color: colors.text,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
               }}>Deucy Ranking</span>
               <button
                 onClick={(e) => { e.stopPropagation(); navigate('/blitz/how-it-works'); }}
