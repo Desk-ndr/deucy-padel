@@ -102,7 +102,7 @@ export default function BlitzRanking() {
   return (
     <div style={{ minHeight: '100vh', background: colors.bg, padding: `${spacing.xl}px ${spacing.lg}px` }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xl }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xs }}>
         <button
           onClick={() => navigate('/blitz')}
           aria-label="Back"
@@ -115,20 +115,14 @@ export default function BlitzRanking() {
         >
           ←
         </button>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <h1 style={{
-            fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize, fontWeight: 700,
-            color: colors.text, margin: 0, lineHeight: 1.1,
-          }}>
-            Overall Ranking
-          </h1>
-          <span style={{
-            fontFamily: fonts.sans, fontSize: 13, color: colors.textMuted,
-            marginTop: 2,
-          }}>
-            best 4 of 6
-          </span>
-        </div>
+        <h1 style={{
+          flex: 1, minWidth: 0,
+          fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize, fontWeight: 700,
+          color: colors.text, margin: 0, lineHeight: 1.1,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          Overall Ranking
+        </h1>
         <button
           onClick={() => navigate('/blitz/how-it-works')}
           aria-label="How it works"
@@ -168,6 +162,15 @@ export default function BlitzRanking() {
           </svg>
         </button>
       </div>
+
+      {/* Subtitle on its own row, indented to roughly sit under the title */}
+      <p style={{
+        fontFamily: fonts.sans, fontSize: 13, color: colors.textMuted,
+        margin: `0 0 ${spacing.xl}px`,
+        marginLeft: 23 + 16, // back-button width + gap, so it lines up under the H1
+      }}>
+        best 4 of 6
+      </p>
 
       {/* Manage Players Panel */}
       {showManage && (
