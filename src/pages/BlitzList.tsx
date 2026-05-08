@@ -201,20 +201,15 @@ export default function BlitzList() {
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
                 }}>Deucy Ranking</span>
-                {/* Stock-ticker-style delta indicator for the logged-in player */}
-                {myRank && myRank.delta !== null && myRank.delta !== 0 && (
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 3,
-                    fontFamily: fonts.mono, fontSize: 12, fontWeight: 800,
-                    color: myRank.delta > 0 ? colors.primary : colors.destructive,
-                    lineHeight: 1,
-                  }}>
-                    <span style={{ fontSize: 9, lineHeight: 1 }}>
-                      {myRank.delta > 0 ? '▲' : '▼'}
-                    </span>
-                    {myRank.delta > 0 ? '+' : ''}{myRank.delta}
-                  </span>
-                )}
+                {/* Decorative stock-ticker pair — always shown, signals
+                    that the ranking is a live, moving thing */}
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 2,
+                  lineHeight: 1, fontSize: 10, fontWeight: 800,
+                }}>
+                  <span style={{ color: colors.primary }}>▲</span>
+                  <span style={{ color: colors.destructive }}>▼</span>
+                </span>
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); navigate('/blitz/how-it-works'); }}
