@@ -102,7 +102,7 @@ export default function BlitzRanking() {
   return (
     <div style={{ minHeight: '100vh', background: colors.bg, padding: `${spacing.xl}px ${spacing.lg}px` }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xs }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: 0 }}>
         <button
           onClick={() => navigate('/blitz')}
           aria-label="Back"
@@ -168,10 +168,10 @@ export default function BlitzRanking() {
       {/* Subtitle on its own row, indented to roughly sit under the title */}
       <p style={{
         fontFamily: fonts.sans, fontSize: 13, color: colors.textMuted,
-        margin: `0 0 ${spacing.xl}px`,
+        margin: `2px 0 ${spacing.xl}px`,
         marginLeft: 23 + 16, // back-button width + gap, so it lines up under the H1
       }}>
-        best 4 of 6
+        Top 4 results of your last 6 tournaments
       </p>
 
       {/* Manage Players Panel */}
