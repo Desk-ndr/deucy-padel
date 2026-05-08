@@ -105,16 +105,28 @@ export default function BlitzRanking() {
       <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xl }}>
         <button
           onClick={() => navigate('/blitz')}
-          style={{ background: 'none', border: 'none', color: colors.text, fontSize: 20, cursor: 'pointer', padding: spacing.xs }}
+          aria-label="Back"
+          style={{
+            background: 'none', border: 'none', color: colors.text,
+            fontSize: 20, lineHeight: 1, cursor: 'pointer',
+            padding: 0, width: 23, height: 23, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
         >
           ←
         </button>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'baseline', gap: spacing.sm, flexWrap: 'wrap' }}>
-          <h1 style={{ fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize, fontWeight: 700, color: colors.text, margin: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <h1 style={{
+            fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize, fontWeight: 700,
+            color: colors.text, margin: 0, lineHeight: 1.1,
+          }}>
             Overall Ranking
           </h1>
-          <span style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textMuted }}>
-            (best 4 of 6)
+          <span style={{
+            fontFamily: fonts.sans, fontSize: 13, color: colors.textMuted,
+            marginTop: 2,
+          }}>
+            best 4 of 6
           </span>
         </div>
         <button
@@ -122,7 +134,7 @@ export default function BlitzRanking() {
           aria-label="How it works"
           title="How it works"
           style={{
-            width: 25, height: 25, borderRadius: '50%',
+            width: 23, height: 23, borderRadius: '50%',
             background: 'transparent',
             border: '1px solid #75d4e6',
             color: '#75d4e6',
@@ -140,14 +152,18 @@ export default function BlitzRanking() {
         <button
           onClick={() => setShowManage(!showManage)}
           style={{
-            background: 'none', border: `1px solid ${colors.border}`,
-            borderRadius: radius.sm, width: 36, height: 36,
+            background: 'transparent',
+            border: `1px solid ${colors.border}`,
+            borderRadius: '50%',
+            width: 23, height: 23,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', opacity: 0.5, transition: 'opacity 0.2s',
+            cursor: 'pointer', padding: 0, flexShrink: 0,
+            color: colors.textSecondary,
           }}
+          aria-label="Manage players"
           title="Manage players"
         >
-          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary}
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
             <circle cx="8.5" cy="7" r="4" />
