@@ -168,7 +168,7 @@ export default function BlitzRanking() {
       {/* Subtitle on its own row, indented to roughly sit under the title */}
       <p style={{
         fontFamily: fonts.sans, fontSize: 13, color: colors.textMuted,
-        margin: `2px 0 ${spacing.xl}px`,
+        margin: `-1px 0 ${spacing.xl}px`,
         marginLeft: 23 + 16, // back-button width + gap, so it lines up under the H1
       }}>
         (best 4 of last 6 tournaments)
