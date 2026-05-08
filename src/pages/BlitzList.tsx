@@ -367,7 +367,7 @@ export default function BlitzList() {
                   }}>
                     {myRank.position}
                   </span>
-                  <span style={{ flex: 1, fontSize: 14, color: colors.muted }}>You</span>
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: colors.text }}>You</span>
                   <div style={{ textAlign: 'right', minWidth: 48 }}>
                     <div style={{
                       fontFamily: fonts.mono, fontSize: 14,
