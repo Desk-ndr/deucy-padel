@@ -194,12 +194,28 @@ export default function BlitzList() {
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <span style={{
-                fontFamily: fonts.sans, fontSize: 16, fontWeight: 700,
-                color: colors.text,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-              }}>Deucy Ranking</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                <span style={{
+                  fontFamily: fonts.sans, fontSize: 16, fontWeight: 700,
+                  color: colors.text,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}>Deucy Ranking</span>
+                {/* Stock-ticker-style delta indicator for the logged-in player */}
+                {myRank && myRank.delta !== null && myRank.delta !== 0 && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                    fontFamily: fonts.mono, fontSize: 12, fontWeight: 800,
+                    color: myRank.delta > 0 ? colors.primary : colors.destructive,
+                    lineHeight: 1,
+                  }}>
+                    <span style={{ fontSize: 9, lineHeight: 1 }}>
+                      {myRank.delta > 0 ? '▲' : '▼'}
+                    </span>
+                    {myRank.delta > 0 ? '+' : ''}{myRank.delta}
+                  </span>
+                )}
+              </div>
               <button
                 onClick={(e) => { e.stopPropagation(); navigate('/blitz/how-it-works'); }}
                 aria-label="How it works"
