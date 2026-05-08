@@ -216,15 +216,15 @@ export default function BlitzList() {
                 aria-label="How it works"
                 title="How it works"
                 style={{
-                  background: 'none',
-                  border: 'none',
+                  width: 28, height: 28, borderRadius: '50%',
+                  background: 'transparent',
+                  border: '1px solid #75d4e6',
                   color: '#75d4e6',
-                  cursor: 'pointer',
-                  padding: spacing.xs,
+                  cursor: 'pointer', padding: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   flexShrink: 0,
                   fontFamily: fonts.sans,
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: 700,
                   lineHeight: 1,
                 }}
