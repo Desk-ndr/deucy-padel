@@ -171,7 +171,7 @@ export default function BlitzRanking() {
         margin: `2px 0 ${spacing.xl}px`,
         marginLeft: 23 + 16, // back-button width + gap, so it lines up under the H1
       }}>
-        (top 4 of last 6)
+        (best 4 of last 6 tournaments)
       </p>
 
       {/* Manage Players Panel */}
