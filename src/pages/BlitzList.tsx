@@ -218,7 +218,7 @@ export default function BlitzList() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: colors.text,
+                  color: '#75d4e6',
                   cursor: 'pointer',
                   padding: spacing.xs,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
