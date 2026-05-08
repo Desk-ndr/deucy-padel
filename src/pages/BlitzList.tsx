@@ -216,7 +216,7 @@ export default function BlitzList() {
                 aria-label="How it works"
                 title="How it works"
                 style={{
-                  width: 28, height: 28, borderRadius: '50%',
+                  width: 25, height: 25, borderRadius: '50%',
                   background: 'transparent',
                   border: '1px solid #75d4e6',
                   color: '#75d4e6',
@@ -224,7 +224,7 @@ export default function BlitzList() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   flexShrink: 0,
                   fontFamily: fonts.sans,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: 700,
                   lineHeight: 1,
                 }}
