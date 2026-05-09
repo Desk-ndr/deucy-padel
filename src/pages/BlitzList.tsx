@@ -465,23 +465,11 @@ export default function BlitzList() {
                     fontSize: 10, fontWeight: 800,
                     padding: '2px 8px', borderRadius: radius.pill,
                     textTransform: 'uppercase', letterSpacing: '0.05em',
-                  }}>Live</span>
+                  }}>{amInTournament(t) ? 'You are in' : 'Live'}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 12, color: colors.muted }}>
-                    {t.players.length} players · R{t.current_round}/{t.total_rounds}
-                  </span>
-                  {amInTournament(t) && (
-                    <span style={{
-                      color: colors.primary,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      lineHeight: 1.3,
-                    }}>
-                      you are in
-                    </span>
-                  )}
-                </div>
+                <span style={{ fontSize: 12, color: colors.muted }}>
+                  {t.players.length} players · R{t.current_round}/{t.total_rounds}
+                </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
                 <span style={{ fontSize: 22, color: colors.primary }}>→</span>
