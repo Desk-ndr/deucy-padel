@@ -72,9 +72,10 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: spacing.xxl }}>
         <span style={{
-          fontSize: 28, fontWeight: 900, fontStyle: 'italic',
+          fontSize: 28, fontWeight: 900,
           fontFamily: fonts.brand, color: colors.text,
-        }}>deucy</span>
+          letterSpacing: '-0.03em',
+        }}>deucy<span style={{ color: colors.primary }}>.</span></span>
         <h2 style={{ ...typeScale.headline, color: colors.text, marginTop: spacing.sm }}>
           {tournament.name}
         </h2>

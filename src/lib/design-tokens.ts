@@ -74,7 +74,7 @@ export const radius = {
 export const fonts = {
   sans: "-apple-system, 'Inter', system-ui, sans-serif",
   mono: "'SF Mono', 'JetBrains Mono', 'Fira Code', monospace",
-  brand: "Georgia, 'Times New Roman', serif",
+  brand: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif",
 } as const;
 
 /** Type scale — use these for consistent sizing */

@@ -97,9 +97,9 @@ export default function BlitzJoin() {
           {/* Brand */}
           <span style={{
             display: 'block', fontFamily: fonts.brand, fontSize: 22, fontWeight: 900,
-            fontStyle: 'italic', color: colors.text, marginBottom: spacing.xl,
-            letterSpacing: '-0.02em',
-          }}>deucy</span>
+            color: colors.text, marginBottom: spacing.xl,
+            letterSpacing: '-0.03em',
+          }}>deucy<span style={{ color: colors.primary }}>.</span></span>
 
           {/* Avatar */}
           <div style={{

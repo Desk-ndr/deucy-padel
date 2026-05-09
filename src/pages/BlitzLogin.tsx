@@ -185,9 +185,9 @@ export default function BlitzLogin() {
         <div style={{ textAlign: 'center', marginBottom: spacing.xxl }}>
           <span style={{
             display: 'block', fontFamily: fonts.brand, fontSize: 22, fontWeight: 900,
-            fontStyle: 'italic', color: colors.text, marginBottom: spacing.lg,
-            letterSpacing: '-0.02em',
-          }}>deucy</span>
+            color: colors.text, marginBottom: spacing.lg,
+            letterSpacing: '-0.03em',
+          }}>deucy<span style={{ color: colors.primary }}>.</span></span>
           <h1 style={{
             fontFamily: fonts.sans, fontSize: typeScale.headline.fontSize,
             fontWeight: 700, color: colors.text, margin: 0, marginBottom: spacing.sm,

@@ -159,9 +159,10 @@ export default function BlitzList() {
           paddingTop: spacing.sm, marginBottom: spacing.xl,
         }}>
           <span style={{
-            fontSize: 26, fontWeight: 900, fontStyle: 'italic',
+            fontSize: 26, fontWeight: 900,
             fontFamily: fonts.brand, color: colors.text,
-          }}>deucy</span>
+            letterSpacing: '-0.03em',
+          }}>deucy<span style={{ color: colors.primary }}>.</span></span>
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
             {globalPlayer && (
               <span style={{ fontSize: 14, color: colors.textSecondary }}>
