@@ -453,26 +453,28 @@ export default function BlitzList() {
               background: `linear-gradient(90deg, ${colors.primary}, #15803d)`,
             }} />
             <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', gap: spacing.sm,
             }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: 4 }}>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: colors.text }}>
-                    {t.name}
-                  </span>
-                  <span style={{
-                    background: colors.primary, color: colors.bg,
-                    fontSize: 10, fontWeight: 800,
-                    padding: '2px 8px', borderRadius: radius.pill,
-                    textTransform: 'uppercase', letterSpacing: '0.05em',
-                  }}>{amInTournament(t) ? 'You are in' : 'Live'}</span>
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 4 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: colors.text }}>
+                  {t.name}
+                </span>
                 <span style={{ fontSize: 12, color: colors.muted }}>
                   {t.players.length} players · R{t.current_round}/{t.total_rounds}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                <span style={{ fontSize: 22, color: colors.primary }}>→</span>
+              <div style={{
+                display: 'flex', flexDirection: 'column',
+                justifyContent: 'space-between', alignItems: 'flex-end',
+                flexShrink: 0,
+              }}>
+                <span style={{
+                  background: colors.primary, color: colors.bg,
+                  fontSize: 10, fontWeight: 800,
+                  padding: '2px 8px', borderRadius: radius.pill,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>{amInTournament(t) ? 'You are in' : 'Live'}</span>
+                <span style={{ fontSize: 22, color: colors.primary, lineHeight: 1 }}>→</span>
               </div>
             </div>
           </div>
