@@ -7,6 +7,14 @@ export interface BlitzRoundSchedule {
 }
 
 /**
+ * Real-world pause between matches (court swap, water break, talking
+ * trash). Subtracted from the total time before computing per-round
+ * duration, so the tournament actually fits inside the host's stated
+ * minutes instead of overrunning by ~3 min per round.
+ */
+export const PAUSE_BETWEEN_ROUNDS_SEC = 150; // 2.5 minutes
+
+/**
  * Given N players playing 2v2 (4 active per round), compute valid configurations
  * where every player plays exactly K rounds.
  * Total rounds R = N*K/4, so N*K must be divisible by 4.
@@ -26,12 +34,14 @@ export function computeBlitzConfig(
   for (let mult = 1; mult <= 20; mult++) {
     const k = minK * mult;
     const r = (numPlayers * k) / 4;
-    const roundSec = Math.floor((totalMinutes * 60) / r);
+    // Reserve (r-1) pauses worth of time, then split the rest across r rounds.
+    const playSec = totalMinutes * 60 - (r - 1) * PAUSE_BETWEEN_ROUNDS_SEC;
+    if (playSec <= 0) break; // not enough time even before the rounds start
+    const roundSec = Math.floor(playSec / r);
     if (roundSec < 180) break; // less than 3 min per round is too short
     if (roundSec >= 300 && roundSec <= 1200) {
       // 5-20 min is ideal
       bestConfig = { totalRounds: r, gamesPerPlayer: k, roundDurationSeconds: roundSec };
-      // Prefer the first one in the sweet spot (most games per player with reasonable duration)
     }
     if (!bestConfig) {
       bestConfig = { totalRounds: r, gamesPerPlayer: k, roundDurationSeconds: roundSec };
@@ -57,7 +67,10 @@ export function getAllBlitzConfigs(
   for (let mult = 1; mult <= 20; mult++) {
     const k = minK * mult;
     const r = (numPlayers * k) / 4;
-    const roundSec = Math.floor((totalMinutes * 60) / r);
+    // Reserve (r-1) pauses worth of time, then split the rest across r rounds.
+    const playSec = totalMinutes * 60 - (r - 1) * PAUSE_BETWEEN_ROUNDS_SEC;
+    if (playSec <= 0) break;
+    const roundSec = Math.floor(playSec / r);
     if (roundSec < 180) break; // stop when rounds get too short
     configs.push({ totalRounds: r, gamesPerPlayer: k, roundDurationSeconds: roundSec });
   }
