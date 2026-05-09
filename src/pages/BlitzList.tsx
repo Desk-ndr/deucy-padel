@@ -26,6 +26,18 @@ export default function BlitzList() {
   const globalPlayerRef = useRef(getGlobalPlayer());
   const globalPlayer = globalPlayerRef.current;
 
+  // True if the logged-in player is in the tournament's player pool.
+  // Match by player_id first, then fall back to name (legacy tournaments
+  // created before player_id was added still match correctly).
+  const amInTournament = (t: BlitzTournamentData): boolean => {
+    const gp = globalPlayerRef.current;
+    if (!gp) return false;
+    return (t.players || []).some((p: any) =>
+      (p.player_id && p.player_id === gp.playerId) ||
+      (p.name && p.name.toLowerCase() === gp.playerName.toLowerCase())
+    );
+  };
+
   // Access gate (runs once)
   useEffect(() => {
     if (!globalPlayerRef.current) navigate('/blitz/login');
@@ -455,9 +467,24 @@ export default function BlitzList() {
                     textTransform: 'uppercase', letterSpacing: '0.05em',
                   }}>Live</span>
                 </div>
-                <span style={{ fontSize: 12, color: colors.muted }}>
-                  {t.players.length} players · R{t.current_round}/{t.total_rounds}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, color: colors.muted }}>
+                    {t.players.length} players · R{t.current_round}/{t.total_rounds}
+                  </span>
+                  {amInTournament(t) && (
+                    <span style={{
+                      background: colors.primary,
+                      color: colors.bg,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      padding: '2px 10px',
+                      borderRadius: radius.pill,
+                      lineHeight: 1.3,
+                    }}>
+                      You are in
+                    </span>
+                  )}
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
                 <span style={{ fontSize: 22, color: colors.primary }}>→</span>
