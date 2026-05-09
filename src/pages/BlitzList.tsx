@@ -455,7 +455,7 @@ export default function BlitzList() {
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', gap: spacing.sm,
             }}>
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
                 <span style={{ fontSize: 15, fontWeight: 700, color: colors.text }}>
                   {t.name}
                 </span>
