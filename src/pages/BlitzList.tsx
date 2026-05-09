@@ -456,7 +456,7 @@ export default function BlitzList() {
               display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
             }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: 2 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: 4 }}>
                   <span style={{ fontSize: 15, fontWeight: 700, color: colors.text }}>
                     {t.name}
                   </span>
@@ -473,15 +473,12 @@ export default function BlitzList() {
                   </span>
                   {amInTournament(t) && (
                     <span style={{
-                      background: colors.primary,
-                      color: colors.bg,
+                      color: colors.primary,
                       fontSize: 12,
                       fontWeight: 700,
-                      padding: '2px 10px',
-                      borderRadius: radius.pill,
                       lineHeight: 1.3,
                     }}>
-                      You are in
+                      you are in
                     </span>
                   )}
                 </div>
