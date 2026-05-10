@@ -9,7 +9,7 @@ import {
   submitScore, placeBet, cancelBet, editScore, reorderRound, deleteTournament, renameTournament, BlitzPlayer,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
-import { finalizeRanking } from '@/services/rankingService';
+import { finalizeRanking, getRanking } from '@/services/rankingService';
 import { colors, spacing, radius, fonts, typeScale, animationCSS } from '@/lib/design-tokens';
 import { DeucyBottomNav, type DeucyTab } from '@/components/ui/deucy';
 import BlitzSetup from '@/components/blitz/BlitzSetup';
@@ -89,10 +89,36 @@ export default function BlitzTournament() {
   const handleStart = async (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, names: string[], playerIds?: string[]) => {
     if (!id) return;
     const players = names.map((n, i) => ({ name: n.trim(), balance: 10, player_id: playerIds?.[i] || null }));
-    const schedule = generateSchedule(names.length, config.totalRounds);
+
+    // Identify the top-2 globally-ranked players inside THIS tournament's
+    // pool. The schedule generator will then keep them on opposite teams
+    // every round (soft constraint, +1000 freshness penalty if same team).
+    // Skip the constraint when neither / only one of them has actually
+    // played a tournament yet (rankingScore > 0) — otherwise the rule
+    // is arbitrary on a fresh pool of brand-new players.
+    let avoidPair: [number, number] | null = null;
+    try {
+      const { data: ranking } = await getRanking();
+      if (ranking && ranking.length > 0) {
+        const ranked = players.map((p, idx) => {
+          const r = p.player_id ? ranking.find(x => x.playerId === p.player_id) : null;
+          return { idx, score: r?.rankingScore ?? 0 };
+        }).sort((a, b) => b.score - a.score);
+        if (ranked.length >= 2 && ranked[0].score > 0 && ranked[1].score > 0) {
+          avoidPair = [ranked[0].idx, ranked[1].idx];
+        }
+      }
+    } catch (e) {
+      console.warn('[handleStart] could not fetch ranking for top-pair constraint', e);
+    }
+
+    const schedule = generateSchedule(names.length, config.totalRounds, avoidPair);
     const { error } = await startTournament(id, config, players, schedule);
     if (error) toast({ title: 'Error starting', description: error, variant: 'destructive' });
-    else { toast({ title: 'Tournament started!' }); refetch(); }
+    else {
+      toast({ title: 'Tournament started!' });
+      refetch();
+    }
   };
 
   const handleStartTimer = async () => {

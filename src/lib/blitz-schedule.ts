@@ -82,13 +82,23 @@ export function getAllBlitzConfigs(
  * Generate a balanced schedule for N players, R rounds, 4 active per round.
  * Each player must play exactly K = R*4/N rounds.
  */
-export function generateSchedule(numPlayers: number, totalRounds: number): BlitzRoundSchedule[] {
+/**
+ * Generate the round-robin schedule. avoidPair is an optional [a, b] tuple
+ * of player indices that the algorithm will try VERY hard to keep on
+ * opposite teams every round. Used to keep the two top-ranked players
+ * apart so games stay competitive.
+ */
+export function generateSchedule(
+  numPlayers: number,
+  totalRounds: number,
+  avoidPair?: [number, number] | null,
+): BlitzRoundSchedule[] {
   // Run multiple attempts with different seeds and pick the schedule with fewest repeated partners
   let bestSchedule: BlitzRoundSchedule[] = [];
   let bestPartnerRepeats = Infinity;
 
   for (let attempt = 0; attempt < 10; attempt++) {
-    const schedule = generateScheduleAttempt(numPlayers, totalRounds, attempt);
+    const schedule = generateScheduleAttempt(numPlayers, totalRounds, attempt, avoidPair ?? null);
     const repeats = countPartnerRepeats(schedule, numPlayers);
     if (repeats < bestPartnerRepeats) {
       bestPartnerRepeats = repeats;
@@ -118,7 +128,7 @@ function countPartnerRepeats(schedule: BlitzRoundSchedule[], numPlayers: number)
   return repeats;
 }
 
-function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemptSeed: number): BlitzRoundSchedule[] {
+function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemptSeed: number, avoidPair: [number, number] | null): BlitzRoundSchedule[] {
   const targetGames = (totalRounds * 4) / numPlayers;
   const playCounts = new Array(numPlayers).fill(0);
   const schedule: BlitzRoundSchedule[] = [];
@@ -155,7 +165,7 @@ function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemp
       chosen = [...mustPlay, ...fillers];
     }
 
-    const bestSplit = findBestSplit(chosen, partnerCount, opponentCount, seededRandom);
+    const bestSplit = findBestSplit(chosen, partnerCount, opponentCount, seededRandom, avoidPair);
 
     const rest = Array.from({ length: numPlayers }, (_, i) => i).filter(i => !chosen.includes(i));
 
@@ -292,7 +302,8 @@ function findBestSplit(
   players: number[],
   partnerCount: number[][],
   opponentCount: number[][],
-  rand: () => number
+  rand: () => number,
+  avoidPair: [number, number] | null = null,
 ): { teamA: [number, number]; teamB: [number, number] } {
   const [a, b, c, d] = players;
   const splits: [number, number, number, number][] = [
@@ -300,6 +311,12 @@ function findBestSplit(
     [a, c, b, d],
     [a, d, b, c],
   ];
+
+  // Pre-compute whether both members of avoidPair are in this group of 4.
+  // If only one (or none) is here, the constraint can't fire — skip.
+  const bothPresent = avoidPair !== null
+    && players.includes(avoidPair[0]) && players.includes(avoidPair[1]);
+  const TOP_PAIR_PENALTY = 1000; // enough to dominate any partner/opponent score
 
   let bestScore = Infinity;
   let bestSplit = splits[0];
@@ -310,7 +327,16 @@ function findBestSplit(
     const opponentPenalty =
       opponentCount[p1][p3] + opponentCount[p1][p4] +
       opponentCount[p2][p3] + opponentCount[p2][p4];
-    const score = partnerPenalty + opponentPenalty;
+    // Soft constraint: huge penalty if the avoidPair lands on the same team
+    let topPairPenalty = 0;
+    if (bothPresent) {
+      const teamA = [p1, p2];
+      const teamB = [p3, p4];
+      const sameTeamA = teamA.includes(avoidPair![0]) && teamA.includes(avoidPair![1]);
+      const sameTeamB = teamB.includes(avoidPair![0]) && teamB.includes(avoidPair![1]);
+      if (sameTeamA || sameTeamB) topPairPenalty = TOP_PAIR_PENALTY;
+    }
+    const score = partnerPenalty + opponentPenalty + topPairPenalty;
     if (score < bestScore || (score === bestScore && rand() < 0.5)) {
       bestScore = score;
       bestSplit = [p1, p2, p3, p4];
