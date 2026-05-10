@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 
 const PLACEMENT_PTS = [
@@ -47,6 +48,64 @@ function Text({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Single line in the worked-example card. `highlight` makes the value
+// pop in primary green so the eye lands on the result, not the inputs.
+function ExampleRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: `${spacing.xs}px 0`,
+    }}>
+      <span style={{ fontSize: 14, color: colors.textSecondary }}>{label}</span>
+      <span style={{
+        fontFamily: fonts.mono, fontSize: 14, fontWeight: 800,
+        color: highlight ? colors.primary : colors.text,
+      }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// Collapsible FAQ row. Closed by default — keeps the page scannable.
+// Tap the question to expand the answer.
+function FAQ({ q, children }: { q: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{
+      borderBottom: `1px solid ${colors.border}`,
+      padding: `${spacing.md}px 0`,
+    }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: '100%', background: 'none', border: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: 0, cursor: 'pointer', textAlign: 'left',
+          color: colors.text, fontSize: 15, fontWeight: 600,
+          fontFamily: fonts.sans,
+        }}
+      >
+        <span style={{ flex: 1, paddingRight: spacing.md }}>{q}</span>
+        <span style={{
+          color: colors.muted, fontSize: 18, lineHeight: 1, fontWeight: 400,
+          transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
+          transition: 'transform 0.15s',
+          flexShrink: 0,
+        }}>+</span>
+      </button>
+      {open && (
+        <p style={{
+          fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary,
+          margin: 0, marginTop: spacing.sm, lineHeight: 1.6,
+        }}>
+          {children}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function BlitzHowItWorks() {
   const navigate = useNavigate();
 
@@ -92,7 +151,7 @@ export default function BlitzHowItWorks() {
           <Text>
             After each tournament, players earn ranking points based on their final placement
             (determined by matches won, then games as tiebreaker).
-            Your overall ranking uses your best 4 results from the last 6 tournaments.
+            Your overall ranking uses a two-month weighted decay (see below).
           </Text>
           <div style={{
             background: colors.surface, borderRadius: radius.lg,
@@ -176,15 +235,159 @@ export default function BlitzHowItWorks() {
           </Text>
         </Section>
 
-        {/* Best of */}
-        <Section title="Best 4 of 6">
+        {/* Decay model */}
+        <Section title="Two-month decay">
           <Text>
-            Your ranking score is the sum of your 4 best tournament results out of the last 6 you played.
-            This rewards consistency — one bad tournament doesn't ruin your ranking.
+            Your ranking score is the weighted sum of every tournament you've played in the last 2 months.
+            Recent results count more than older ones — you stay relevant only if you keep showing up.
+          </Text>
+          <div style={{
+            background: colors.surface, borderRadius: radius.lg,
+            border: `1px solid ${colors.border}`, overflow: 'hidden',
+            marginBottom: spacing.md,
+          }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr',
+              padding: `${spacing.sm}px ${spacing.lg}px`,
+              borderBottom: `1px solid ${colors.border}`,
+            }}>
+              <span style={{ fontFamily: fonts.sans, fontSize: 14, fontWeight: 600, color: colors.muted, textTransform: 'uppercase' }}>When played</span>
+              <span style={{ fontFamily: fonts.sans, fontSize: 14, fontWeight: 600, color: colors.muted, textTransform: 'uppercase', textAlign: 'right' }}>Weight</span>
+            </div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr',
+              padding: `${spacing.md}px ${spacing.lg}px`,
+              borderBottom: `1px solid ${colors.border}`,
+            }}>
+              <span style={{ fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, color: colors.text }}>This month</span>
+              <span style={{ fontFamily: fonts.mono, fontSize: 15, fontWeight: 700, color: colors.primary, textAlign: 'right' }}>×1.0</span>
+            </div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr',
+              padding: `${spacing.md}px ${spacing.lg}px`,
+              borderBottom: `1px solid ${colors.border}`,
+            }}>
+              <span style={{ fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, color: colors.text }}>Last month</span>
+              <span style={{ fontFamily: fonts.mono, fontSize: 15, fontWeight: 700, color: colors.text, textAlign: 'right' }}>×0.7</span>
+            </div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr',
+              padding: `${spacing.md}px ${spacing.lg}px`,
+            }}>
+              <span style={{ fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, color: colors.muted }}>Older</span>
+              <span style={{ fontFamily: fonts.mono, fontSize: 15, fontWeight: 700, color: colors.muted, textAlign: 'right' }}>drops out</span>
+            </div>
+          </div>
+          <Text>
+            Example: a 1st place earned this month is worth 50 points. The same 1st place from last month
+            counts as 35 (50 × 0.7). Two months later, it's gone.
           </Text>
         </Section>
 
+        {/* Rivalry */}
+        <Section title="Rivalry">
+          <Text>
+            On the standings page, tap a player to see their head-to-head record against the player
+            ranked just above them — wins, losses, and current streak.
+          </Text>
+          <Text>
+            A "win" means you finished above your rival in a tournament you both played.
+            Ties (shared placement) don't count either way.
+          </Text>
+        </Section>
 
+        {/* Worked example */}
+        <Section title="A worked example">
+          <Text>
+            8 players, 7 rounds. Two of you sit out each round, so every player
+            ends up playing 5 matches and resting 2.
+          </Text>
+          <div style={{
+            background: colors.surface, borderRadius: radius.lg,
+            border: `1px solid ${colors.border}`, padding: spacing.lg,
+            marginBottom: spacing.md,
+          }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, color: colors.muted,
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+              marginBottom: spacing.sm,
+            }}>
+              Anna's tournament
+            </div>
+            <ExampleRow label="Matches played" value="5" />
+            <ExampleRow label="Wins" value="3" />
+            <ExampleRow label="Draws" value="1 (= 0.5 win)" />
+            <ExampleRow label="Losses" value="1" />
+            <ExampleRow label="Match score" value="3.5" highlight />
+            <div style={{ height: 1, background: colors.border, margin: `${spacing.md}px 0` }} />
+            <ExampleRow label="Final placement" value="3rd" />
+            <ExampleRow label="Placement points" value="+22" highlight />
+          </div>
+          <Text>
+            Anna also placed 4 bets while resting: 3 won, 1 lost. Her betting
+            profit is +2 (she gained 3 stakes and lost 1). If that's the
+            second-best betting result of the tournament, she earns an extra
+            +5 betting bonus.
+          </Text>
+          <div style={{
+            background: colors.primaryMuted, borderRadius: radius.md,
+            border: `1px solid rgba(34,197,94,0.25)`, padding: spacing.md,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: colors.text }}>
+                Total ranking points earned
+              </span>
+              <span style={{
+                fontFamily: fonts.mono, fontSize: 20, fontWeight: 900,
+                color: colors.primary,
+              }}>
+                +27
+              </span>
+            </div>
+          </div>
+        </Section>
+
+        {/* FAQ */}
+        <Section title="FAQ">
+          <FAQ q="What if I tie with another player in placement?">
+            You share the spot. If two players are tied for 2nd after the
+            tiebreaker (matches won, then games won), both get the 2nd-place
+            points (35) and the next player drops to 4th — there is no 3rd.
+          </FAQ>
+          <FAQ q="Can I edit a score after submitting?">
+            Yes. While the tournament is live anyone in the pool can correct a
+            score on the Standings tab. After the tournament finishes you have
+            a 10-minute window to fix mistakes — after that, scores are locked.
+          </FAQ>
+          <FAQ q="Who can enter the score for a round?">
+            Anyone in the tournament pool — including the players who were
+            resting that round. Whoever submits first wins the race; the other
+            devices update automatically.
+          </FAQ>
+          <FAQ q="My bet shows as cancelled — what happened?">
+            You have 60 seconds to cancel a bet after placing it. After that, or
+            once the round ends, the bet is locked. If a round ends in a draw,
+            your stake is refunded automatically.
+          </FAQ>
+          <FAQ q="Why are the top 2 ranked players never on the same team?">
+            We try (not always possible) to put the two highest-ranked players
+            in the pool on opposite teams. Keeps matches close and the
+            competition meaningful. It's a soft rule — if the schedule can't
+            satisfy it, fairness wins.
+          </FAQ>
+          <FAQ q="What's the difference between balance and ranking points?">
+            Balance is the in-tournament currency you use for betting. It
+            resets every tournament. Ranking points are the long-term score
+            you earn for placement and betting performance, summed across
+            tournaments.
+          </FAQ>
+          <FAQ q="What does 'Save the date' mean?">
+            A tournament announced ahead of time, with date and location but
+            no players locked in yet. You can see it in your home before the
+            host opens setup. The host then configures players when it's time
+            to play.
+          </FAQ>
+        </Section>
 
         <div style={{ height: 40 }} />
       </div>

@@ -171,7 +171,7 @@ export default function BlitzRanking() {
         margin: `-1px 0 ${spacing.xl}px`,
         marginLeft: 23 + 16, // back-button width + gap, so it lines up under the H1
       }}>
-        (best 4 of last 6 tournaments)
+        (last 2 months · weighted)
       </p>
 
       {/* Manage Players Panel */}
@@ -492,14 +492,59 @@ export default function BlitzRanking() {
             {/* Expanded detail */}
             {isExpanded && (
               <div style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTop: `1px solid ${colors.border}` }}>
+                {/* Rivalry block (H2H vs adjacent player) */}
+                {player.rivalry && (
+                  <div style={{
+                    background: colors.surfaceElevated,
+                    borderRadius: radius.sm,
+                    padding: `${spacing.sm}px ${spacing.md}px`,
+                    marginBottom: spacing.md,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: spacing.sm,
+                  }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+                        Rivalry vs {player.rivalry.rivalName}
+                      </div>
+                      <div style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.text, marginTop: 2 }}>
+                        <span style={{ color: colors.primary, fontWeight: 800 }}>{player.rivalry.wins}W</span>
+                        <span style={{ color: colors.muted, margin: '0 4px' }}>·</span>
+                        <span style={{ color: colors.destructive, fontWeight: 800 }}>{player.rivalry.losses}L</span>
+                        <span style={{ color: colors.muted, marginLeft: 6, fontSize: 12 }}>
+                          ({player.rivalry.shared} shared)
+                        </span>
+                      </div>
+                    </div>
+                    {player.rivalry.streakType && player.rivalry.streakCount > 0 && (
+                      <div style={{
+                        padding: '4px 10px',
+                        borderRadius: radius.pill,
+                        background: player.rivalry.streakType === 'W' ? colors.primaryMuted : 'rgba(239,68,68,0.12)',
+                        border: `1px solid ${player.rivalry.streakType === 'W' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                        fontFamily: fonts.mono, fontSize: 12, fontWeight: 800,
+                        color: player.rivalry.streakType === 'W' ? colors.primary : colors.destructive,
+                        whiteSpace: 'nowrap', flexShrink: 0,
+                      }}>
+                        {player.rivalry.streakType}{player.rivalry.streakCount}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, margin: 0, marginBottom: spacing.sm }}>
-                  Best 4 results:
+                  Tournaments scoring (last 2 months):
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                  {player.bestResults.length === 0 && (
+                    <span style={{ fontSize: 13, color: colors.muted, fontStyle: 'italic' }}>
+                      No tournaments in window — score will rebuild as you play.
+                    </span>
+                  )}
                   {player.bestResults.map((br, i) => {
                     const dateStr = br.date
                       ? new Date(br.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                       : '';
+                    const decayed = br.weight < 1;
                     return (
                       <div key={i} style={{
                         display: 'flex', alignItems: 'center', gap: spacing.sm,
@@ -507,11 +552,12 @@ export default function BlitzRanking() {
                         borderRadius: radius.sm,
                         padding: `${spacing.xs}px ${spacing.md}px`,
                       }}>
+                        {/* Effective (weighted) points — what actually contributes to the score */}
                         <span style={{
                           fontFamily: fonts.mono, fontSize: 14, fontWeight: 700,
-                          color: colors.primary, minWidth: 28,
+                          color: colors.primary, minWidth: 32,
                         }}>
-                          {br.points}
+                          {br.weightedPoints}
                         </span>
                         <span style={{
                           flex: 1, fontFamily: fonts.sans, fontSize: 14,
@@ -520,6 +566,19 @@ export default function BlitzRanking() {
                         }}>
                           {br.tournamentName}
                         </span>
+                        {/* Decay indicator — shown only when weight < 1 */}
+                        {decayed && (
+                          <span style={{
+                            fontFamily: fonts.mono, fontSize: 10, fontWeight: 700,
+                            color: colors.muted,
+                            padding: '1px 6px',
+                            borderRadius: radius.pill,
+                            border: `1px solid ${colors.border}`,
+                            whiteSpace: 'nowrap',
+                          }}>
+                            ×{br.weight.toFixed(1)}
+                          </span>
+                        )}
                         <span style={{
                           fontFamily: fonts.sans, fontSize: 12, color: colors.muted,
                         }}>

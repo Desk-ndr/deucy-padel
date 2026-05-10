@@ -5,16 +5,56 @@ import { BlitzTournamentData, BlitzBet, BlitzRound } from './blitzService';
 
 const PLACEMENT_POINTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
 const BETTING_BONUS: Record<number, number> = { 1: 8, 2: 5, 3: 3, 4: 1, 5: 0 };
-const WINDOW_SIZE = 6;
-const BEST_OF = 4;
+
+// Two-month weighted decay. Weight = 1.0 for entries played in the
+// current calendar month, 0.7 in the previous month, 0 beyond. This
+// replaces the old "best 4 of last 6" rule. Rationale: rewards recent
+// activity (so people show up to play) without the cliff-edge feel of
+// hard-truncating to N tournaments.
+//
+// Examples (now = 2026-05-10):
+//   entry on 2026-05-04  → diff = 0 months → weight 1.0
+//   entry on 2026-04-22  → diff = 1 month  → weight 0.7
+//   entry on 2026-03-30  → diff = 2 months → weight 0 (drops out)
+function decayWeight(entryIso: string, now: Date = new Date()): number {
+  const d = new Date(entryIso);
+  if (isNaN(d.getTime())) return 0;
+  const monthDiff = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+  if (monthDiff <= 0) return 1.0;
+  if (monthDiff === 1) return 0.7;
+  return 0;
+}
+
+// Kept so BlitzRanking expanded view can still cap the "best results"
+// block to a sane number of rows.
+const MAX_BEST_RESULTS_DISPLAYED = 6;
 
 // ── Types ──
 
 export interface BestResult {
-  points: number;
-  date: string; // ISO from ranking_entries.created_at
+  points: number;       // raw placement+betting points
+  weight: number;       // decay weight (1.0 / 0.7 / 0)
+  weightedPoints: number; // points × weight, rounded
+  date: string;         // ISO from ranking_entries.created_at
   tournamentName: string;
   tournamentId: string;
+}
+
+// Head-to-head rivalry tracking. For each player we surface their record
+// against the player ranked immediately above them ("the rival to catch").
+// For #1 we surface their record against #2 ("the contender chasing").
+//
+// "Win" = finished above the rival in a shared tournament. "Loss" =
+// finished below. Ties (shared placement) are excluded from the streak
+// count to avoid noise.
+export interface Rivalry {
+  rivalId: string;
+  rivalName: string;
+  wins: number;          // total tournaments where you placed above the rival
+  losses: number;        // total tournaments where you placed below
+  shared: number;        // total tournaments where both played
+  streakType: 'W' | 'L' | null; // sign of the most recent decisive matchup
+  streakCount: number;          // consecutive same-type results, most recent first
 }
 
 export interface RankedPlayer {
@@ -22,7 +62,7 @@ export interface RankedPlayer {
   displayName: string;
   phone: string;
   rankingScore: number;
-  tournamentsPlayed: number;
+  tournamentsPlayed: number;   // total all-time, not in-window
   bestResults: BestResult[];
   isCrownHolder: boolean;
   consecutiveWins: number;
@@ -30,6 +70,7 @@ export interface RankedPlayer {
   pointsDelta: number | null;          // change vs previous ranking score
   winRate: number;                     // % of matches won across all tournaments
   form: 'hot' | 'up' | 'down' | 'stable' | 'new'; // trend from last 3 tournaments
+  rivalry: Rivalry | null;             // H2H vs the player adjacent in ranking
 }
 
 export interface RankingEntry {
@@ -221,7 +262,7 @@ export async function finalizeRanking(
   return { error: null };
 }
 
-// ── Get global ranking (best 4 of last 6) ──
+// ── Get global ranking (two-month weighted decay + H2H rivalry) ──
 
 export async function getRanking(): Promise<{ data: RankedPlayer[]; error: string | null }> {
   // Fetch all players
@@ -230,7 +271,8 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
     .select('id, display_name, phone, crown_holder, consecutive_wins');
   if (playersError) return { data: [], error: playersError.message };
 
-  // Fetch ranking entries (last WINDOW_SIZE tournaments per player)
+  // Fetch ALL ranking entries — we need full history for H2H even though
+  // ranking math only counts the last 2 months. Volume is small.
   const { data: allEntries, error: entriesError } = await supabase
     .from('ranking_entries')
     .select('*')
@@ -250,7 +292,7 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
     }
   }
 
-  // Group entries by player
+  // Group entries by player (sorted: most recent first)
   const playerEntries: Record<string, RankingEntry[]> = {};
   for (const entry of (allEntries || [])) {
     const pid = entry.player_id;
@@ -270,33 +312,36 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
     });
   }
 
-  // Calculate ranking for each player, including delta from last tournament
-  const ranked: RankedPlayer[] = (players || []).map(player => {
-    const entries = (playerEntries[player.id] || []).slice(0, WINDOW_SIZE);
-    const sortedByPts = [...entries].sort((a, b) => b.totalPoints - a.totalPoints);
-    const bestEntries = sortedByPts.slice(0, BEST_OF);
-    const sorted = sortedByPts.map(e => e.totalPoints);  // kept for prevScore math below
-    const best = sortedByPts.slice(0, BEST_OF).map(e => e.totalPoints);
-    const score = best.reduce((sum, pts) => sum + pts, 0);
+  const now = new Date();
 
-    // Calculate what the score was BEFORE the most recent tournament
-    const latestEntry = entries[0]; // already sorted by created_at desc
+  // Weighted-decay score: sum of (totalPoints × decayWeight) across all
+  // entries. Old entries contribute 0 and silently drop out.
+  const computeWeightedScore = (entries: RankingEntry[]): number => {
+    let s = 0;
+    for (const e of entries) s += e.totalPoints * decayWeight(e.createdAt, now);
+    return Math.round(s);
+  };
+
+  const ranked: RankedPlayer[] = (players || []).map(player => {
+    const entries = playerEntries[player.id] || []; // all-time, recent first
+    const score = computeWeightedScore(entries);
+
+    // Delta = current score minus what the score WOULD have been without
+    // the latest entry. With decay this can change as time passes (an
+    // entry weight drops from 1.0 → 0.7 across a month boundary) but
+    // here we measure the impact of the most-recent finished tournament.
+    const latestEntry = entries[0];
     let pointsDelta: number | null = null;
     let lastTournamentPoints: number | null = null;
     if (latestEntry) {
       lastTournamentPoints = latestEntry.totalPoints;
-      // Recalculate without the latest entry
-      const prevEntries = entries.slice(1).slice(0, WINDOW_SIZE);
-      const prevSorted = prevEntries.map(e => e.totalPoints).sort((a, b) => b - a);
-      const prevBest = prevSorted.slice(0, BEST_OF);
-      const prevScore = prevBest.reduce((sum, pts) => sum + pts, 0);
+      const prevScore = computeWeightedScore(entries.slice(1));
       pointsDelta = score - prevScore;
     }
 
-    // W% calculated dynamically below (after all players are mapped)
-    const winRate = 0; // placeholder, recalculated below
+    const winRate = 0; // recalculated below from rounds
 
-    // Calculate form from last 3 tournaments
+    // Form: trend across last 3 tournaments by placement (unchanged)
     let form: 'hot' | 'up' | 'down' | 'stable' | 'new' = 'new';
     const recent = entries.slice(0, 3).map(e => e.placement);
     if (recent.length >= 3) {
@@ -309,11 +354,24 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       form = recent[0] <= recent[1] ? 'up' : 'down';
     }
 
-    const bestResultsEnriched: BestResult[] = bestEntries.map(e => ({
-      points: e.totalPoints,
-      date: e.createdAt,
-      tournamentId: e.tournamentId,
-      tournamentName: tournamentNamesMap[e.tournamentId] || 'Tournament',
+    // Best results: show entries that contribute to the score (weight > 0),
+    // ordered by weighted points desc. Cap to keep the expanded card clean.
+    const inWindow = entries
+      .map(e => {
+        const w = decayWeight(e.createdAt, now);
+        return { entry: e, weight: w, weighted: Math.round(e.totalPoints * w) };
+      })
+      .filter(x => x.weight > 0)
+      .sort((a, b) => b.weighted - a.weighted)
+      .slice(0, MAX_BEST_RESULTS_DISPLAYED);
+
+    const bestResultsEnriched: BestResult[] = inWindow.map(x => ({
+      points: x.entry.totalPoints,
+      weight: x.weight,
+      weightedPoints: x.weighted,
+      date: x.entry.createdAt,
+      tournamentId: x.entry.tournamentId,
+      tournamentName: tournamentNamesMap[x.entry.tournamentId] || 'Tournament',
     }));
 
     return {
@@ -321,7 +379,7 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       displayName: player.display_name,
       phone: player.phone,
       rankingScore: score,
-      tournamentsPlayed: entries.length,
+      tournamentsPlayed: entries.length,    // career total
       bestResults: bestResultsEnriched,
       isCrownHolder: player.crown_holder,
       consecutiveWins: player.consecutive_wins,
@@ -329,6 +387,7 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       pointsDelta,
       winRate,
       form,
+      rivalry: null, // populated below after sort
     };
   });
 
@@ -413,6 +472,63 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
 
   // Sort by ranking score
   ranked.sort((a, b) => b.rankingScore - a.rankingScore);
+
+  // ── H2H rivalry ──
+  // For each player, the "rival" is the player ranked one position above
+  // (the one to catch). For #1 the rival is #2 (the one chasing).
+  // We compute wins / losses / current streak based on shared tournaments.
+  const idToName: Record<string, string> = {};
+  for (const p of ranked) idToName[p.playerId] = p.displayName;
+
+  for (let i = 0; i < ranked.length; i++) {
+    const me = ranked[i];
+    const rival = i === 0 ? ranked[1] : ranked[i - 1];
+    if (!rival || rival.playerId === me.playerId) continue;
+
+    const myEntries = playerEntries[me.playerId] || [];
+    const rivalEntriesByTid: Record<string, RankingEntry> = {};
+    for (const e of (playerEntries[rival.playerId] || [])) {
+      rivalEntriesByTid[e.tournamentId] = e;
+    }
+
+    // Walk shared tournaments most-recent first (myEntries already is).
+    // A "win" = my placement < rival's (lower is better). Tied placements
+    // are skipped from the streak so we don't show "—".
+    let wins = 0, losses = 0, shared = 0;
+    let streakType: 'W' | 'L' | null = null;
+    let streakCount = 0;
+    let streakLocked = false;
+
+    for (const myE of myEntries) {
+      const rE = rivalEntriesByTid[myE.tournamentId];
+      if (!rE) continue;
+      shared++;
+      if (myE.placement < rE.placement) {
+        wins++;
+        if (!streakLocked) {
+          if (streakType === 'W' || streakType === null) {
+            streakType = 'W'; streakCount++;
+          } else streakLocked = true;
+        }
+      } else if (myE.placement > rE.placement) {
+        losses++;
+        if (!streakLocked) {
+          if (streakType === 'L' || streakType === null) {
+            streakType = 'L'; streakCount++;
+          } else streakLocked = true;
+        }
+      }
+      // tie: counted in shared, skipped from W/L tally and streak
+    }
+
+    me.rivalry = shared > 0 ? {
+      rivalId: rival.playerId,
+      rivalName: rival.displayName,
+      wins, losses, shared,
+      streakType,
+      streakCount,
+    } : null;
+  }
 
   return { data: ranked, error: null };
 }
