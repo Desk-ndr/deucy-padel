@@ -398,6 +398,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                           )}
                           <span style={{
                             fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
+                            letterSpacing: '-0.05em',
                             color: tab === 'games'
                               ? (entry.result === 'win' ? colors.primary : entry.result === 'loss' ? colors.destructive : colors.accent)
                               : (entry.amount > 0 ? theme.accent : entry.amount < 0 ? colors.destructive : colors.muted),
