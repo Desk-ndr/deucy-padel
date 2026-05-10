@@ -21,8 +21,15 @@ CREATE TABLE IF NOT EXISTS blitz_tournaments (
   -- NEW: creator identity for permissions
   created_by text,
   -- NEW: marker for the 10-min post-tournament edit window
-  finished_at timestamptz
+  finished_at timestamptz,
+  -- NEW: Save the Date metadata. status='announced' uses these.
+  scheduled_at timestamptz,
+  location text
 );
+
+-- Allow the 'announced' status (Save the Date). status is text so no
+-- enum migration; this comment documents the allowed values:
+--   'announced' → 'setup' → 'live' → 'finished'
 
 CREATE TABLE IF NOT EXISTS blitz_rounds (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

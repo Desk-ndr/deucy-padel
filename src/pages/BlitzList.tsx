@@ -16,6 +16,12 @@ export default function BlitzList() {
   const [tournaments, setTournaments] = useState<BlitzTournamentData[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('Saturday Blitz');
+  // Save the Date fields. All optional. If at least one of date/location
+  // is filled the tournament is created with status='announced'; otherwise
+  // it goes straight to 'setup' (legacy behavior).
+  const [dateValue, setDateValue] = useState(''); // YYYY-MM-DD
+  const [timeValue, setTimeValue] = useState(''); // HH:mm
+  const [location, setLocation] = useState('');
   const [creating, setCreating] = useState(false);
   const [ranking, setRanking] = useState<RankedPlayer[]>([]);
   const [rankingLoading, setRankingLoading] = useState(true);
@@ -142,11 +148,38 @@ export default function BlitzList() {
   const handleCreate = async () => {
     if (!name.trim()) return;
     setCreating(true);
-    const { data, error } = await createTournament(name, deviceId);
+    // Build ISO timestamp from the optional date+time pair. If either is
+    // missing the field is sent as null (still allowed — host can fill it
+    // later from the announce screen).
+    let scheduledAt: string | null = null;
+    if (dateValue && timeValue) {
+      const d = new Date(`${dateValue}T${timeValue}`);
+      if (!isNaN(d.getTime())) scheduledAt = d.toISOString();
+    } else if (dateValue) {
+      // date only — default to 19:00 local
+      const d = new Date(`${dateValue}T19:00`);
+      if (!isNaN(d.getTime())) scheduledAt = d.toISOString();
+    }
+    const { data, error } = await createTournament(name, deviceId, {
+      scheduledAt,
+      location: location.trim() || null,
+    });
     setCreating(false);
-    if (!error && data) navigate(`/blitz/${data.id}`);
+    if (!error && data) {
+      // Reset form
+      setDateValue(''); setTimeValue(''); setLocation('');
+      navigate(`/blitz/${data.id}`);
+    }
   };
 
+  const announcedTournaments = tournaments
+    .filter(t => t.status === 'announced')
+    .sort((a, b) => {
+      // Earliest scheduled first; nulls sink to the bottom.
+      const ta = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Infinity;
+      const tb = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Infinity;
+      return ta - tb;
+    });
   const liveTournaments = tournaments.filter(t => t.status === 'live');
   const upcomingTournaments = tournaments.filter(t => t.status === 'setup');
   const finishedTournaments = tournaments.filter(t => t.status === 'finished');
@@ -414,6 +447,85 @@ export default function BlitzList() {
             </div>
           </div>
         )}
+
+        {/* ── Save the Date section ── */}
+        {announcedTournaments.length > 0 && (
+          <div style={{ marginBottom: spacing.sm }}>
+            <span style={{
+              ...typeScale.micro, color: colors.accent, fontSize: 11,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              display: 'flex', alignItems: 'center', gap: spacing.xs,
+            }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              Save the date
+            </span>
+          </div>
+        )}
+        {announcedTournaments.map(t => {
+          const sched = t.scheduled_at ? new Date(t.scheduled_at) : null;
+          const dateStr = sched
+            ? sched.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            : 'TBD';
+          const timeStr = sched
+            ? sched.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+            : null;
+          return (
+            <div
+              key={t.id}
+              onClick={() => navigate(`/blitz/${t.id}`)}
+              style={{
+                background: colors.surface,
+                border: `1px solid ${colors.border}`,
+                borderLeft: `3px solid ${colors.accent}`,
+                borderRadius: radius.md,
+                padding: `${spacing.md}px`,
+                marginBottom: spacing.sm,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{
+                    display: 'block', fontSize: 11, color: colors.accent,
+                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    fontWeight: 700, marginBottom: 4,
+                  }}>
+                    {dateStr}{timeStr ? ` · ${timeStr}` : ''}
+                  </span>
+                  <span style={{
+                    display: 'block', fontSize: 15, fontWeight: 700, color: colors.text,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {t.name}
+                  </span>
+                  {t.location && (
+                    <span style={{
+                      display: 'block', fontSize: 12, color: colors.muted,
+                      marginTop: 2,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {t.location}
+                    </span>
+                  )}
+                </div>
+                <span style={{
+                  background: 'transparent',
+                  color: colors.accent,
+                  border: `1px solid ${colors.accent}`,
+                  fontSize: 10, fontWeight: 800,
+                  padding: '2px 8px', borderRadius: radius.pill,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                  whiteSpace: 'nowrap', flexShrink: 0,
+                }}>Upcoming</span>
+              </div>
+            </div>
+          );
+        })}
 
         {/* ── Live section ── */}
         {liveTournaments.length > 0 && (
@@ -701,17 +813,18 @@ export default function BlitzList() {
           <AlertDialogHeader>
             <AlertDialogTitle>New Blitz</AlertDialogTitle>
             <AlertDialogDescription>
-              Choose a name for your tournament.
+              Set a name. Add date and place to "Save the Date" — the
+              setup happens later, when you know the players.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div style={{ padding: '0 24px' }}>
+          <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: spacing.md }}>
             <input
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter' && name.trim() && !creating) handleCreate();
               }}
-              placeholder="e.g. Saturday Blitz"
+              placeholder="Tournament name (e.g. Saturday Blitz)"
               autoFocus
               style={{
                 width: '100%', padding: spacing.md,
@@ -723,6 +836,64 @@ export default function BlitzList() {
                 outline: 'none', boxSizing: 'border-box',
               }}
             />
+
+            {/* Optional Save the Date fields */}
+            <div style={{
+              fontSize: 11, fontWeight: 700, color: colors.muted,
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+              marginTop: spacing.xs,
+            }}>
+              Save the date <span style={{ color: colors.muted, fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>· optional</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: spacing.sm }}>
+              <input
+                type="date"
+                value={dateValue}
+                onChange={e => setDateValue(e.target.value)}
+                style={{
+                  flex: 1, padding: spacing.md,
+                  backgroundColor: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  color: colors.text,
+                  fontSize: 14, fontWeight: 500, fontFamily: fonts.sans,
+                  outline: 'none', boxSizing: 'border-box',
+                  colorScheme: 'dark',
+                }}
+              />
+              <input
+                type="time"
+                value={timeValue}
+                onChange={e => setTimeValue(e.target.value)}
+                style={{
+                  width: 110, padding: spacing.md,
+                  backgroundColor: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  color: colors.text,
+                  fontSize: 14, fontWeight: 500, fontFamily: fonts.sans,
+                  outline: 'none', boxSizing: 'border-box',
+                  colorScheme: 'dark',
+                }}
+              />
+            </div>
+
+            <input
+              type="text"
+              value={location}
+              onChange={e => setLocation(e.target.value)}
+              placeholder="Location (e.g. Padel Club Milano)"
+              style={{
+                width: '100%', padding: spacing.md,
+                backgroundColor: colors.bg,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                color: colors.text,
+                fontSize: 14, fontWeight: 500, fontFamily: fonts.sans,
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={creating}>Cancel</AlertDialogCancel>
@@ -731,7 +902,9 @@ export default function BlitzList() {
               disabled={creating || !name.trim()}
               style={{ opacity: creating || !name.trim() ? 0.5 : 1 }}
             >
-              {creating ? 'Creating...' : 'Create'}
+              {creating
+                ? 'Creating...'
+                : (dateValue || location.trim() ? 'Announce' : 'Create')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

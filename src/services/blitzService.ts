@@ -22,6 +22,12 @@ export interface BlitzTournamentData {
   schedule: BlitzRoundSchedule[]; timer_started_at: string | null;
   timer_paused_remaining: number | null; created_by: string | null;
   finished_at: string | null;
+  // Save the Date metadata. Both optional: a tournament can be created
+  // directly in 'setup' (no announce) or pre-announced with date+location
+  // and later flipped to 'setup' by the host via beginSetup().
+  scheduled_at: string | null;
+  location: string | null;
+  created_at?: string | null;
 }
 
 // 10-minute window after a tournament finishes during which scores
@@ -35,8 +41,12 @@ function parseTournament(raw: any): BlitzTournamentData {
     ...raw,
     players: (raw.players as any[] || []).map((p: any) => ({
       name: p.name, balance: p.balance ?? p.score ?? 0,
+      // preserve player_id when present (used for identity matching)
+      ...(p.player_id ? { player_id: p.player_id } : {}),
     })),
     schedule: (raw.schedule as any[] || []) as BlitzRoundSchedule[],
+    scheduled_at: raw.scheduled_at ?? null,
+    location: raw.location ?? null,
   };
 }
 
@@ -118,11 +128,70 @@ export function subscribeAllTournaments(callback: () => void) {
 
 // ── Mutations ──
 
-export async function createTournament(name: string, createdBy: string) {
+/**
+ * Create a tournament. Two flavors:
+ *  - "Now" (default): status='setup', host opens it and configures players.
+ *  - "Save the Date": pass scheduledAt and/or location → status='announced'.
+ *    The tournament shows up in the SCHEDULED section of the home with
+ *    date/time/location visible to everyone. The host later opens it and
+ *    flips it to 'setup' via beginSetup() once the player list is final.
+ */
+export async function createTournament(
+  name: string,
+  createdBy: string,
+  options?: { scheduledAt?: string | null; location?: string | null },
+) {
+  const scheduledAt = options?.scheduledAt?.trim() || null;
+  const location = options?.location?.trim() || null;
+  const isAnnounced = !!(scheduledAt || location);
   const { data, error } = await supabase.from('blitz_tournaments')
-    .insert({ name: name.trim(), created_by: createdBy } as any).select().single();
+    .insert({
+      name: name.trim(),
+      created_by: createdBy,
+      status: isAnnounced ? 'announced' : 'setup',
+      scheduled_at: scheduledAt,
+      location,
+    } as any).select().single();
   if (error) return { data: null, error: error.message };
   return { data: parseTournament(data), error: null };
+}
+
+/**
+ * Flip an 'announced' tournament to 'setup' so the host can configure
+ * the player list. Host-only action — caller is responsible for the
+ * permission check (see BlitzTournament). CAS on status to avoid double
+ * triggers from racing taps on different devices.
+ */
+export async function beginSetup(id: string) {
+  const { data, error } = await supabase.from('blitz_tournaments')
+    .update({ status: 'setup' } as any)
+    .eq('id', id)
+    .eq('status', 'announced')
+    .select('id');
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: 'NOT_ANNOUNCED' };
+  return { error: null };
+}
+
+/**
+ * Update the Save the Date metadata (date/time/location) of an announced
+ * tournament. Allowed only while status='announced' — once the host
+ * begins setup the date is locked.
+ */
+export async function updateAnnouncement(
+  id: string,
+  patch: { scheduledAt?: string | null; location?: string | null; name?: string },
+) {
+  const update: any = {};
+  if (patch.name !== undefined) update.name = patch.name.trim();
+  if (patch.scheduledAt !== undefined) update.scheduled_at = patch.scheduledAt?.trim() || null;
+  if (patch.location !== undefined) update.location = patch.location?.trim() || null;
+  if (Object.keys(update).length === 0) return { error: null };
+  const { error } = await supabase.from('blitz_tournaments')
+    .update(update)
+    .eq('id', id)
+    .eq('status', 'announced');
+  return { error: error?.message ?? null };
 }
 
 /**

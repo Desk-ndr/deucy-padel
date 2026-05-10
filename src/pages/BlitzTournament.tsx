@@ -6,7 +6,8 @@ import { useBlitzIdentity } from '@/hooks/useBlitzIdentity';
 import { useBlitzTimer } from '@/hooks/useBlitzTimer';
 import {
   startTournament, startTimer, pauseTimer, resetTimer,
-  submitScore, placeBet, cancelBet, editScore, reorderRound, deleteTournament, renameTournament, BlitzPlayer,
+  submitScore, placeBet, cancelBet, editScore, reorderRound, deleteTournament, renameTournament,
+  beginSetup, updateAnnouncement, BlitzPlayer,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
 import { finalizeRanking, getRanking } from '@/services/rankingService';
@@ -325,6 +326,53 @@ export default function BlitzTournament() {
 
 
 
+  // ── Save the Date (status = 'announced') ──
+  // Tournament is locked in calendar form: date, time, location are
+  // visible to everyone. Only the host (isCreator) can edit the metadata
+  // or flip status to 'setup' to begin configuring players.
+  if (tournament.status === 'announced') {
+    const sched = tournament.scheduled_at ? new Date(tournament.scheduled_at) : null;
+    const dateLong = sched
+      ? sched.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      : null;
+    const timeStr = sched
+      ? sched.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+      : null;
+    return (
+      <AnnouncedView
+        tournament={tournament}
+        isCreator={isCreator}
+        dateLong={dateLong}
+        timeStr={timeStr}
+        onBack={() => navigate('/blitz')}
+        onBeginSetup={async () => {
+          if (!id) return;
+          const { error } = await beginSetup(id);
+          if (error) {
+            toast({ title: 'Cannot start setup', description: error, variant: 'destructive' });
+            return;
+          }
+          toast({ title: 'Setup started' });
+          refetch();
+        }}
+        onUpdate={async (patch) => {
+          if (!id) return { error: 'NO_ID' as const };
+          const { error } = await updateAnnouncement(id, patch);
+          if (error) toast({ title: 'Could not save', description: error, variant: 'destructive' });
+          else { toast({ title: 'Saved' }); refetch(); }
+          return { error };
+        }}
+        onDelete={() => setDeleteOpen(true)}
+        deleteOpen={deleteOpen}
+        onDeleteClose={() => { setDeleteOpen(false); setDeleteCode(''); }}
+        deleteCode={deleteCode}
+        setDeleteCode={setDeleteCode}
+        deleting={deleting}
+        onConfirmDelete={handleDelete}
+      />
+    );
+  }
+
   // Setup
   if (tournament.status === 'setup') {
     return (
@@ -539,6 +587,378 @@ export default function BlitzTournament() {
             <AlertDialogCancel disabled={deleting} onClick={() => setDeleteCode('')}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
+              disabled={deleting || deleteCode !== 'Valencia2026'}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              style={{ opacity: deleteCode === 'Valencia2026' ? 1 : 0.4 }}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+// ── AnnouncedView ──
+//
+// Save the Date screen. Shows date / time / location prominently and
+// gives the host a single primary action ("Start setup") that flips the
+// tournament to status='setup'. Non-host players see the same calendar
+// view but read-only.
+//
+// Edit affordance: tap-to-edit on date/time/location fields, host only.
+// We keep this inline (no separate route) because the view is small and
+// editing is a rare host action.
+
+interface AnnouncedViewProps {
+  tournament: { id: string; name: string; scheduled_at: string | null; location: string | null; created_by: string | null; };
+  isCreator: boolean;
+  dateLong: string | null;
+  timeStr: string | null;
+  onBack: () => void;
+  onBeginSetup: () => Promise<void>;
+  onUpdate: (patch: { name?: string; scheduledAt?: string | null; location?: string | null }) => Promise<{ error: string | null }>;
+  onDelete: () => void;
+  deleteOpen: boolean;
+  onDeleteClose: () => void;
+  deleteCode: string;
+  setDeleteCode: (s: string) => void;
+  deleting: boolean;
+  onConfirmDelete: () => void;
+}
+
+function AnnouncedView(props: AnnouncedViewProps) {
+  const {
+    tournament, isCreator, dateLong, timeStr,
+    onBack, onBeginSetup, onUpdate, onDelete,
+    deleteOpen, onDeleteClose, deleteCode, setDeleteCode, deleting, onConfirmDelete,
+  } = props;
+
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState(tournament.name);
+  const [draftDate, setDraftDate] = useState(() => {
+    if (!tournament.scheduled_at) return '';
+    const d = new Date(tournament.scheduled_at);
+    if (isNaN(d.getTime())) return '';
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+  const [draftTime, setDraftTime] = useState(() => {
+    if (!tournament.scheduled_at) return '';
+    const d = new Date(tournament.scheduled_at);
+    if (isNaN(d.getTime())) return '';
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  });
+  const [draftLocation, setDraftLocation] = useState(tournament.location ?? '');
+  const [saving, setSaving] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  const handleSave = async () => {
+    let scheduledAt: string | null = null;
+    if (draftDate && draftTime) {
+      const d = new Date(`${draftDate}T${draftTime}`);
+      if (!isNaN(d.getTime())) scheduledAt = d.toISOString();
+    } else if (draftDate) {
+      const d = new Date(`${draftDate}T19:00`);
+      if (!isNaN(d.getTime())) scheduledAt = d.toISOString();
+    }
+    setSaving(true);
+    await onUpdate({
+      name: draftName.trim() || tournament.name,
+      scheduledAt,
+      location: draftLocation.trim() || null,
+    });
+    setSaving(false);
+    setEditing(false);
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', backgroundColor: colors.bg, paddingBottom: 80 }}>
+      <div style={{ maxWidth: 430, margin: '0 auto' }}>
+        {/* Header — back + delete (host) */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: `${spacing.md}px ${spacing.lg}px`,
+          borderBottom: `1px solid ${colors.border}`,
+        }}>
+          <button onClick={onBack} style={{
+            background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary,
+            display: 'flex', alignItems: 'center',
+          }}>
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <span style={{
+            ...typeScale.micro, color: colors.accent, fontSize: 11,
+            textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700,
+            display: 'flex', alignItems: 'center', gap: spacing.xs,
+          }}>
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            Save the date
+          </span>
+          {isCreator ? (
+            <button
+              onClick={onDelete}
+              aria-label="Delete tournament"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: colors.muted,
+                width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
+            </button>
+          ) : (<div style={{ width: 36 }} />)}
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: spacing.lg }}>
+          {/* Tournament name */}
+          {editing ? (
+            <input
+              value={draftName}
+              onChange={e => setDraftName(e.target.value)}
+              maxLength={40}
+              style={{
+                width: '100%', padding: spacing.md,
+                backgroundColor: colors.bg,
+                border: `1px solid ${colors.accent}`,
+                borderRadius: radius.sm,
+                color: colors.text,
+                fontSize: 22, fontWeight: 800, fontFamily: fonts.sans,
+                outline: 'none', boxSizing: 'border-box',
+                marginBottom: spacing.lg,
+              }}
+            />
+          ) : (
+            <h1 style={{
+              ...typeScale.title, color: colors.text, margin: 0,
+              fontSize: 26, marginBottom: spacing.lg, fontWeight: 800,
+            }}>
+              {tournament.name}
+            </h1>
+          )}
+
+          {/* Date / time block */}
+          <div style={{
+            background: colors.surface,
+            border: `1px solid ${colors.border}`,
+            borderLeft: `3px solid ${colors.accent}`,
+            borderRadius: radius.lg,
+            padding: spacing.lg,
+            marginBottom: spacing.md,
+          }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, color: colors.accent,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              marginBottom: spacing.sm,
+            }}>
+              When
+            </div>
+            {editing ? (
+              <div style={{ display: 'flex', gap: spacing.sm }}>
+                <input
+                  type="date"
+                  value={draftDate}
+                  onChange={e => setDraftDate(e.target.value)}
+                  style={{
+                    flex: 1, padding: spacing.sm,
+                    backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                    borderRadius: radius.sm, color: colors.text,
+                    fontSize: 14, fontFamily: fonts.sans, outline: 'none',
+                    boxSizing: 'border-box', colorScheme: 'dark',
+                  }}
+                />
+                <input
+                  type="time"
+                  value={draftTime}
+                  onChange={e => setDraftTime(e.target.value)}
+                  style={{
+                    width: 110, padding: spacing.sm,
+                    backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                    borderRadius: radius.sm, color: colors.text,
+                    fontSize: 14, fontFamily: fonts.sans, outline: 'none',
+                    boxSizing: 'border-box', colorScheme: 'dark',
+                  }}
+                />
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 700, color: colors.text }}>
+                  {dateLong || 'Date to be confirmed'}
+                </div>
+                {timeStr && (
+                  <div style={{ fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>
+                    at {timeStr}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Location block */}
+          <div style={{
+            background: colors.surface,
+            border: `1px solid ${colors.border}`,
+            borderLeft: `3px solid ${colors.accent}`,
+            borderRadius: radius.lg,
+            padding: spacing.lg,
+            marginBottom: spacing.xl,
+          }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, color: colors.accent,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              marginBottom: spacing.sm,
+            }}>
+              Where
+            </div>
+            {editing ? (
+              <input
+                type="text"
+                value={draftLocation}
+                onChange={e => setDraftLocation(e.target.value)}
+                placeholder="Add location"
+                style={{
+                  width: '100%', padding: spacing.sm,
+                  backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm, color: colors.text,
+                  fontSize: 14, fontFamily: fonts.sans, outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            ) : (
+              <div style={{
+                fontSize: 18, fontWeight: 700,
+                color: tournament.location ? colors.text : colors.muted,
+              }}>
+                {tournament.location || 'Location to be confirmed'}
+              </div>
+            )}
+          </div>
+
+          {/* Host actions */}
+          {isCreator ? (
+            editing ? (
+              <div style={{ display: 'flex', gap: spacing.sm }}>
+                <button
+                  onClick={() => { setEditing(false);
+                    setDraftName(tournament.name);
+                    setDraftLocation(tournament.location ?? '');
+                  }}
+                  disabled={saving}
+                  style={{
+                    flex: 1, padding: `${spacing.md}px`,
+                    background: 'transparent', color: colors.textSecondary,
+                    border: `1px solid ${colors.border}`, borderRadius: radius.sm,
+                    fontSize: 14, fontWeight: 700, fontFamily: fonts.sans,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{
+                    flex: 1, padding: `${spacing.md}px`,
+                    background: colors.accent, color: '#000',
+                    border: 'none', borderRadius: radius.sm,
+                    fontSize: 14, fontWeight: 800, fontFamily: fonts.sans,
+                    cursor: 'pointer', opacity: saving ? 0.5 : 1,
+                  }}
+                >
+                  {saving ? 'Saving...' : 'Save changes'}
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={async () => { setStarting(true); await onBeginSetup(); setStarting(false); }}
+                  disabled={starting}
+                  style={{
+                    width: '100%', padding: `${spacing.md + 2}px`,
+                    background: colors.primary, color: '#000',
+                    border: 'none', borderRadius: radius.sm,
+                    fontSize: 16, fontWeight: 800, fontFamily: fonts.sans,
+                    cursor: 'pointer', opacity: starting ? 0.6 : 1,
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  {starting ? 'Starting...' : 'Start setup →'}
+                </button>
+                <button
+                  onClick={() => setEditing(true)}
+                  style={{
+                    width: '100%', padding: `${spacing.sm + 2}px`,
+                    background: 'transparent', color: colors.textSecondary,
+                    border: `1px solid ${colors.border}`, borderRadius: radius.sm,
+                    fontSize: 13, fontWeight: 600, fontFamily: fonts.sans,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Edit details
+                </button>
+              </>
+            )
+          ) : (
+            <div style={{
+              textAlign: 'center', padding: `${spacing.lg}px`,
+              background: colors.surface, borderRadius: radius.md,
+              border: `1px dashed ${colors.border}`,
+            }}>
+              <span style={{ fontSize: 13, color: colors.muted }}>
+                Waiting for the host to set up the players
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Delete dialog — re-uses the parent's state */}
+      <AlertDialog open={deleteOpen} onOpenChange={(v) => { if (!v) onDeleteClose(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{tournament.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the announcement. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div style={{ padding: '0 24px' }}>
+            <p style={{ fontSize: 14, color: colors.muted, marginBottom: 8 }}>
+              Enter the secret code to confirm
+            </p>
+            <input
+              type="text"
+              value={deleteCode}
+              onChange={(e) => setDeleteCode(e.target.value)}
+              placeholder="Secret code"
+              autoComplete="off"
+              style={{
+                width: '100%', padding: '10px 12px',
+                backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm, color: colors.text,
+                fontSize: 14, fontFamily: fonts.mono, fontWeight: 600,
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting} onClick={() => setDeleteCode('')}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onConfirmDelete}
               disabled={deleting || deleteCode !== 'Valencia2026'}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               style={{ opacity: deleteCode === 'Valencia2026' ? 1 : 0.4 }}
