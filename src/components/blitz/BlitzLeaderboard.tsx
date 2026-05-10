@@ -89,8 +89,9 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
         const earned = r.team_a_score * EUROS_PER_GAME;
         gameEarnings += earned;
         const result: 'win' | 'loss' | 'draw' = won === 1 ? 'win' : won === 0.5 ? 'draw' : 'loss';
+        const myTeam = s.teamA.map(nameByIndex).join(' & ');
         const opponent = s.teamB.map(nameByIndex).join(' & ');
-        ledger.push({ round: r.round_index, type: 'game', label: `vs ${opponent}`, amount: earned, detail: `${r.team_a_score} - ${r.team_b_score}`, result });
+        ledger.push({ round: r.round_index, type: 'game', label: `${myTeam} vs ${opponent}`, amount: earned, detail: `${r.team_a_score} - ${r.team_b_score}`, result });
       } else if (onB && r.team_b_score != null) {
         gamesWon += r.team_b_score;
         matchesPlayed += 1;
@@ -99,8 +100,9 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
         const earned = r.team_b_score * EUROS_PER_GAME;
         gameEarnings += earned;
         const result: 'win' | 'loss' | 'draw' = won === 1 ? 'win' : won === 0.5 ? 'draw' : 'loss';
+        const myTeam = s.teamB.map(nameByIndex).join(' & ');
         const opponent = s.teamA.map(nameByIndex).join(' & ');
-        ledger.push({ round: r.round_index, type: 'game', label: `vs ${opponent}`, amount: earned, detail: `${r.team_b_score} - ${r.team_a_score}`, result });
+        ledger.push({ round: r.round_index, type: 'game', label: `${myTeam} vs ${opponent}`, amount: earned, detail: `${r.team_b_score} - ${r.team_a_score}`, result });
       }
     }
 
