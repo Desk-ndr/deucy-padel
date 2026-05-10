@@ -59,6 +59,15 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
   const completedRounds = rounds.filter(r => r.status === 'completed');
   const theme = tabTheme[tab];
 
+  // Lookup player by ORIGINAL tournament.players index. The players prop
+  // is sortedPlayers (sorted by balance), so players[i] would NOT match
+  // schedule.teamA/teamB indices, which reference the original positions.
+  // We carry .index on each player from the parent so we can resolve here.
+  const nameByIndex = (i: number): string => {
+    const p = players.find(pp => pp.index === i);
+    return p?.name?.split(' ')[0] || '?';
+  };
+
   const getPlayerStats = (playerIndex: number) => {
     let gamesWon = 0;
     let matchesWon = 0;   // 0.5 for draws
@@ -80,7 +89,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
         const earned = r.team_a_score * EUROS_PER_GAME;
         gameEarnings += earned;
         const result: 'win' | 'loss' | 'draw' = won === 1 ? 'win' : won === 0.5 ? 'draw' : 'loss';
-        const opponent = s.teamB.map(i => players[i]?.name?.split(' ')[0] || '?').join(' & ');
+        const opponent = s.teamB.map(nameByIndex).join(' & ');
         ledger.push({ round: r.round_index, type: 'game', label: `vs ${opponent}`, amount: earned, detail: `${r.team_a_score} - ${r.team_b_score}`, result });
       } else if (onB && r.team_b_score != null) {
         gamesWon += r.team_b_score;
@@ -90,7 +99,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
         const earned = r.team_b_score * EUROS_PER_GAME;
         gameEarnings += earned;
         const result: 'win' | 'loss' | 'draw' = won === 1 ? 'win' : won === 0.5 ? 'draw' : 'loss';
-        const opponent = s.teamA.map(i => players[i]?.name?.split(' ')[0] || '?').join(' & ');
+        const opponent = s.teamA.map(nameByIndex).join(' & ');
         ledger.push({ round: r.round_index, type: 'game', label: `vs ${opponent}`, amount: earned, detail: `${r.team_b_score} - ${r.team_a_score}`, result });
       }
     }
