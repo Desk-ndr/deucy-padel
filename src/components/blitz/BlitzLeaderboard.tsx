@@ -388,7 +388,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                           <span style={{ color: colors.muted, fontFamily: fonts.mono, fontSize: 14, minWidth: 24 }}>
                             R{entry.round}
                           </span>
-                          <span style={{ flex: 1, color: colors.textSecondary, fontFamily: fonts.sans, fontWeight: 500, fontSize: 13 }}>
+                          <span style={{ flex: 1, color: colors.textSecondary, fontFamily: fonts.sans, fontWeight: 500, fontSize: 13, letterSpacing: '-0.02em' }}>
                             {entry.label}
                           </span>
                           {tab === 'betting' && (
