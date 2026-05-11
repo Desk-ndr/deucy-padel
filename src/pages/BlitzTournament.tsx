@@ -59,6 +59,14 @@ export default function BlitzTournament() {
     return () => { cancelled = true; ch.unsubscribe(); };
   }, [id, tournament?.status]);
 
+  // Local-only flag: host has tapped "Start setup" on an announced
+  // tournament. We render BlitzSetup IN PLACE without flipping the DB
+  // status, so the tournament keeps its "Save the date" identity until
+  // the host actually completes setup and starts the tournament (which
+  // is when status flips directly: announced → live).
+  // If the host taps Back, we just unset this flag — zero side effects.
+  const [setupActive, setSetupActive] = useState(false);
+
   const myRsvp = globalPlayer
     ? rsvps.find(r => r.player_id === globalPlayer.playerId) || null
     : null;
@@ -350,8 +358,17 @@ export default function BlitzTournament() {
   // ── Save the Date (status = 'announced') ──
   // Tournament is locked in calendar form: date, time, location are
   // visible to everyone. Only the host (isCreator) can edit the metadata
-  // or flip status to 'setup' to begin configuring players.
-  if (tournament.status === 'announced') {
+  // or open the setup view.
+  //
+  // setupActive (local state): when the host taps "Start setup" we DON'T
+  // flip the DB status — we just show BlitzSetup inline. The tournament
+  // stays "announced" in the home list and on other devices. Status flips
+  // only when the host completes setup and presses Start (announced →
+  // live, skipping 'setup' as a persisted state). This means: if the host
+  // backs out of setup, nothing has changed and the Save the Date is
+  // intact. Fixes the bug where "Start setup" left a 0-player limbo
+  // tournament if not completed.
+  if (tournament.status === 'announced' && !setupActive) {
     const sched = tournament.scheduled_at ? new Date(tournament.scheduled_at) : null;
     const dateLong = sched
       ? sched.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
@@ -398,16 +415,12 @@ export default function BlitzTournament() {
               localStorage.setItem(`deucy-prefill-${id}`, JSON.stringify(handoff));
             } catch { /* localStorage full or disabled — non-fatal */ }
           }
-          const { error } = await beginSetup(id);
-          if (error) {
-            toast({ title: 'Cannot start setup', description: error, variant: 'destructive' });
-            return;
+          // Open BlitzSetup inline — no DB write. Status stays 'announced'.
+          // The host can back out without leaving a half-configured shell.
+          setSetupActive(true);
+          if (goingRsvps.length > 0) {
+            toast({ title: `${goingRsvps.length} RSVP players added` });
           }
-          toast({
-            title: 'Setup started',
-            description: goingRsvps.length > 0 ? `${goingRsvps.length} RSVP players added` : undefined,
-          });
-          refetch();
         }}
         onUpdate={async (patch) => {
           if (!id) return { error: 'NO_ID' as const };
@@ -427,21 +440,31 @@ export default function BlitzTournament() {
     );
   }
 
-  // Setup
-  if (tournament.status === 'setup') {
+  // Setup — either a tournament directly created in 'setup' (no announce),
+  // OR an announced tournament where the host has tapped Start setup
+  // (setupActive=true). Two slightly different "Back" behaviors:
+  //  - direct setup → Back goes to /blitz home
+  //  - announced + setupActive → Back returns to the AnnouncedView (just
+  //    flips the local flag, no DB change)
+  const inSetupView = tournament.status === 'setup' || (tournament.status === 'announced' && setupActive);
+  if (inSetupView) {
+    const fromAnnounced = tournament.status === 'announced';
     return (
       <div style={{ minHeight: '100vh', backgroundColor: colors.bg }}>
         <div style={{ maxWidth: 430, margin: '0 auto', padding: spacing.lg }}>
-          <button onClick={() => navigate('/blitz')} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: spacing.xs,
-            color: colors.textSecondary, fontSize: 14, fontWeight: 600,
-            fontFamily: fonts.sans, marginBottom: spacing.lg,
-          }}>
+          <button
+            onClick={() => fromAnnounced ? setSetupActive(false) : navigate('/blitz')}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: spacing.xs,
+              color: colors.textSecondary, fontSize: 14, fontWeight: 600,
+              fontFamily: fonts.sans, marginBottom: spacing.lg,
+            }}
+          >
             <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Back
+            {fromAnnounced ? 'Back to Save the Date' : 'Back'}
           </button>
           {isCreator ? (
             <BlitzSetup tournament={tournament} onStart={handleStart} />
