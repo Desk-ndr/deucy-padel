@@ -763,6 +763,12 @@ function AnnouncedView(props: AnnouncedViewProps) {
   const goingNames = goingRsvps.map(r => r.display_name || 'Player');
   const declinedNames = declinedRsvps.map(r => r.display_name || 'Player');
 
+  // Date components for the hero "ticket" card
+  const sched = tournament.scheduled_at ? new Date(tournament.scheduled_at) : null;
+  const monthShort = sched ? sched.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : null;
+  const dayNum = sched ? sched.getDate() : null;
+  const dayOfWeek = sched ? sched.toLocaleDateString('en-US', { weekday: 'long' }) : null;
+
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(tournament.name);
   const [draftDate, setDraftDate] = useState(() => {
@@ -880,23 +886,53 @@ function AnnouncedView(props: AnnouncedViewProps) {
             </h1>
           )}
 
-          {/* Date / time block */}
+          {/* ── Hero "Event Ticket" card ──
+              Single composition replacing the old When/Where/Calendar
+              triad. Treat it like a paper ticket stub: month label up top
+              as a serial banner, big mono day number as the visual anchor,
+              day-of-week + time as supporting copy, then a thin perforation
+              divider, then the location pinned with an icon, then the
+              calendar link as a tertiary inline action. Subtle stamp in
+              the upper-right corner ("SAVE THE DATE") rotated a few
+              degrees gives the page a unique signature without competing
+              with the data. */}
           <div style={{
+            position: 'relative',
             background: colors.surface,
             border: `1px solid ${colors.border}`,
-            borderLeft: `3px solid ${colors.accent}`,
             borderRadius: radius.lg,
-            padding: spacing.lg,
-            marginBottom: spacing.md,
+            padding: `${spacing.xl}px ${spacing.lg}px ${spacing.lg}px`,
+            marginBottom: spacing.xxl,
+            overflow: 'hidden',
           }}>
+            {/* Top accent stripe */}
             <div style={{
-              fontSize: 11, fontWeight: 700, color: colors.accent,
-              textTransform: 'uppercase', letterSpacing: '0.08em',
-              marginBottom: spacing.sm,
-            }}>
-              When
-            </div>
+              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+              background: `linear-gradient(90deg, ${colors.accent}, rgba(245,158,11,0.2))`,
+            }} />
+
+            {/* Decorative stamp — only when there's a date set */}
+            {sched && !editing && (
+              <div style={{
+                position: 'absolute', top: 14, right: 12,
+                transform: 'rotate(4deg)',
+                border: `1px dashed ${colors.accent}`,
+                color: colors.accent,
+                padding: '3px 8px',
+                fontSize: 9,
+                fontWeight: 800,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                fontFamily: fonts.sans,
+                opacity: 0.75,
+                pointerEvents: 'none',
+              }}>
+                Save the date
+              </div>
+            )}
+
             {editing ? (
+              /* Edit mode — date + time inputs side by side */
               <div style={{ display: 'flex', gap: spacing.sm }}>
                 <input
                   type="date"
@@ -924,35 +960,49 @@ function AnnouncedView(props: AnnouncedViewProps) {
                 />
               </div>
             ) : (
+              /* Display mode — big day number hero */
               <>
-                <div style={{ fontSize: 18, fontWeight: 700, color: colors.text }}>
-                  {dateLong || 'Date to be confirmed'}
-                </div>
-                {timeStr && (
-                  <div style={{ fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>
-                    at {timeStr}
+                {monthShort && (
+                  <div style={{
+                    fontFamily: fonts.mono, fontSize: 12, fontWeight: 700,
+                    color: colors.accent, letterSpacing: '0.18em',
+                    marginBottom: 4,
+                  }}>
+                    {monthShort}
+                  </div>
+                )}
+                {dayNum !== null ? (
+                  <div style={{
+                    fontFamily: fonts.sans, fontSize: 64, fontWeight: 900,
+                    color: colors.text, lineHeight: 0.9,
+                    letterSpacing: '-0.04em',
+                    marginBottom: spacing.xs,
+                  }}>
+                    {dayNum}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 18, fontWeight: 700, color: colors.muted, marginBottom: spacing.xs }}>
+                    Date to be confirmed
+                  </div>
+                )}
+                {dayOfWeek && (
+                  <div style={{
+                    fontSize: 16, fontWeight: 700, color: colors.text,
+                  }}>
+                    {dayOfWeek}{timeStr ? <span style={{ color: colors.textSecondary, fontWeight: 500 }}> · {timeStr}</span> : null}
                   </div>
                 )}
               </>
             )}
-          </div>
 
-          {/* Location block */}
-          <div style={{
-            background: colors.surface,
-            border: `1px solid ${colors.border}`,
-            borderLeft: `3px solid ${colors.accent}`,
-            borderRadius: radius.lg,
-            padding: spacing.lg,
-            marginBottom: spacing.xl,
-          }}>
+            {/* Perforation divider — light dashed line */}
             <div style={{
-              fontSize: 11, fontWeight: 700, color: colors.accent,
-              textTransform: 'uppercase', letterSpacing: '0.08em',
-              marginBottom: spacing.sm,
-            }}>
-              Where
-            </div>
+              height: 0,
+              borderTop: `1px dashed ${colors.borderLight}`,
+              margin: `${spacing.lg}px -${spacing.lg}px`,
+            }} />
+
+            {/* Location row with pin icon */}
             {editing ? (
               <input
                 type="text"
@@ -969,61 +1019,58 @@ function AnnouncedView(props: AnnouncedViewProps) {
               />
             ) : (
               <div style={{
-                fontSize: 18, fontWeight: 700,
+                display: 'flex', alignItems: 'center', gap: spacing.sm,
+                fontSize: 15, fontWeight: 600,
                 color: tournament.location ? colors.text : colors.muted,
               }}>
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.accent} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
                 {tournament.location || 'Location to be confirmed'}
               </div>
             )}
-          </div>
 
-          {/* Add to Calendar — visible to EVERYONE (host + invitees + anonymous).
-              Only shown when there's actually a date set. Two flavors: a
-              primary button that triggers the system .ics handler (Apple
-              Calendar / Outlook / etc.) and a secondary text link for
-              Google Calendar. Reduces no-shows by getting the date into
-              people's calendar before they close the tab. */}
-          {tournament.scheduled_at && icsHref && (
-            <div style={{ marginBottom: spacing.lg }}>
-              <a
-                href={icsHref}
-                download={`${tournament.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.ics`}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  gap: spacing.sm,
-                  width: '100%', padding: `${spacing.md}px`,
-                  background: 'transparent', color: colors.text,
-                  border: `1px solid ${colors.accent}`, borderRadius: radius.sm,
-                  fontSize: 14, fontWeight: 700, fontFamily: fonts.sans,
-                  textDecoration: 'none', cursor: 'pointer',
-                  boxSizing: 'border-box',
-                }}
-              >
-                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                  <line x1="12" y1="14" x2="12" y2="18" />
-                  <line x1="10" y1="16" x2="14" y2="16" />
-                </svg>
-                Add to Calendar
-              </a>
-              <a
-                href={googleCalHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'block', textAlign: 'center',
-                  marginTop: spacing.xs,
-                  fontSize: 12, color: colors.textSecondary,
-                  fontFamily: fonts.sans, textDecoration: 'none',
-                }}
-              >
-                or use Google Calendar →
-              </a>
-            </div>
-          )}
+            {/* Calendar links — tertiary, inline at bottom of ticket.
+                Hidden in edit mode and when no date set. */}
+            {!editing && tournament.scheduled_at && icsHref && (
+              <div style={{
+                marginTop: spacing.lg,
+                paddingTop: spacing.md,
+                borderTop: `1px solid ${colors.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: spacing.sm,
+              }}>
+                <a
+                  href={icsHref}
+                  download={`${tournament.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.ics`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    color: colors.accent, fontSize: 12, fontWeight: 700,
+                    fontFamily: fonts.sans, textDecoration: 'none',
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  Add to Calendar
+                </a>
+                <a
+                  href={googleCalHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: 11, color: colors.textSecondary,
+                    fontFamily: fonts.sans, textDecoration: 'none',
+                  }}
+                >
+                  Google Cal →
+                </a>
+              </div>
+            )}
+          </div>{/* ── /Hero ticket ── */}
 
           {/* Host actions */}
           {isCreator ? (
@@ -1061,24 +1108,26 @@ function AnnouncedView(props: AnnouncedViewProps) {
               </div>
             ) : (
               <>
+                {/* PRIMARY action — only one. The host's main goal here. */}
                 <button
                   onClick={async () => { setStarting(true); await onBeginSetup(); setStarting(false); }}
                   disabled={starting}
                   style={{
-                    width: '100%', padding: `${spacing.md + 2}px`,
+                    width: '100%', padding: `${spacing.md + 4}px`,
                     background: colors.primary, color: '#000',
                     border: 'none', borderRadius: radius.sm,
                     fontSize: 16, fontWeight: 800, fontFamily: fonts.sans,
                     cursor: 'pointer', opacity: starting ? 0.6 : 1,
                     marginBottom: spacing.sm,
+                    boxShadow: '0 6px 20px rgba(34,197,94,0.18)',
                   }}
                 >
                   {starting ? 'Starting...' : 'Start setup →'}
                 </button>
-                {/* WhatsApp share — opens WA chooser with a pre-filled
-                    invite that includes the deep link back to this view.
-                    Cheapest possible "notification": no push infra, no
-                    permissions, host just picks the group. */}
+
+                {/* SECONDARY — WhatsApp share, outlined to clearly demote
+                    its weight versus the primary CTA. Keeps the WA brand
+                    color for recognition, but as border + text on dark. */}
                 <a
                   href={(() => {
                     const lines = [
@@ -1096,31 +1145,36 @@ function AnnouncedView(props: AnnouncedViewProps) {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     gap: spacing.sm,
                     width: '100%', padding: `${spacing.md}px`,
-                    background: '#25D366', color: '#000',
-                    border: 'none', borderRadius: radius.sm,
-                    fontSize: 14, fontWeight: 800, fontFamily: fonts.sans,
+                    background: 'transparent', color: '#25D366',
+                    border: `1px solid #25D366`, borderRadius: radius.sm,
+                    fontSize: 14, fontWeight: 700, fontFamily: fonts.sans,
                     cursor: 'pointer', textDecoration: 'none',
-                    marginBottom: spacing.sm,
                     boxSizing: 'border-box',
                   }}
                 >
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor">
+                  <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor">
                     <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.149-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
                   </svg>
                   Share on WhatsApp
                 </a>
-                <button
-                  onClick={() => setEditing(true)}
-                  style={{
-                    width: '100%', padding: `${spacing.sm + 2}px`,
-                    background: 'transparent', color: colors.textSecondary,
-                    border: `1px solid ${colors.border}`, borderRadius: radius.sm,
-                    fontSize: 13, fontWeight: 600, fontFamily: fonts.sans,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Edit details
-                </button>
+
+                {/* TERTIARY — Edit details as a small text link, centered.
+                    Visually disappears unless the user actually looks for
+                    it, which is the intent: editing is rare. */}
+                <div style={{ textAlign: 'center', marginTop: spacing.md }}>
+                  <button
+                    onClick={() => setEditing(true)}
+                    style={{
+                      background: 'transparent', border: 'none',
+                      color: colors.textSecondary, fontSize: 12, fontWeight: 600,
+                      cursor: 'pointer', padding: spacing.xs,
+                      fontFamily: fonts.sans, textDecoration: 'underline',
+                      textUnderlineOffset: 3,
+                    }}
+                  >
+                    Edit details
+                  </button>
+                </div>
               </>
             )
           ) : (
@@ -1310,43 +1364,72 @@ function AnnouncedView(props: AnnouncedViewProps) {
   );
 }
 
-// ── GoingList ──
+// ── RsvpRoster ──
 //
-// Public roster of confirmed players. Visible to host, invitees, and
-// anonymous viewers (social proof: "ah, viene anche Bruno → vengo anch'io").
-// Hidden when nobody has RSVPed yes yet — empty state would feel sad.
-function GoingList({ names }: { names: string[] }) {
+// Compact section for the Going / Declined lists at the bottom of the
+// AnnouncedView. No card chrome, no heavy borders — just a section title
+// rule, a count chip, and the names as soft pills. Going uses primary
+// green, declined uses muted neutral. Both empty → null.
+//
+// Visual rationale: the hero ticket card already carries the page's
+// visual weight. The roster is supporting content; making it look like
+// "another card" creates a stack of equal-weight blocks (the original
+// problem). Strip-divider style keeps it readable without competing.
+function RsvpRoster({
+  variant, names, hostOnly,
+}: {
+  variant: 'going' | 'declined';
+  names: string[];
+  hostOnly?: boolean;
+}) {
   if (names.length === 0) return null;
+  const isGoing = variant === 'going';
+  const tint = isGoing ? colors.primary : colors.muted;
   return (
-    <div style={{
-      background: colors.surface,
-      border: `1px solid ${colors.border}`,
-      borderLeft: `3px solid ${colors.primary}`,
-      borderRadius: radius.lg,
-      padding: spacing.lg,
-      marginBottom: spacing.md,
-    }}>
+    <div style={{ marginTop: spacing.xl }}>
+      {/* Section header strip — thin top rule with a count chip
+          straddling it. Reads like a section divider on a magazine page. */}
       <div style={{
-        fontSize: 11, fontWeight: 700, color: colors.primary,
-        textTransform: 'uppercase', letterSpacing: '0.08em',
-        marginBottom: spacing.sm,
-        display: 'flex', alignItems: 'center', gap: spacing.xs,
+        display: 'flex', alignItems: 'center', gap: spacing.sm,
+        marginBottom: spacing.md,
       }}>
-        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-        Going · {names.length}
+        <div style={{ flex: 1, height: 1, background: colors.border }} />
+        <span style={{
+          fontSize: 10, fontWeight: 800, color: tint,
+          textTransform: 'uppercase', letterSpacing: '0.16em',
+          fontFamily: fonts.sans,
+          padding: `2px 0`,
+        }}>
+          {isGoing ? 'Going' : "Can't make it"} · {names.length}
+        </span>
+        <div style={{ flex: 1, height: 1, background: colors.border }} />
       </div>
+
+      {/* Optional host-only marker — small line under the divider */}
+      {hostOnly && (
+        <div style={{
+          textAlign: 'center', fontSize: 10, color: colors.muted,
+          fontWeight: 500, marginTop: -4, marginBottom: spacing.sm,
+          fontFamily: fonts.sans, letterSpacing: '0.04em',
+        }}>
+          visible only to you
+        </div>
+      )}
+
+      {/* Pills */}
       <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: spacing.xs,
+        display: 'flex', flexWrap: 'wrap', gap: 6,
+        justifyContent: 'center',
       }}>
         {names.map((n, i) => (
           <span key={i} style={{
-            padding: `4px 10px`,
-            background: colors.primaryMuted,
-            border: `1px solid rgba(34,197,94,0.25)`,
+            padding: `5px 11px`,
+            background: isGoing ? colors.primaryMuted : 'transparent',
+            border: `1px solid ${isGoing ? 'rgba(34,197,94,0.22)' : colors.border}`,
             borderRadius: radius.pill,
-            fontSize: 13, fontWeight: 600, color: colors.text,
+            fontSize: 13, fontWeight: 600,
+            color: isGoing ? colors.text : colors.textSecondary,
+            fontFamily: fonts.sans,
           }}>
             {n}
           </span>
@@ -1356,48 +1439,12 @@ function GoingList({ names }: { names: string[] }) {
   );
 }
 
-// ── DeclinedList (host-only) ──
-//
-// Names of people who said "can't make it". Surfaced only to the host
-// so invitees don't get the "everyone declined" cold-shower effect.
-// Empty list returns null so the section disappears entirely.
+// Backward-compat thin wrappers — let the existing call sites keep their
+// names so we don't have to touch the AnnouncedView body.
+function GoingList({ names }: { names: string[] }) {
+  return <RsvpRoster variant="going" names={names} />;
+}
+
 function DeclinedList({ names }: { names: string[] }) {
-  if (names.length === 0) return null;
-  return (
-    <div style={{
-      background: colors.surface,
-      border: `1px solid ${colors.border}`,
-      borderLeft: `3px solid ${colors.muted}`,
-      borderRadius: radius.lg,
-      padding: spacing.lg,
-      marginBottom: spacing.md,
-    }}>
-      <div style={{
-        fontSize: 11, fontWeight: 700, color: colors.muted,
-        textTransform: 'uppercase', letterSpacing: '0.08em',
-        marginBottom: spacing.sm,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <span>Can't make it · {names.length}</span>
-        <span style={{ fontSize: 10, color: colors.muted, fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
-          host only
-        </span>
-      </div>
-      <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: spacing.xs,
-      }}>
-        {names.map((n, i) => (
-          <span key={i} style={{
-            padding: `4px 10px`,
-            background: 'transparent',
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.pill,
-            fontSize: 13, fontWeight: 500, color: colors.textSecondary,
-          }}>
-            {n}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
+  return <RsvpRoster variant="declined" names={names} hostOnly />;
 }
