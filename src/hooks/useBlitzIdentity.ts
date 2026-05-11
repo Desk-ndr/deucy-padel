@@ -42,7 +42,14 @@ export function useBlitzIdentity(
 ) {
   const deviceId = useMemo(() => getDeviceId(), []);
   const globalPlayer = useMemo(() => getGlobalPlayer(), []);
-  const isCreator = createdBy !== null && deviceId === createdBy;
+  // Creator match: prefer playerId (stable across sessions, devices, and
+  // logout/login cycles), fall back to deviceId for tournaments created
+  // before we switched the convention. Without the deviceId fallback,
+  // legacy tournaments would lose their host on this deploy.
+  const isCreator = createdBy !== null && (
+    (globalPlayer?.playerId && globalPlayer.playerId === createdBy) ||
+    deviceId === createdBy
+  );
 
   // Auto-detect playerIndex from global identity
   const [playerIndex, setPlayerIndex] = useState<number | null>(null);

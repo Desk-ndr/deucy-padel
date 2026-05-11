@@ -160,7 +160,12 @@ export default function BlitzList() {
       const d = new Date(`${dateValue}T19:00`);
       if (!isNaN(d.getTime())) scheduledAt = d.toISOString();
     }
-    const { data, error } = await createTournament(name, deviceId, {
+    // Prefer the stable playerId for created_by — survives logout/login
+    // and works across devices for the same identity. Fall back to
+    // deviceId only if the user somehow doesn't have a global identity
+    // (shouldn't happen post-login gate, but defensive).
+    const creatorRef = globalPlayer?.playerId ?? deviceId;
+    const { data, error } = await createTournament(name, creatorRef, {
       scheduledAt,
       location: location.trim() || null,
     });
