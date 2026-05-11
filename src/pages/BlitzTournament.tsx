@@ -40,7 +40,7 @@ export default function BlitzTournament() {
   // changes (player added / renamed / linked).
   const playersJson = tournament ? JSON.stringify(tournament.players) : '';
   const stablePlayers = useMemo(() => tournament?.players, [playersJson]);
-  const { playerIndex, isCreator, deviceId, isSpectator } = useBlitzIdentity(id, tournament?.created_by ?? null, stablePlayers);
+  const { playerIndex, isCreator, deviceId, isSpectator, isLoggedIn } = useBlitzIdentity(id, tournament?.created_by ?? null, stablePlayers);
   // Anyone in the tournament pool can rename / submit / edit. Pure
   // spectators (no playerIndex) cannot.
   const canSubmit = playerIndex !== null;
@@ -342,6 +342,7 @@ export default function BlitzTournament() {
       <AnnouncedView
         tournament={tournament}
         isCreator={isCreator}
+        isLoggedIn={isLoggedIn}
         dateLong={dateLong}
         timeStr={timeStr}
         onBack={() => navigate('/blitz')}
@@ -614,6 +615,7 @@ export default function BlitzTournament() {
 interface AnnouncedViewProps {
   tournament: { id: string; name: string; scheduled_at: string | null; location: string | null; created_by: string | null; };
   isCreator: boolean;
+  isLoggedIn: boolean;
   dateLong: string | null;
   timeStr: string | null;
   onBack: () => void;
@@ -628,12 +630,75 @@ interface AnnouncedViewProps {
   onConfirmDelete: () => void;
 }
 
+// ── ICS file builder ──
+//
+// Generates a minimal iCalendar (RFC 5545) string for the tournament.
+// Returned as a data: URL so we don't need a fetch — the link element's
+// download attribute does the rest. Works on iOS Safari, Android Chrome,
+// macOS, Windows. The user gets an .ics file; tapping it on mobile opens
+// the system "Add to Calendar" sheet.
+//
+// Date format: UTC, basic format (YYYYMMDDTHHMMSSZ). 90-minute default
+// duration when no end time is known — close enough for a Blitz.
+function buildICS(t: { id: string; name: string; scheduled_at: string | null; location: string | null }): string {
+  if (!t.scheduled_at) return '';
+  const start = new Date(t.scheduled_at);
+  if (isNaN(start.getTime())) return '';
+  const end = new Date(start.getTime() + 90 * 60 * 1000); // +90 min
+  const fmt = (d: Date) =>
+    d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const escape = (s: string) =>
+    s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Deucy//Padel//EN',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:deucy-${t.id}@deucy.app`,
+    `DTSTAMP:${fmt(new Date())}`,
+    `DTSTART:${fmt(start)}`,
+    `DTEND:${fmt(end)}`,
+    `SUMMARY:${escape(t.name)}`,
+    t.location ? `LOCATION:${escape(t.location)}` : '',
+    `DESCRIPTION:${escape(`Padel tournament — open in app: ${window.location.origin}/blitz/${t.id}`)}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean);
+  return 'data:text/calendar;charset=utf-8,' + encodeURIComponent(lines.join('\r\n'));
+}
+
+// ── Google Calendar deep link ──
+//
+// Same event, but as a Google Calendar "Add event" URL. Useful as a
+// secondary option for users on Android/Web who prefer GCal over the
+// system handler.
+function buildGoogleCalUrl(t: { id: string; name: string; scheduled_at: string | null; location: string | null }): string {
+  if (!t.scheduled_at) return '';
+  const start = new Date(t.scheduled_at);
+  if (isNaN(start.getTime())) return '';
+  const end = new Date(start.getTime() + 90 * 60 * 1000);
+  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: t.name,
+    dates: `${fmt(start)}/${fmt(end)}`,
+    details: `Padel tournament — open in app: ${window.location.origin}/blitz/${t.id}`,
+  });
+  if (t.location) params.set('location', t.location);
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 function AnnouncedView(props: AnnouncedViewProps) {
   const {
-    tournament, isCreator, dateLong, timeStr,
+    tournament, isCreator, isLoggedIn, dateLong, timeStr,
     onBack, onBeginSetup, onUpdate, onDelete,
     deleteOpen, onDeleteClose, deleteCode, setDeleteCode, deleting, onConfirmDelete,
   } = props;
+
+  // Calendar links — generated only when there's actually a date set.
+  const icsHref = tournament.scheduled_at ? buildICS(tournament) : '';
+  const googleCalHref = tournament.scheduled_at ? buildGoogleCalUrl(tournament) : '';
 
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(tournament.name);
@@ -849,6 +914,54 @@ function AnnouncedView(props: AnnouncedViewProps) {
             )}
           </div>
 
+          {/* Add to Calendar — visible to EVERYONE (host + invitees + anonymous).
+              Only shown when there's actually a date set. Two flavors: a
+              primary button that triggers the system .ics handler (Apple
+              Calendar / Outlook / etc.) and a secondary text link for
+              Google Calendar. Reduces no-shows by getting the date into
+              people's calendar before they close the tab. */}
+          {tournament.scheduled_at && icsHref && (
+            <div style={{ marginBottom: spacing.lg }}>
+              <a
+                href={icsHref}
+                download={`${tournament.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.ics`}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: spacing.sm,
+                  width: '100%', padding: `${spacing.md}px`,
+                  background: 'transparent', color: colors.text,
+                  border: `1px solid ${colors.accent}`, borderRadius: radius.sm,
+                  fontSize: 14, fontWeight: 700, fontFamily: fonts.sans,
+                  textDecoration: 'none', cursor: 'pointer',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                  <line x1="12" y1="14" x2="12" y2="18" />
+                  <line x1="10" y1="16" x2="14" y2="16" />
+                </svg>
+                Add to Calendar
+              </a>
+              <a
+                href={googleCalHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'block', textAlign: 'center',
+                  marginTop: spacing.xs,
+                  fontSize: 12, color: colors.textSecondary,
+                  fontFamily: fonts.sans, textDecoration: 'none',
+                }}
+              >
+                or use Google Calendar →
+              </a>
+            </div>
+          )}
+
           {/* Host actions */}
           {isCreator ? (
             editing ? (
@@ -948,15 +1061,52 @@ function AnnouncedView(props: AnnouncedViewProps) {
               </>
             )
           ) : (
-            <div style={{
-              textAlign: 'center', padding: `${spacing.lg}px`,
-              background: colors.surface, borderRadius: radius.md,
-              border: `1px dashed ${colors.border}`,
-            }}>
-              <span style={{ fontSize: 13, color: colors.muted }}>
-                Waiting for the host to set up the players
-              </span>
-            </div>
+            <>
+              {/* Warm "You're invited" panel — replaces the previous flat
+                  "Waiting for the host..." placeholder. Both for logged-in
+                  invitees and for anonymous viewers landing from a WhatsApp
+                  link. */}
+              <div style={{
+                textAlign: 'center', padding: `${spacing.xl}px ${spacing.lg}px`,
+                background: colors.surface, borderRadius: radius.md,
+                border: `1px solid ${colors.border}`,
+              }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 700, color: colors.accent,
+                  textTransform: 'uppercase', letterSpacing: '0.1em',
+                  marginBottom: spacing.sm,
+                }}>
+                  You're invited
+                </div>
+                <div style={{ fontSize: 15, color: colors.text, fontWeight: 600, marginBottom: 4 }}>
+                  See you {dateLong ? `on ${dateLong}` : 'soon'}
+                </div>
+                <div style={{ fontSize: 13, color: colors.textSecondary }}>
+                  {timeStr ? `at ${timeStr}` : ''}
+                  {timeStr && tournament.location ? ' · ' : ''}
+                  {tournament.location || ''}
+                </div>
+                <div style={{
+                  fontSize: 12, color: colors.muted,
+                  marginTop: spacing.md, lineHeight: 1.5,
+                }}>
+                  The host will configure players closer to the date.
+                </div>
+              </div>
+
+              {/* Anonymous viewer hint — soft, no CTA forcing.
+                  Logged-in spectators don't need this. */}
+              {!isLoggedIn && (
+                <div style={{
+                  marginTop: spacing.md, textAlign: 'center',
+                  padding: `${spacing.sm}px ${spacing.md}px`,
+                }}>
+                  <span style={{ fontSize: 12, color: colors.muted }}>
+                    Already a deucy player? Open your personal invite link to see your stats.
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
