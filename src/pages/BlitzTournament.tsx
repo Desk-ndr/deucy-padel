@@ -783,6 +783,17 @@ function AnnouncedView(props: AnnouncedViewProps) {
   const icsHref = tournament.scheduled_at ? buildICS(tournament) : '';
   const googleCalHref = tournament.scheduled_at ? buildGoogleCalUrl(tournament) : '';
 
+  // Platform detection: iOS gets the .ics route (opens Apple Calendar
+  // natively when tapped in Safari), everyone else gets the Google
+  // Calendar deep link (avoids the awkward "downloaded a file, now find
+  // it" flow on Android, opens GCal app or web directly).
+  const isIOS = typeof navigator !== 'undefined' &&
+    /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  const calendarHref = isIOS ? icsHref : googleCalHref;
+  const calendarDownload = isIOS
+    ? `${tournament.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.ics`
+    : undefined;
+
   const goingNames = goingRsvps.map(r => r.display_name || 'Player');
   const declinedNames = declinedRsvps.map(r => r.display_name || 'Player');
 
@@ -1125,18 +1136,22 @@ function AnnouncedView(props: AnnouncedViewProps) {
             )}
 
             {/* Calendar link — single tertiary action at the bottom of
-                the ticket. Universal .ics file: iOS Safari opens Apple
-                Calendar, Android opens Google Calendar (the OS handles
-                routing). Hidden in edit mode and when no date set. */}
-            {!editing && tournament.scheduled_at && icsHref && (
+                the ticket. Platform-aware: iOS uses the .ics data URL
+                (Apple Calendar native), Android + desktop use the
+                Google Calendar deep link (no file download, opens GCal
+                app or web with the event pre-filled). Hidden in edit
+                mode and when no date set. */}
+            {!editing && tournament.scheduled_at && calendarHref && (
               <div style={{
                 marginTop: spacing.lg,
                 paddingTop: spacing.md,
                 borderTop: `1px solid ${colors.border}`,
               }}>
                 <a
-                  href={icsHref}
-                  download={`${tournament.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.ics`}
+                  href={calendarHref}
+                  download={calendarDownload}
+                  target={isIOS ? undefined : '_blank'}
+                  rel={isIOS ? undefined : 'noopener noreferrer'}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                     color: colors.accent, fontSize: 12, fontWeight: 700,
