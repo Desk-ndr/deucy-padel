@@ -1311,47 +1311,21 @@ function AnnouncedView(props: AnnouncedViewProps) {
               </>
             )
           ) : (
-            <>
-              {/* Warm "You're invited" panel — replaces the previous flat
-                  "Waiting for the host..." placeholder. Both for logged-in
-                  invitees and for anonymous viewers landing from a WhatsApp
-                  link. */}
+            /* Non-host loggato: niente card "You're invited" (ridondante,
+               sono arrivati da un link WhatsApp che li dichiara invitati,
+               e il prompt "Will you play?" sotto è inequivocabile).
+               Anonimi: solo hint soft per aprire dal proprio link
+               personale, così possono effettivamente confermare. */
+            !isLoggedIn ? (
               <div style={{
-                textAlign: 'center', padding: `${spacing.xl}px ${spacing.lg}px`,
-                background: colors.surface, borderRadius: radius.md,
-                border: `1px solid ${colors.border}`,
-                marginBottom: spacing.lg,
+                marginBottom: spacing.md, textAlign: 'center',
+                padding: `${spacing.sm}px ${spacing.md}px`,
               }}>
-                <div style={{
-                  fontSize: 11, fontWeight: 700, color: colors.accent,
-                  textTransform: 'uppercase', letterSpacing: '0.1em',
-                  marginBottom: spacing.sm,
-                }}>
-                  You're invited
-                </div>
-                <div style={{ fontSize: 15, color: colors.text, fontWeight: 600, marginBottom: 4 }}>
-                  See you {dateLong ? `on ${dateLong}` : 'soon'}
-                </div>
-                <div style={{ fontSize: 13, color: colors.textSecondary }}>
-                  {timeStr ? `at ${timeStr}` : ''}
-                  {timeStr && tournament.location ? ' · ' : ''}
-                  {tournament.location || ''}
-                </div>
+                <span style={{ fontSize: 12, color: colors.muted }}>
+                  Already a deucy player? Open your personal invite link to RSVP.
+                </span>
               </div>
-
-              {/* Anonymous viewer hint — soft, no CTA forcing.
-                  Logged-in spectators don't need this. */}
-              {!isLoggedIn && (
-                <div style={{
-                  marginBottom: spacing.md, textAlign: 'center',
-                  padding: `${spacing.sm}px ${spacing.md}px`,
-                }}>
-                  <span style={{ fontSize: 12, color: colors.muted }}>
-                    Already a deucy player? Open your personal invite link to RSVP.
-                  </span>
-                </div>
-              )}
-            </>
+            ) : null
           )}
 
           {/* RSVP block — visible to ANY logged-in user, including the host.
