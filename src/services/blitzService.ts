@@ -16,6 +16,16 @@ export interface BlitzBet {
   created_at?: string;
 }
 
+export interface BlitzRsvp {
+  id: string;
+  tournament_id: string;
+  player_id: string;
+  response: 'yes' | 'no';
+  display_name?: string;          // joined from players
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface BlitzTournamentData {
   id: string; name: string; status: string; players: BlitzPlayer[];
   current_round: number; total_rounds: number; round_duration_seconds: number;
@@ -639,4 +649,71 @@ export async function editScore(
   const { error } = await supabase.from('blitz_tournaments')
     .update({ players: updatedPlayers as any } as any).eq('id', id);
   return { error: error?.message ?? null };
+}
+
+// ── RSVPs (Save the Date) ──────────────────────────────────────────────
+//
+// One row per (tournament, player). Upsert via ON CONFLICT so changing
+// answer overwrites the previous response. Anonymous viewers can see the
+// list but not vote (we gate that in the UI by checking isLoggedIn).
+
+export async function setRsvp(
+  tournamentId: string,
+  playerId: string,
+  response: 'yes' | 'no',
+) {
+  const { error } = await supabase.from('blitz_rsvps')
+    .upsert(
+      { tournament_id: tournamentId, player_id: playerId, response, updated_at: new Date().toISOString() } as any,
+      { onConflict: 'tournament_id,player_id' },
+    );
+  return { error: error?.message ?? null };
+}
+
+export async function clearRsvp(tournamentId: string, playerId: string) {
+  const { error } = await supabase.from('blitz_rsvps')
+    .delete()
+    .eq('tournament_id', tournamentId)
+    .eq('player_id', playerId);
+  return { error: error?.message ?? null };
+}
+
+/**
+ * Fetch all RSVPs for a tournament with the player display name joined.
+ * Returns separate lists for going / declined for the UI to render.
+ */
+export async function getRsvps(tournamentId: string): Promise<{
+  data: BlitzRsvp[];
+  error: string | null;
+}> {
+  const { data, error } = await supabase.from('blitz_rsvps')
+    .select('id, tournament_id, player_id, response, created_at, updated_at, players(display_name)')
+    .eq('tournament_id', tournamentId)
+    .order('updated_at', { ascending: true });
+  if (error) return { data: [], error: error.message };
+  const flat: BlitzRsvp[] = (data || []).map((r: any) => ({
+    id: r.id,
+    tournament_id: r.tournament_id,
+    player_id: r.player_id,
+    response: r.response,
+    display_name: r.players?.display_name,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  }));
+  return { data: flat, error: null };
+}
+
+/**
+ * Realtime subscription on RSVPs for a single tournament. Fires on
+ * INSERT/UPDATE/DELETE. Caller is expected to refetch with getRsvps()
+ * inside the callback (the joined display_name isn't on the payload).
+ */
+export function subscribeRsvps(tournamentId: string, callback: () => void) {
+  const channel = supabase
+    .channel(`blitz-rsvps-${tournamentId}`)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'blitz_rsvps', filter: `tournament_id=eq.${tournamentId}`,
+    }, () => { callback(); })
+    .subscribe();
+  return channel;
 }

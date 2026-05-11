@@ -27,7 +27,10 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   const [totalMinutes, setTotalMinutes] = useState(90);
   const [selectedConfig, setSelectedConfig] = useState<{ totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null>(null);
 
-  // Fetch registered players
+  // Fetch registered players + apply RSVP pre-selection (one-shot).
+  // When the host enters setup from an announced tournament, AnnouncedView
+  // writes the going-list to localStorage as `deucy-prefill-{tournamentId}`.
+  // We read it once, mark those players as selected, and clear the slot.
   useEffect(() => {
     const fetchPlayers = async () => {
       const { data } = await supabase
@@ -36,9 +39,23 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
         .order('display_name');
       setRegisteredPlayers(data || []);
       setLoadingPlayers(false);
+
+      // RSVP handoff: pre-select players who said "yes"
+      try {
+        const key = `deucy-prefill-${tournament.id}`;
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const handoff = JSON.parse(raw) as Array<{ player_id: string; name: string }>;
+          if (Array.isArray(handoff) && handoff.length > 0) {
+            const ids = new Set(handoff.map(h => h.player_id));
+            setSelectedIds(ids);
+          }
+          localStorage.removeItem(key);
+        }
+      } catch { /* localStorage missing/JSON broken — ignore */ }
     };
     fetchPlayers();
-  }, []);
+  }, [tournament.id]);
 
   const numPlayers = selectedIds.size;
   const configs = numPlayers >= 5 ? getAllBlitzConfigs(numPlayers, totalMinutes) : [];

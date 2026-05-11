@@ -60,6 +60,18 @@ CREATE TABLE IF NOT EXISTS blitz_pledges (
   item_text text NOT NULL
 );
 
+-- RSVP for Save the Date tournaments. One row per (tournament, player).
+-- Upsert pattern via UNIQUE constraint: changing answer overwrites.
+CREATE TABLE IF NOT EXISTS blitz_rsvps (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tournament_id uuid NOT NULL REFERENCES blitz_tournaments(id) ON DELETE CASCADE,
+  player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  response text NOT NULL CHECK (response IN ('yes', 'no')),
+  created_at timestamptz DEFAULT now() NOT NULL,
+  updated_at timestamptz DEFAULT now() NOT NULL,
+  UNIQUE (tournament_id, player_id)
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -67,6 +79,8 @@ CREATE TABLE IF NOT EXISTS blitz_pledges (
 CREATE INDEX IF NOT EXISTS idx_blitz_rounds_tournament ON blitz_rounds(tournament_id);
 CREATE INDEX IF NOT EXISTS idx_blitz_bets_tournament ON blitz_bets(tournament_id);
 CREATE INDEX IF NOT EXISTS idx_blitz_pledges_tournament ON blitz_pledges(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_blitz_rsvps_tournament ON blitz_rsvps(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_blitz_rsvps_player ON blitz_rsvps(player_id);
 
 -- ============================================
 -- ROW LEVEL SECURITY

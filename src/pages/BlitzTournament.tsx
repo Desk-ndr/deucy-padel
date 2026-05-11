@@ -8,6 +8,7 @@ import {
   startTournament, startTimer, pauseTimer, resetTimer,
   submitScore, placeBet, cancelBet, editScore, reorderRound, deleteTournament, renameTournament,
   beginSetup, updateAnnouncement, BlitzPlayer,
+  getRsvps, setRsvp, clearRsvp, subscribeRsvps, BlitzRsvp,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
 import { finalizeRanking, getRanking } from '@/services/rankingService';
@@ -40,7 +41,27 @@ export default function BlitzTournament() {
   // changes (player added / renamed / linked).
   const playersJson = tournament ? JSON.stringify(tournament.players) : '';
   const stablePlayers = useMemo(() => tournament?.players, [playersJson]);
-  const { playerIndex, isCreator, deviceId, isSpectator, isLoggedIn } = useBlitzIdentity(id, tournament?.created_by ?? null, stablePlayers);
+  const { playerIndex, isCreator, deviceId, isSpectator, isLoggedIn, globalPlayer } = useBlitzIdentity(id, tournament?.created_by ?? null, stablePlayers);
+
+  // RSVPs for Save the Date. Only loaded when status='announced' — for
+  // live/finished tournaments this stays empty and the realtime sub never
+  // mounts. Re-fetches on any change via subscribeRsvps.
+  const [rsvps, setRsvps] = useState<BlitzRsvp[]>([]);
+  useEffect(() => {
+    if (!id || tournament?.status !== 'announced') return;
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await getRsvps(id);
+      if (!cancelled) setRsvps(data);
+    };
+    load();
+    const ch = subscribeRsvps(id, load);
+    return () => { cancelled = true; ch.unsubscribe(); };
+  }, [id, tournament?.status]);
+
+  const myRsvp = globalPlayer
+    ? rsvps.find(r => r.player_id === globalPlayer.playerId) || null
+    : null;
   // Anyone in the tournament pool can rename / submit / edit. Pure
   // spectators (no playerIndex) cannot.
   const canSubmit = playerIndex !== null;
@@ -338,6 +359,9 @@ export default function BlitzTournament() {
     const timeStr = sched
       ? sched.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
       : null;
+    const goingRsvps = rsvps.filter(r => r.response === 'yes');
+    const declinedRsvps = rsvps.filter(r => r.response === 'no');
+
     return (
       <AnnouncedView
         tournament={tournament}
@@ -345,15 +369,44 @@ export default function BlitzTournament() {
         isLoggedIn={isLoggedIn}
         dateLong={dateLong}
         timeStr={timeStr}
+        rsvps={rsvps}
+        goingRsvps={goingRsvps}
+        declinedRsvps={declinedRsvps}
+        myRsvp={myRsvp}
+        onSetRsvp={async (response) => {
+          if (!id || !globalPlayer) return;
+          const { error } = await setRsvp(id, globalPlayer.playerId, response);
+          if (error) toast({ title: 'Could not save', description: error, variant: 'destructive' });
+        }}
+        onClearRsvp={async () => {
+          if (!id || !globalPlayer) return;
+          await clearRsvp(id, globalPlayer.playerId);
+        }}
         onBack={() => navigate('/blitz')}
         onBeginSetup={async () => {
           if (!id) return;
+          // Pre-load the "going" RSVPs into setup. The host can still
+          // edit the list in BlitzSetup before pressing Start. We pass
+          // the names through localStorage as a tiny one-shot handoff —
+          // BlitzSetup picks them up on mount and clears the slot.
+          if (goingRsvps.length > 0) {
+            try {
+              const handoff = goingRsvps.map(r => ({
+                player_id: r.player_id,
+                name: r.display_name || 'Player',
+              }));
+              localStorage.setItem(`deucy-prefill-${id}`, JSON.stringify(handoff));
+            } catch { /* localStorage full or disabled — non-fatal */ }
+          }
           const { error } = await beginSetup(id);
           if (error) {
             toast({ title: 'Cannot start setup', description: error, variant: 'destructive' });
             return;
           }
-          toast({ title: 'Setup started' });
+          toast({
+            title: 'Setup started',
+            description: goingRsvps.length > 0 ? `${goingRsvps.length} RSVP players added` : undefined,
+          });
           refetch();
         }}
         onUpdate={async (patch) => {
@@ -618,6 +671,12 @@ interface AnnouncedViewProps {
   isLoggedIn: boolean;
   dateLong: string | null;
   timeStr: string | null;
+  rsvps: BlitzRsvp[];
+  goingRsvps: BlitzRsvp[];
+  declinedRsvps: BlitzRsvp[];
+  myRsvp: BlitzRsvp | null;
+  onSetRsvp: (response: 'yes' | 'no') => Promise<void>;
+  onClearRsvp: () => Promise<void>;
   onBack: () => void;
   onBeginSetup: () => Promise<void>;
   onUpdate: (patch: { name?: string; scheduledAt?: string | null; location?: string | null }) => Promise<{ error: string | null }>;
@@ -692,6 +751,7 @@ function buildGoogleCalUrl(t: { id: string; name: string; scheduled_at: string |
 function AnnouncedView(props: AnnouncedViewProps) {
   const {
     tournament, isCreator, isLoggedIn, dateLong, timeStr,
+    goingRsvps, declinedRsvps, myRsvp, onSetRsvp, onClearRsvp,
     onBack, onBeginSetup, onUpdate, onDelete,
     deleteOpen, onDeleteClose, deleteCode, setDeleteCode, deleting, onConfirmDelete,
   } = props;
@@ -699,6 +759,9 @@ function AnnouncedView(props: AnnouncedViewProps) {
   // Calendar links — generated only when there's actually a date set.
   const icsHref = tournament.scheduled_at ? buildICS(tournament) : '';
   const googleCalHref = tournament.scheduled_at ? buildGoogleCalUrl(tournament) : '';
+
+  const goingNames = goingRsvps.map(r => r.display_name || 'Player');
+  const declinedNames = declinedRsvps.map(r => r.display_name || 'Player');
 
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(tournament.name);
@@ -1070,6 +1133,7 @@ function AnnouncedView(props: AnnouncedViewProps) {
                 textAlign: 'center', padding: `${spacing.xl}px ${spacing.lg}px`,
                 background: colors.surface, borderRadius: radius.md,
                 border: `1px solid ${colors.border}`,
+                marginBottom: spacing.lg,
               }}>
                 <div style={{
                   fontSize: 11, fontWeight: 700, color: colors.accent,
@@ -1086,27 +1150,117 @@ function AnnouncedView(props: AnnouncedViewProps) {
                   {timeStr && tournament.location ? ' · ' : ''}
                   {tournament.location || ''}
                 </div>
-                <div style={{
-                  fontSize: 12, color: colors.muted,
-                  marginTop: spacing.md, lineHeight: 1.5,
-                }}>
-                  The host will configure players closer to the date.
-                </div>
               </div>
+
+              {/* RSVP buttons — only for logged-in non-hosts. Two-state:
+                  before answering shows two buttons side-by-side; after
+                  shows the chosen state pinned + "Change my answer" link. */}
+              {isLoggedIn && (
+                myRsvp ? (
+                  <div style={{
+                    background: myRsvp.response === 'yes' ? colors.primaryMuted : 'rgba(115,115,128,0.08)',
+                    border: `1px solid ${myRsvp.response === 'yes' ? 'rgba(34,197,94,0.3)' : colors.border}`,
+                    borderRadius: radius.md,
+                    padding: `${spacing.md}px ${spacing.lg}px`,
+                    marginBottom: spacing.md,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: spacing.sm,
+                  }}>
+                    <div>
+                      <div style={{
+                        fontSize: 11, fontWeight: 700,
+                        color: myRsvp.response === 'yes' ? colors.primary : colors.muted,
+                        textTransform: 'uppercase', letterSpacing: '0.06em',
+                      }}>
+                        Your answer
+                      </div>
+                      <div style={{
+                        fontSize: 15, fontWeight: 700,
+                        color: myRsvp.response === 'yes' ? colors.text : colors.textSecondary,
+                        marginTop: 2,
+                      }}>
+                        {myRsvp.response === 'yes' ? "You're going" : "You can't make it"}
+                      </div>
+                    </div>
+                    <button
+                      onClick={onClearRsvp}
+                      style={{
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        color: colors.textSecondary, fontSize: 12, fontWeight: 600,
+                        textDecoration: 'underline', padding: 0, fontFamily: fonts.sans,
+                      }}
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md }}>
+                    <button
+                      onClick={() => onSetRsvp('yes')}
+                      style={{
+                        flex: 1, padding: `${spacing.md + 2}px`,
+                        background: colors.primary, color: '#000',
+                        border: 'none', borderRadius: radius.sm,
+                        fontSize: 14, fontWeight: 800, fontFamily: fonts.sans,
+                        cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        gap: spacing.xs,
+                      }}
+                    >
+                      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      I'll be there
+                    </button>
+                    <button
+                      onClick={() => onSetRsvp('no')}
+                      style={{
+                        flex: 1, padding: `${spacing.md + 2}px`,
+                        background: 'transparent', color: colors.textSecondary,
+                        border: `1px solid ${colors.border}`, borderRadius: radius.sm,
+                        fontSize: 14, fontWeight: 700, fontFamily: fonts.sans,
+                        cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        gap: spacing.xs,
+                      }}
+                    >
+                      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                      Can't make it
+                    </button>
+                  </div>
+                )
+              )}
 
               {/* Anonymous viewer hint — soft, no CTA forcing.
                   Logged-in spectators don't need this. */}
               {!isLoggedIn && (
                 <div style={{
-                  marginTop: spacing.md, textAlign: 'center',
+                  marginBottom: spacing.md, textAlign: 'center',
                   padding: `${spacing.sm}px ${spacing.md}px`,
                 }}>
                   <span style={{ fontSize: 12, color: colors.muted }}>
-                    Already a deucy player? Open your personal invite link to see your stats.
+                    Already a deucy player? Open your personal invite link to RSVP.
                   </span>
                 </div>
               )}
             </>
+          )}
+
+          {/* Going list — visible to EVERYONE (host + invitees + anon).
+              Social proof: seeing who's already in motivates others to
+              confirm. Declined names are NOT shown publicly — only the
+              host sees them, in the host-only summary above. */}
+          <GoingList names={goingNames} />
+
+          {/* Host-only RSVP summary — count of pending (not RSVPed) =
+              total players in DB minus going minus declined. We don't
+              have an "invited list", so pending = "no answer yet from
+              registered players". */}
+          {isCreator && (declinedNames.length > 0 || goingNames.length > 0) && (
+            <DeclinedList names={declinedNames} />
           )}
         </div>
       </div>
@@ -1152,6 +1306,98 @@ function AnnouncedView(props: AnnouncedViewProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+// ── GoingList ──
+//
+// Public roster of confirmed players. Visible to host, invitees, and
+// anonymous viewers (social proof: "ah, viene anche Bruno → vengo anch'io").
+// Hidden when nobody has RSVPed yes yet — empty state would feel sad.
+function GoingList({ names }: { names: string[] }) {
+  if (names.length === 0) return null;
+  return (
+    <div style={{
+      background: colors.surface,
+      border: `1px solid ${colors.border}`,
+      borderLeft: `3px solid ${colors.primary}`,
+      borderRadius: radius.lg,
+      padding: spacing.lg,
+      marginBottom: spacing.md,
+    }}>
+      <div style={{
+        fontSize: 11, fontWeight: 700, color: colors.primary,
+        textTransform: 'uppercase', letterSpacing: '0.08em',
+        marginBottom: spacing.sm,
+        display: 'flex', alignItems: 'center', gap: spacing.xs,
+      }}>
+        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        Going · {names.length}
+      </div>
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: spacing.xs,
+      }}>
+        {names.map((n, i) => (
+          <span key={i} style={{
+            padding: `4px 10px`,
+            background: colors.primaryMuted,
+            border: `1px solid rgba(34,197,94,0.25)`,
+            borderRadius: radius.pill,
+            fontSize: 13, fontWeight: 600, color: colors.text,
+          }}>
+            {n}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── DeclinedList (host-only) ──
+//
+// Names of people who said "can't make it". Surfaced only to the host
+// so invitees don't get the "everyone declined" cold-shower effect.
+// Empty list returns null so the section disappears entirely.
+function DeclinedList({ names }: { names: string[] }) {
+  if (names.length === 0) return null;
+  return (
+    <div style={{
+      background: colors.surface,
+      border: `1px solid ${colors.border}`,
+      borderLeft: `3px solid ${colors.muted}`,
+      borderRadius: radius.lg,
+      padding: spacing.lg,
+      marginBottom: spacing.md,
+    }}>
+      <div style={{
+        fontSize: 11, fontWeight: 700, color: colors.muted,
+        textTransform: 'uppercase', letterSpacing: '0.08em',
+        marginBottom: spacing.sm,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span>Can't make it · {names.length}</span>
+        <span style={{ fontSize: 10, color: colors.muted, fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
+          host only
+        </span>
+      </div>
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: spacing.xs,
+      }}>
+        {names.map((n, i) => (
+          <span key={i} style={{
+            padding: `4px 10px`,
+            background: 'transparent',
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.pill,
+            fontSize: 13, fontWeight: 500, color: colors.textSecondary,
+          }}>
+            {n}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
