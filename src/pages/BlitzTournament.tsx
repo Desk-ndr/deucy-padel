@@ -771,25 +771,31 @@ function buildWhatsAppShareHref(
   dateLong: string | null,
   timeStr: string | null,
 ): string {
+  // Plain-text only (no emoji). On some Android devices and WhatsApp
+  // installs, emoji passed through wa.me?text= render as tofu (◆ missing
+  // glyph). Em-dashes and arrows are general Unicode covered by every
+  // system font, so they render reliably everywhere. WhatsApp markdown
+  // (*bold*, _italic_) is supported across iOS/Android/Web.
   const lines: string[] = [];
-  lines.push(`🎾 *${tournament.name}*`);
+  lines.push(`*${tournament.name}*`);
   lines.push(''); // separator
   if (dateLong) {
-    lines.push(`📅 ${dateLong}${timeStr ? ` · ${timeStr}` : ''}`);
+    lines.push(`— ${dateLong}${timeStr ? ` · ${timeStr}` : ''}`);
   } else {
-    lines.push('📅 Date TBD');
+    lines.push('— Date TBD');
   }
   if (tournament.location) {
-    lines.push(`📍 ${tournament.location}`);
+    lines.push(`— ${tournament.location}`);
   }
   lines.push(''); // separator
-  lines.push("👉 Are you in? Tap to confirm — see who's coming too:");
+  lines.push("→ Are you in? Tap to confirm — see who's coming too:");
   lines.push(`${window.location.origin}/blitz/${tournament.id}`);
-  // Maps URL goes LAST so the WA preview latches onto the deucy link
+  // Maps URL goes LAST so WA's preview latches onto the deucy link
   // (the primary action), not the map.
   if (tournament.location_url) {
     lines.push('');
-    lines.push(`🗺 Directions: ${tournament.location_url}`);
+    lines.push(`→ Directions:`);
+    lines.push(tournament.location_url);
   }
   return `https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`;
 }
