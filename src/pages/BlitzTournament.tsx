@@ -771,30 +771,37 @@ function buildWhatsAppShareHref(
   dateLong: string | null,
   timeStr: string | null,
 ): string {
-  // Plain-text only (no emoji). On some Android devices and WhatsApp
-  // installs, emoji passed through wa.me?text= render as tofu (◆ missing
-  // glyph). Em-dashes and arrows are general Unicode covered by every
-  // system font, so they render reliably everywhere. WhatsApp markdown
-  // (*bold*, _italic_) is supported across iOS/Android/Web.
+  // Iconic glyphs without emoji. Some Android WhatsApp installs render
+  // emoji as tofu (◆) when the device emoji font is missing/stale —
+  // observed on Andrea's phone with 🎾📅📍. Geometric Unicode symbols
+  // (▸ ❯ →) are part of every system font, look icon-ish, and never
+  // fall back to tofu. WhatsApp markdown (*bold*) is supported on
+  // iOS/Android/Web.
+  //
+  // Symbol cheat-sheet:
+  //   ▸  U+25B8  black medium right-pointing triangle  → data prefix
+  //   ❯  U+276F  heavy right-pointing angle quote      → action prefix
+  //   →  U+2192  rightwards arrow                      → action arrow
+  //   ·  U+00B7  middle dot                            → inline separator
   const lines: string[] = [];
   lines.push(`*${tournament.name}*`);
   lines.push(''); // separator
   if (dateLong) {
-    lines.push(`— ${dateLong}${timeStr ? ` · ${timeStr}` : ''}`);
+    lines.push(`▸ ${dateLong}${timeStr ? ` · ${timeStr}` : ''}`);
   } else {
-    lines.push('— Date TBD');
+    lines.push('▸ Date TBD');
   }
   if (tournament.location) {
-    lines.push(`— ${tournament.location}`);
+    lines.push(`▸ ${tournament.location}`);
   }
   lines.push(''); // separator
-  lines.push("→ Are you in? Tap to confirm — see who's coming too:");
+  lines.push("❯ Are you in? Tap to confirm — see who's coming too:");
   lines.push(`${window.location.origin}/blitz/${tournament.id}`);
   // Maps URL goes LAST so WA's preview latches onto the deucy link
   // (the primary action), not the map.
   if (tournament.location_url) {
     lines.push('');
-    lines.push(`→ Directions:`);
+    lines.push(`❯ Directions:`);
     lines.push(tournament.location_url);
   }
   return `https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`;
