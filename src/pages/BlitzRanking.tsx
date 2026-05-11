@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 import { getRanking, RankedPlayer } from '@/services/rankingService';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizePhone } from '@/lib/phone';
 
 const FORM_ICONS: Record<string, { symbol: string; color: string; label: string }> = {
   hot:    { symbol: '▲▲', color: colors.primary,     label: 'On fire' },
@@ -46,7 +47,12 @@ export default function BlitzRanking() {
   const handleAddPlayer = async () => {
     if (!newName.trim()) return;
     const insert: any = { display_name: newName.trim() };
-    if (newPhone.trim()) insert.phone = newPhone.trim();
+    // Normalize the phone before persisting: strips spaces, dashes,
+    // parentheses, dots. Keeps a leading '+'. Critical so phone lookup
+    // at login (.eq('phone', normalized)) actually matches — without
+    // this, pasting "+34 685 20 58 81" stored the spaces and the user
+    // couldn't sign in. Same helper used by every login path.
+    if (newPhone.trim()) insert.phone = normalizePhone(newPhone.trim());
     const { data, error } = await supabase.from('players').insert(insert).select('id, display_name, access_token').single();
     if (error) { setAddError(error.message); return; }
     if (data) {
