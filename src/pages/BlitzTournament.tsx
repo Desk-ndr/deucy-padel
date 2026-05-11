@@ -750,6 +750,50 @@ function buildICS(t: { id: string; name: string; scheduled_at: string | null; lo
   return 'data:text/calendar;charset=utf-8,' + encodeURIComponent(lines.join('\r\n'));
 }
 
+// ── WhatsApp share message ──
+//
+// Builds the pre-filled message that pops in WhatsApp when the host taps
+// "Share on WhatsApp". Optimized for tap-through to the app: emoji
+// prefixes scan fast, bold title hooks the eye, single primary URL gets
+// the link preview, optional Maps link below for "where do I go".
+//
+// WhatsApp formatting hints used:
+//  - *text* → bold
+//  - _text_ → italic
+//  - blank lines → separator (renders as actual spacing)
+//
+// Preview rules: WA shows the rich preview for the FIRST URL it finds in
+// the message, so the deucy link goes BEFORE the Maps URL. The deucy
+// preview (if we ever add OG tags) will show up; otherwise it's a plain
+// link, still clearly the primary action.
+function buildWhatsAppShareHref(
+  tournament: { id: string; name: string; location: string | null; location_url: string | null },
+  dateLong: string | null,
+  timeStr: string | null,
+): string {
+  const lines: string[] = [];
+  lines.push(`🎾 *${tournament.name}*`);
+  lines.push(''); // separator
+  if (dateLong) {
+    lines.push(`📅 ${dateLong}${timeStr ? ` · ${timeStr}` : ''}`);
+  } else {
+    lines.push('📅 Date TBD');
+  }
+  if (tournament.location) {
+    lines.push(`📍 ${tournament.location}`);
+  }
+  lines.push(''); // separator
+  lines.push('👉 Tap to RSVP & see who else is in:');
+  lines.push(`${window.location.origin}/blitz/${tournament.id}`);
+  // Maps URL goes LAST so the WA preview latches onto the deucy link
+  // (the primary action), not the map.
+  if (tournament.location_url) {
+    lines.push('');
+    lines.push(`🗺 Directions: ${tournament.location_url}`);
+  }
+  return `https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`;
+}
+
 // ── Google Calendar deep link ──
 //
 // Same event, but as a Google Calendar "Add event" URL. Useful as a
@@ -1227,16 +1271,7 @@ function AnnouncedView(props: AnnouncedViewProps) {
                     its weight versus the primary CTA. Keeps the WA brand
                     color for recognition, but as border + text on dark. */}
                 <a
-                  href={(() => {
-                    const lines = [
-                      `Save the date — ${tournament.name}`,
-                      dateLong ? `${dateLong}${timeStr ? ` · ${timeStr}` : ''}` : 'Date TBD',
-                      tournament.location ? tournament.location : null,
-                      '',
-                      `${window.location.origin}/blitz/${tournament.id}`,
-                    ].filter(Boolean).join('\n');
-                    return `https://wa.me/?text=${encodeURIComponent(lines)}`;
-                  })()}
+                  href={buildWhatsAppShareHref(tournament, dateLong, timeStr)}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
