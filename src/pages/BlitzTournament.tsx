@@ -1014,7 +1014,7 @@ function AnnouncedView(props: AnnouncedViewProps) {
                   <div style={{
                     fontSize: 16, fontWeight: 700, color: colors.text,
                   }}>
-                    {dayOfWeek}{timeStr ? <span style={{ color: colors.textSecondary, fontWeight: 500 }}> · {timeStr}</span> : null}
+                    {dayOfWeek}{timeStr ? <> · {timeStr}</> : null}
                   </div>
                 )}
               </>
