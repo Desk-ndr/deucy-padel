@@ -1061,45 +1061,67 @@ function AnnouncedView(props: AnnouncedViewProps) {
                 />
               </div>
             ) : (
-              <div>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: spacing.sm,
-                  fontSize: 15, fontWeight: 600,
-                  color: tournament.location ? colors.text : colors.muted,
-                }}>
+              /* Location row — when we have ANY location text (URL or no
+                 URL), the whole row is a single tap target that opens
+                 Maps. Visual affordance follows the link-in-prose
+                 convention: dashed underline beneath the text + small
+                 superscript ↗ arrow. The pin icon stays as a label, the
+                 underline + arrow tell you it's interactive. Without
+                 location text we fall back to a non-interactive muted
+                 placeholder. Priority: explicit URL > Google Maps search
+                 fallback on the location text. */
+              tournament.location ? (
+                <a
+                  href={
+                    tournament.location_url ||
+                    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tournament.location)}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: spacing.sm,
+                    color: colors.text, textDecoration: 'none',
+                    cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
                   <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.accent} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                     <circle cx="12" cy="10" r="3" />
                   </svg>
-                  {tournament.location || 'Location to be confirmed'}
-                </div>
-
-                {/* Open in Maps — shown only when there's something to point at.
-                    Priority: explicit URL set by host > Google Maps search
-                    fallback on the location text. The fallback is approximate
-                    (lands on a name search) but better than nothing. */}
-                {(tournament.location_url || tournament.location) && (
-                  <a
-                    href={
-                      tournament.location_url ||
-                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tournament.location || '')}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      marginLeft: 24,  // align under the text after the pin icon
-                      marginTop: 4,
-                      color: colors.accent,
-                      fontSize: 12, fontWeight: 700,
-                      fontFamily: fonts.sans, textDecoration: 'none',
-                      letterSpacing: '0.02em',
-                    }}
+                  <span style={{
+                    fontSize: 15, fontWeight: 600, color: colors.text,
+                    borderBottom: `1px dashed ${colors.muted}`,
+                    paddingBottom: 1,
+                  }}>
+                    {tournament.location}
+                  </span>
+                  {/* Superscript external-link arrow — standard convention,
+                      lifted slightly via negative margin-top so it reads as
+                      annotation rather than punctuation. */}
+                  <svg
+                    width={10} height={10} viewBox="0 0 24 24"
+                    fill="none" stroke={colors.accent}
+                    strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"
+                    style={{ marginLeft: -4, marginTop: -8, flexShrink: 0 }}
+                    aria-hidden="true"
                   >
-                    {tournament.location_url ? 'Open in Maps' : 'Search on Maps'} →
-                  </a>
-                )}
-              </div>
+                    <path d="M7 17L17 7" />
+                    <polyline points="7 7 17 7 17 17" />
+                  </svg>
+                </a>
+              ) : (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: spacing.sm,
+                  fontSize: 15, fontWeight: 600, color: colors.muted,
+                }}>
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.muted} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  Location to be confirmed
+                </div>
+              )
             )}
 
             {/* Calendar links — tertiary, inline at bottom of ticket.
