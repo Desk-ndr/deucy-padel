@@ -1124,15 +1124,15 @@ function AnnouncedView(props: AnnouncedViewProps) {
               )
             )}
 
-            {/* Calendar links — tertiary, inline at bottom of ticket.
-                Hidden in edit mode and when no date set. */}
+            {/* Calendar link — single tertiary action at the bottom of
+                the ticket. Universal .ics file: iOS Safari opens Apple
+                Calendar, Android opens Google Calendar (the OS handles
+                routing). Hidden in edit mode and when no date set. */}
             {!editing && tournament.scheduled_at && icsHref && (
               <div style={{
                 marginTop: spacing.lg,
                 paddingTop: spacing.md,
                 borderTop: `1px solid ${colors.border}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                gap: spacing.sm,
               }}>
                 <a
                   href={icsHref}
@@ -1149,17 +1149,6 @@ function AnnouncedView(props: AnnouncedViewProps) {
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
                   Add to Calendar
-                </a>
-                <a
-                  href={googleCalHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    fontSize: 11, color: colors.textSecondary,
-                    fontFamily: fonts.sans, textDecoration: 'none',
-                  }}
-                >
-                  Google Cal →
                 </a>
               </div>
             )}
