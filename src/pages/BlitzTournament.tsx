@@ -1229,88 +1229,6 @@ function AnnouncedView(props: AnnouncedViewProps) {
                 </div>
               </div>
 
-              {/* RSVP buttons — only for logged-in non-hosts. Two-state:
-                  before answering shows two buttons side-by-side; after
-                  shows the chosen state pinned + "Change my answer" link. */}
-              {isLoggedIn && (
-                myRsvp ? (
-                  <div style={{
-                    background: myRsvp.response === 'yes' ? colors.primaryMuted : 'rgba(115,115,128,0.08)',
-                    border: `1px solid ${myRsvp.response === 'yes' ? 'rgba(34,197,94,0.3)' : colors.border}`,
-                    borderRadius: radius.md,
-                    padding: `${spacing.md}px ${spacing.lg}px`,
-                    marginBottom: spacing.md,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    gap: spacing.sm,
-                  }}>
-                    <div>
-                      <div style={{
-                        fontSize: 11, fontWeight: 700,
-                        color: myRsvp.response === 'yes' ? colors.primary : colors.muted,
-                        textTransform: 'uppercase', letterSpacing: '0.06em',
-                      }}>
-                        Your answer
-                      </div>
-                      <div style={{
-                        fontSize: 15, fontWeight: 700,
-                        color: myRsvp.response === 'yes' ? colors.text : colors.textSecondary,
-                        marginTop: 2,
-                      }}>
-                        {myRsvp.response === 'yes' ? "You're going" : "You can't make it"}
-                      </div>
-                    </div>
-                    <button
-                      onClick={onClearRsvp}
-                      style={{
-                        background: 'transparent', border: 'none', cursor: 'pointer',
-                        color: colors.textSecondary, fontSize: 12, fontWeight: 600,
-                        textDecoration: 'underline', padding: 0, fontFamily: fonts.sans,
-                      }}
-                    >
-                      Change
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md }}>
-                    <button
-                      onClick={() => onSetRsvp('yes')}
-                      style={{
-                        flex: 1, padding: `${spacing.md + 2}px`,
-                        background: colors.primary, color: '#000',
-                        border: 'none', borderRadius: radius.sm,
-                        fontSize: 14, fontWeight: 800, fontFamily: fonts.sans,
-                        cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        gap: spacing.xs,
-                      }}
-                    >
-                      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      I'll be there
-                    </button>
-                    <button
-                      onClick={() => onSetRsvp('no')}
-                      style={{
-                        flex: 1, padding: `${spacing.md + 2}px`,
-                        background: 'transparent', color: colors.textSecondary,
-                        border: `1px solid ${colors.border}`, borderRadius: radius.sm,
-                        fontSize: 14, fontWeight: 700, fontFamily: fonts.sans,
-                        cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        gap: spacing.xs,
-                      }}
-                    >
-                      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                      Can't make it
-                    </button>
-                  </div>
-                )
-              )}
-
               {/* Anonymous viewer hint — soft, no CTA forcing.
                   Logged-in spectators don't need this. */}
               {!isLoggedIn && (
@@ -1324,6 +1242,106 @@ function AnnouncedView(props: AnnouncedViewProps) {
                 </div>
               )}
             </>
+          )}
+
+          {/* RSVP block — visible to ANY logged-in user, including the host.
+              Why host too: the host might organize but not actually play
+              (delegated arrangements), and confirming "yes" puts their name
+              in the public Going list (extra social proof). Two-state:
+              pinned answer with Change link, or 2 buttons before answering. */}
+          {isLoggedIn && (
+            <div style={{ marginTop: isCreator ? spacing.xl : 0 }}>
+              <div style={{
+                fontSize: 11, fontWeight: 700, color: colors.muted,
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+                marginBottom: spacing.sm,
+                textAlign: 'center',
+              }}>
+                {myRsvp ? 'Your answer' : 'Will you play?'}
+              </div>
+              {myRsvp ? (
+                <div style={{
+                  background: myRsvp.response === 'yes' ? colors.primaryMuted : 'rgba(115,115,128,0.08)',
+                  border: `1px solid ${myRsvp.response === 'yes' ? 'rgba(34,197,94,0.3)' : colors.border}`,
+                  borderRadius: radius.md,
+                  padding: `${spacing.md}px ${spacing.lg}px`,
+                  marginBottom: spacing.md,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: spacing.sm,
+                }}>
+                  <div style={{
+                    fontSize: 15, fontWeight: 700,
+                    color: myRsvp.response === 'yes' ? colors.text : colors.textSecondary,
+                    display: 'flex', alignItems: 'center', gap: spacing.sm,
+                  }}>
+                    {myRsvp.response === 'yes' ? (
+                      <>
+                        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        You're going
+                      </>
+                    ) : (
+                      <>
+                        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.muted} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                        You can't make it
+                      </>
+                    )}
+                  </div>
+                  <button
+                    onClick={onClearRsvp}
+                    style={{
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      color: colors.textSecondary, fontSize: 12, fontWeight: 600,
+                      textDecoration: 'underline', padding: 0, fontFamily: fonts.sans,
+                    }}
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md }}>
+                  <button
+                    onClick={() => onSetRsvp('yes')}
+                    style={{
+                      flex: 1, padding: `${spacing.md + 2}px`,
+                      background: colors.primary, color: '#000',
+                      border: 'none', borderRadius: radius.sm,
+                      fontSize: 14, fontWeight: 800, fontFamily: fonts.sans,
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      gap: spacing.xs,
+                    }}
+                  >
+                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    I'll be there
+                  </button>
+                  <button
+                    onClick={() => onSetRsvp('no')}
+                    style={{
+                      flex: 1, padding: `${spacing.md + 2}px`,
+                      background: 'transparent', color: colors.textSecondary,
+                      border: `1px solid ${colors.border}`, borderRadius: radius.sm,
+                      fontSize: 14, fontWeight: 700, fontFamily: fonts.sans,
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      gap: spacing.xs,
+                    }}
+                  >
+                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    Can't make it
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Going list — visible to EVERYONE (host + invitees + anon).
