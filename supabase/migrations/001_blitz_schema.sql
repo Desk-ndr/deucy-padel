@@ -24,7 +24,10 @@ CREATE TABLE IF NOT EXISTS blitz_tournaments (
   finished_at timestamptz,
   -- NEW: Save the Date metadata. status='announced' uses these.
   scheduled_at timestamptz,
-  location text
+  location text,
+  -- Optional exact pin URL (Google Maps share, etc.). Used by the
+  -- "Open in Maps" link in the AnnouncedView hero.
+  location_url text
 );
 
 -- Allow the 'announced' status (Save the Date). status is text so no

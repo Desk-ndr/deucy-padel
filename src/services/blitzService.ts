@@ -37,6 +37,10 @@ export interface BlitzTournamentData {
   // and later flipped to 'setup' by the host via beginSetup().
   scheduled_at: string | null;
   location: string | null;
+  // Optional exact pin URL (Google Maps share link, etc.). When set, the
+  // hero ticket shows "Open in Maps" pointing here; when null we fall
+  // back to a Google Maps search on the location text.
+  location_url: string | null;
   created_at?: string | null;
 }
 
@@ -57,6 +61,7 @@ function parseTournament(raw: any): BlitzTournamentData {
     schedule: (raw.schedule as any[] || []) as BlitzRoundSchedule[],
     scheduled_at: raw.scheduled_at ?? null,
     location: raw.location ?? null,
+    location_url: raw.location_url ?? null,
   };
 }
 
@@ -149,11 +154,12 @@ export function subscribeAllTournaments(callback: () => void) {
 export async function createTournament(
   name: string,
   createdBy: string,
-  options?: { scheduledAt?: string | null; location?: string | null },
+  options?: { scheduledAt?: string | null; location?: string | null; locationUrl?: string | null },
 ) {
   const scheduledAt = options?.scheduledAt?.trim() || null;
   const location = options?.location?.trim() || null;
-  const isAnnounced = !!(scheduledAt || location);
+  const locationUrl = sanitizeUrl(options?.locationUrl);
+  const isAnnounced = !!(scheduledAt || location || locationUrl);
   const { data, error } = await supabase.from('blitz_tournaments')
     .insert({
       name: name.trim(),
@@ -161,9 +167,25 @@ export async function createTournament(
       status: isAnnounced ? 'announced' : 'setup',
       scheduled_at: scheduledAt,
       location,
+      location_url: locationUrl,
     } as any).select().single();
   if (error) return { data: null, error: error.message };
   return { data: parseTournament(data), error: null };
+}
+
+/**
+ * Lightweight URL sanity check. Accepts only http(s) URLs to avoid
+ * `javascript:` injections. Returns null if invalid/empty so we can
+ * pass it straight to the DB.
+ */
+function sanitizeUrl(input: string | null | undefined): string | null {
+  const raw = (input ?? '').trim();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    if (u.protocol === 'http:' || u.protocol === 'https:') return raw;
+  } catch { /* invalid URL */ }
+  return null;
 }
 
 /**
@@ -190,12 +212,13 @@ export async function beginSetup(id: string) {
  */
 export async function updateAnnouncement(
   id: string,
-  patch: { scheduledAt?: string | null; location?: string | null; name?: string },
+  patch: { scheduledAt?: string | null; location?: string | null; locationUrl?: string | null; name?: string },
 ) {
   const update: any = {};
   if (patch.name !== undefined) update.name = patch.name.trim();
   if (patch.scheduledAt !== undefined) update.scheduled_at = patch.scheduledAt?.trim() || null;
   if (patch.location !== undefined) update.location = patch.location?.trim() || null;
+  if (patch.locationUrl !== undefined) update.location_url = sanitizeUrl(patch.locationUrl);
   if (Object.keys(update).length === 0) return { error: null };
   const { error } = await supabase.from('blitz_tournaments')
     .update(update)

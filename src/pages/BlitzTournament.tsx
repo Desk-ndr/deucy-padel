@@ -689,7 +689,7 @@ export default function BlitzTournament() {
 // editing is a rare host action.
 
 interface AnnouncedViewProps {
-  tournament: { id: string; name: string; scheduled_at: string | null; location: string | null; created_by: string | null; };
+  tournament: { id: string; name: string; scheduled_at: string | null; location: string | null; location_url: string | null; created_by: string | null; };
   isCreator: boolean;
   isLoggedIn: boolean;
   dateLong: string | null;
@@ -702,7 +702,7 @@ interface AnnouncedViewProps {
   onClearRsvp: () => Promise<void>;
   onBack: () => void;
   onBeginSetup: () => Promise<void>;
-  onUpdate: (patch: { name?: string; scheduledAt?: string | null; location?: string | null }) => Promise<{ error: string | null }>;
+  onUpdate: (patch: { name?: string; scheduledAt?: string | null; location?: string | null; locationUrl?: string | null }) => Promise<{ error: string | null }>;
   onDelete: () => void;
   deleteOpen: boolean;
   onDeleteClose: () => void;
@@ -812,6 +812,7 @@ function AnnouncedView(props: AnnouncedViewProps) {
     return `${hh}:${mm}`;
   });
   const [draftLocation, setDraftLocation] = useState(tournament.location ?? '');
+  const [draftLocationUrl, setDraftLocationUrl] = useState(tournament.location_url ?? '');
   const [saving, setSaving] = useState(false);
   const [starting, setStarting] = useState(false);
 
@@ -829,6 +830,7 @@ function AnnouncedView(props: AnnouncedViewProps) {
       name: draftName.trim() || tournament.name,
       scheduledAt,
       location: draftLocation.trim() || null,
+      locationUrl: draftLocationUrl.trim() || null,
     });
     setSaving(false);
     setEditing(false);
@@ -1025,32 +1027,78 @@ function AnnouncedView(props: AnnouncedViewProps) {
               margin: `${spacing.lg}px -${spacing.lg}px`,
             }} />
 
-            {/* Location row with pin icon */}
+            {/* Location row with pin icon + optional Maps link.
+                Edit mode: location text input + URL input below. The URL
+                is shown in mono so it's obvious it's a URL field. */}
             {editing ? (
-              <input
-                type="text"
-                value={draftLocation}
-                onChange={e => setDraftLocation(e.target.value)}
-                placeholder="Add location"
-                style={{
-                  width: '100%', padding: spacing.sm,
-                  backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
-                  borderRadius: radius.sm, color: colors.text,
-                  fontSize: 14, fontFamily: fonts.sans, outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                <input
+                  type="text"
+                  value={draftLocation}
+                  onChange={e => setDraftLocation(e.target.value)}
+                  placeholder="Add location"
+                  style={{
+                    width: '100%', padding: spacing.sm,
+                    backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                    borderRadius: radius.sm, color: colors.text,
+                    fontSize: 14, fontFamily: fonts.sans, outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={draftLocationUrl}
+                  onChange={e => setDraftLocationUrl(e.target.value)}
+                  placeholder="Maps link (optional)"
+                  style={{
+                    width: '100%', padding: spacing.sm,
+                    backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                    borderRadius: radius.sm, color: colors.text,
+                    fontSize: 12, fontFamily: fonts.mono, outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
             ) : (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: spacing.sm,
-                fontSize: 15, fontWeight: 600,
-                color: tournament.location ? colors.text : colors.muted,
-              }}>
-                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.accent} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                {tournament.location || 'Location to be confirmed'}
+              <div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: spacing.sm,
+                  fontSize: 15, fontWeight: 600,
+                  color: tournament.location ? colors.text : colors.muted,
+                }}>
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.accent} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  {tournament.location || 'Location to be confirmed'}
+                </div>
+
+                {/* Open in Maps — shown only when there's something to point at.
+                    Priority: explicit URL set by host > Google Maps search
+                    fallback on the location text. The fallback is approximate
+                    (lands on a name search) but better than nothing. */}
+                {(tournament.location_url || tournament.location) && (
+                  <a
+                    href={
+                      tournament.location_url ||
+                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tournament.location || '')}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      marginLeft: 24,  // align under the text after the pin icon
+                      marginTop: 4,
+                      color: colors.accent,
+                      fontSize: 12, fontWeight: 700,
+                      fontFamily: fonts.sans, textDecoration: 'none',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    {tournament.location_url ? 'Open in Maps' : 'Search on Maps'} →
+                  </a>
+                )}
               </div>
             )}
 
@@ -1103,6 +1151,7 @@ function AnnouncedView(props: AnnouncedViewProps) {
                   onClick={() => { setEditing(false);
                     setDraftName(tournament.name);
                     setDraftLocation(tournament.location ?? '');
+                    setDraftLocationUrl(tournament.location_url ?? '');
                   }}
                   disabled={saving}
                   style={{

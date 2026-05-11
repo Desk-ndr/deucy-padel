@@ -22,6 +22,7 @@ export default function BlitzList() {
   const [dateValue, setDateValue] = useState(''); // YYYY-MM-DD
   const [timeValue, setTimeValue] = useState(''); // HH:mm
   const [location, setLocation] = useState('');
+  const [locationUrl, setLocationUrl] = useState(''); // optional Google Maps link
   const [creating, setCreating] = useState(false);
   const [ranking, setRanking] = useState<RankedPlayer[]>([]);
   const [rankingLoading, setRankingLoading] = useState(true);
@@ -168,11 +169,12 @@ export default function BlitzList() {
     const { data, error } = await createTournament(name, creatorRef, {
       scheduledAt,
       location: location.trim() || null,
+      locationUrl: locationUrl.trim() || null,
     });
     setCreating(false);
     if (!error && data) {
       // Reset form
-      setDateValue(''); setTimeValue(''); setLocation('');
+      setDateValue(''); setTimeValue(''); setLocation(''); setLocationUrl('');
       navigate(`/blitz/${data.id}`);
     }
   };
@@ -896,6 +898,26 @@ export default function BlitzList() {
                 borderRadius: radius.sm,
                 color: colors.text,
                 fontSize: 14, fontWeight: 500, fontFamily: fonts.sans,
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+
+            {/* Optional Maps URL — paste the exact pin from Google Maps so
+                invitees can tap "Open in Maps" and land on the right court.
+                When empty we fall back to a Maps search on the location text. */}
+            <input
+              type="url"
+              inputMode="url"
+              value={locationUrl}
+              onChange={e => setLocationUrl(e.target.value)}
+              placeholder="Maps link — paste from Google Maps (optional)"
+              style={{
+                width: '100%', padding: spacing.md,
+                backgroundColor: colors.bg,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                color: colors.text,
+                fontSize: 13, fontWeight: 500, fontFamily: fonts.mono,
                 outline: 'none', boxSizing: 'border-box',
               }}
             />
