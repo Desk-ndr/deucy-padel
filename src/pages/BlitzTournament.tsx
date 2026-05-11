@@ -783,7 +783,7 @@ function buildWhatsAppShareHref(
     lines.push(`📍 ${tournament.location}`);
   }
   lines.push(''); // separator
-  lines.push('👉 Tap to RSVP & see who else is in:');
+  lines.push("👉 Are you in? Tap to confirm — see who's coming too:");
   lines.push(`${window.location.origin}/blitz/${tournament.id}`);
   // Maps URL goes LAST so the WA preview latches onto the deucy link
   // (the primary action), not the map.
