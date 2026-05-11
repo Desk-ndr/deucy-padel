@@ -771,37 +771,38 @@ function buildWhatsAppShareHref(
   dateLong: string | null,
   timeStr: string | null,
 ): string {
-  // Iconic glyphs without emoji. Some Android WhatsApp installs render
-  // emoji as tofu (◆) when the device emoji font is missing/stale —
-  // observed on Andrea's phone with 🎾📅📍. Geometric Unicode symbols
-  // (▸ ❯ →) are part of every system font, look icon-ish, and never
-  // fall back to tofu. WhatsApp markdown (*bold*) is supported on
-  // iOS/Android/Web.
+  // Emoji-led layout. WhatsApp passes UTF-8 bytes through to recipients
+  // unchanged: iOS and modern Android render the emoji properly. A small
+  // fraction of recipients (very old Android, broken/missing emoji font)
+  // will see ◆ tofu — Andrea reported this on his own draft. We accept
+  // the tradeoff because the iconic prefixes are recognized instantly
+  // by the majority. WhatsApp markdown (*bold*) supported everywhere.
   //
-  // Symbol cheat-sheet:
-  //   ▸  U+25B8  black medium right-pointing triangle  → data prefix
-  //   ❯  U+276F  heavy right-pointing angle quote      → action prefix
-  //   →  U+2192  rightwards arrow                      → action arrow
-  //   ·  U+00B7  middle dot                            → inline separator
+  // Emoji choice (all Unicode 6.0–7.0, in standard sets since ~2010):
+  //   🎾  tennis ball   — sport identity, opener
+  //   📅  calendar      — when
+  //   📍  round pushpin — where
+  //   👉  pointer       — call to action
+  //   🗺  world map     — directions / external destination
   const lines: string[] = [];
-  lines.push(`*${tournament.name}*`);
+  lines.push(`🎾 *${tournament.name}*`);
   lines.push(''); // separator
   if (dateLong) {
-    lines.push(`▸ ${dateLong}${timeStr ? ` · ${timeStr}` : ''}`);
+    lines.push(`📅 ${dateLong}${timeStr ? ` · ${timeStr}` : ''}`);
   } else {
-    lines.push('▸ Date TBD');
+    lines.push('📅 Date TBD');
   }
   if (tournament.location) {
-    lines.push(`▸ ${tournament.location}`);
+    lines.push(`📍 ${tournament.location}`);
   }
   lines.push(''); // separator
-  lines.push("❯ Are you in? Tap to confirm — see who's coming too:");
+  lines.push("👉 Are you in? Tap to confirm — see who's coming too:");
   lines.push(`${window.location.origin}/blitz/${tournament.id}`);
   // Maps URL goes LAST so WA's preview latches onto the deucy link
   // (the primary action), not the map.
   if (tournament.location_url) {
     lines.push('');
-    lines.push(`❯ Directions:`);
+    lines.push(`🗺 Directions:`);
     lines.push(tournament.location_url);
   }
   return `https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`;
