@@ -85,10 +85,17 @@ export function useBlitzIdentity(
     }
   }, [globalPlayer, tournamentPlayers]);
 
+  // Pool host: anyone in the tournament's player pool (incl. creator).
+  // After setup is complete, host privileges (timer, edit, delete) extend
+  // to the whole pool — not just whoever pressed "Create". Spectators
+  // (not in the pool) still get read-only access.
+  const isPoolHost = isCreator || playerIndex !== null;
+
   return {
     playerIndex,
     playerName,
     isCreator,
+    isPoolHost,
     deviceId,
     isLoggedIn: !!globalPlayer,
     isSpectator: !!globalPlayer && playerIndex === null && !!tournamentPlayers,

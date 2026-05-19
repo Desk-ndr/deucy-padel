@@ -41,7 +41,7 @@ export default function BlitzTournament() {
   // changes (player added / renamed / linked).
   const playersJson = tournament ? JSON.stringify(tournament.players) : '';
   const stablePlayers = useMemo(() => tournament?.players, [playersJson]);
-  const { playerIndex, isCreator, deviceId, isSpectator, isLoggedIn, globalPlayer } = useBlitzIdentity(id, tournament?.created_by ?? null, stablePlayers);
+  const { playerIndex, isCreator, isPoolHost, deviceId, isSpectator, isLoggedIn, globalPlayer } = useBlitzIdentity(id, tournament?.created_by ?? null, stablePlayers);
 
   // RSVPs for Save the Date. Only loaded when status='announced' — for
   // live/finished tournaments this stays empty and the realtime sub never
@@ -66,6 +66,20 @@ export default function BlitzTournament() {
   // is when status flips directly: announced → live).
   // If the host taps Back, we just unset this flag — zero side effects.
   const [setupActive, setSetupActive] = useState(false);
+
+  // canSetup: who can advance an 'announced' tournament into setup, or
+  // continue the wizard on a 'setup' tournament started by someone else.
+  // Andrea's call (2026-05-19): RSVP-yes can do it, plus the original
+  // creator. For tournaments born directly in 'setup' (no Save the Date),
+  // RSVP list doesn't exist → fall back to any logged-in user, so a
+  // teammate can pick up a setup that the creator started but didn't
+  // finish. Pool-host (post-setup) is handled separately via isPoolHost.
+  const inRsvpYes = !!globalPlayer && rsvps.some(
+    r => r.player_id === globalPlayer.playerId && r.response === 'yes'
+  );
+  const canSetup = isCreator
+    || (tournament?.status === 'announced' && inRsvpYes)
+    || (tournament?.status === 'setup' && isLoggedIn);
 
   const myRsvp = globalPlayer
     ? rsvps.find(r => r.player_id === globalPlayer.playerId) || null
@@ -383,6 +397,7 @@ export default function BlitzTournament() {
       <AnnouncedView
         tournament={tournament}
         isCreator={isCreator}
+        canSetup={canSetup}
         isLoggedIn={isLoggedIn}
         dateLong={dateLong}
         timeStr={timeStr}
@@ -466,7 +481,7 @@ export default function BlitzTournament() {
             </svg>
             {fromAnnounced ? 'Back to Save the Date' : 'Back'}
           </button>
-          {isCreator ? (
+          {canSetup ? (
             <BlitzSetup tournament={tournament} onStart={handleStart} />
           ) : (
             <div style={{ textAlign: 'center', paddingTop: 80 }}>
@@ -582,7 +597,7 @@ export default function BlitzTournament() {
           {activeTab === 'match' && (
             <>
               <BlitzMatchTab
-                tournament={tournament} rounds={rounds} isCreator={isCreator}
+                tournament={tournament} rounds={rounds} isCreator={isPoolHost}
                 playerIndex={playerIndex} bets={bets}
                 timerProps={timerProps} onStartTimer={handleStartTimer}
                 onPauseTimer={handlePauseTimer} onResetTimer={handleResetTimer}
@@ -615,7 +630,7 @@ export default function BlitzTournament() {
           {activeTab === 'calendar' && (
             <BlitzCalendarTab
               tournament={tournament} rounds={rounds}
-              isCreator={isCreator}
+              isCreator={isPoolHost}
               onReorder={handleReorder}
             />
           )}
@@ -691,6 +706,7 @@ export default function BlitzTournament() {
 interface AnnouncedViewProps {
   tournament: { id: string; name: string; scheduled_at: string | null; location: string | null; location_url: string | null; created_by: string | null; };
   isCreator: boolean;
+  canSetup: boolean;
   isLoggedIn: boolean;
   dateLong: string | null;
   timeStr: string | null;
@@ -831,7 +847,7 @@ function buildGoogleCalUrl(t: { id: string; name: string; scheduled_at: string |
 
 function AnnouncedView(props: AnnouncedViewProps) {
   const {
-    tournament, isCreator, isLoggedIn, dateLong, timeStr,
+    tournament, isCreator, canSetup, isLoggedIn, dateLong, timeStr,
     goingRsvps, declinedRsvps, myRsvp, onSetRsvp, onClearRsvp,
     onBack, onBeginSetup, onUpdate, onDelete,
     deleteOpen, onDeleteClose, deleteCode, setDeleteCode, deleting, onConfirmDelete,
@@ -1227,8 +1243,8 @@ function AnnouncedView(props: AnnouncedViewProps) {
             )}
           </div>{/* ── /Hero ticket ── */}
 
-          {/* Host actions */}
-          {isCreator ? (
+          {/* Host actions — RSVP-yes can also start the setup */}
+          {canSetup ? (
             editing ? (
               <div style={{ display: 'flex', gap: spacing.sm }}>
                 <button
@@ -1348,7 +1364,7 @@ function AnnouncedView(props: AnnouncedViewProps) {
               in the public Going list (extra social proof). Two-state:
               pinned answer with Change link, or 2 buttons before answering. */}
           {isLoggedIn && (
-            <div style={{ marginTop: isCreator ? spacing.xl : 0 }}>
+            <div style={{ marginTop: canSetup ? spacing.xl : 0 }}>
               <div style={{
                 fontSize: 11, fontWeight: 700, color: colors.muted,
                 textTransform: 'uppercase', letterSpacing: '0.08em',
