@@ -267,7 +267,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             display: 'flex', gap: spacing.sm,
             justifyContent: 'center', marginBottom: spacing.xl,
           }}>
-            {[60, 90, 120, 150].map(m => (
+            {[60, 90, 120, 150, 180].map(m => (
               <button
                 key={m}
                 onClick={() => setTotalMinutes(m)}
