@@ -430,23 +430,26 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             ))}
           </div>
 
-          {/* Pause between rounds — visible block, host picks how long the
-              break between matches is. Shorter pause = more playing time.
-              Section title + 3 pill presets + helper line explaining the
-              trade-off in plain language. */}
+          {/* Pause between rounds — minimal segmented control.
+              All four values share the mm:ss format so the row reads as a
+              numeric scale, not a label catalog. The current value lives
+              in the header strip, so the pills themselves carry no other
+              text. Tight padding so all four fit a 430px container even
+              with the parent step wrapper already adding spacing.lg. */}
           <div style={{
-            padding: spacing.lg,
+            padding: spacing.md,
             backgroundColor: colors.bg,
             border: `1px solid ${colors.border}`,
             borderRadius: radius.md,
             marginBottom: spacing.xl,
+            boxSizing: 'border-box',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.sm }}>
               <span style={{
                 fontSize: 11, fontWeight: 700, color: colors.muted,
                 textTransform: 'uppercase', letterSpacing: '0.08em',
               }}>
-                Pause between rounds
+                Pause
               </span>
               <span style={{
                 fontSize: 13, fontWeight: 700, color: colors.text,
@@ -455,40 +458,35 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
                 {Math.floor(pauseSeconds / 60)}:{String(pauseSeconds % 60).padStart(2, '0')}
               </span>
             </div>
-            <p style={{ ...typeScale.caption, color: colors.muted, marginTop: 0, marginBottom: spacing.md }}>
-              Court swap, water, trash talk. Shorter pause &rarr; longer rounds.
-            </p>
-            <div style={{ display: 'flex', gap: spacing.sm }}>
-              {[
-                { sec: 60,  label: '1 min',   tag: 'Tight' },
-                { sec: 120, label: '2 min',   tag: 'Balanced' },
-                { sec: 150, label: '2:30',    tag: 'Default' },
-                { sec: 180, label: '3 min',   tag: 'Relaxed' },
-              ].map(p => (
-                <button
-                  key={p.sec}
-                  onClick={() => setPauseSeconds(p.sec)}
-                  style={{
-                    flex: 1,
-                    padding: `${spacing.sm}px ${spacing.xs}px`,
-                    borderRadius: radius.sm,
-                    backgroundColor: pauseSeconds === p.sec ? colors.primaryMuted : colors.surface,
-                    border: `2px solid ${pauseSeconds === p.sec ? colors.primary : colors.border}`,
-                    color: pauseSeconds === p.sec ? colors.primary : colors.textSecondary,
-                    fontSize: 14, fontWeight: 700,
-                    cursor: 'pointer', fontFamily: fonts.sans,
-                    transition: 'all 0.15s',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                  }}
-                >
-                  <span>{p.label}</span>
-                  <span style={{
-                    fontSize: 10, fontWeight: 600,
-                    color: pauseSeconds === p.sec ? colors.primary : colors.muted,
-                    textTransform: 'uppercase', letterSpacing: '0.05em',
-                  }}>{p.tag}</span>
-                </button>
-              ))}
+            <div style={{ display: 'flex', gap: spacing.xs, width: '100%' }}>
+              {[60, 120, 150, 180].map(sec => {
+                const isActive = pauseSeconds === sec;
+                const label = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+                return (
+                  <button
+                    key={sec}
+                    onClick={() => setPauseSeconds(sec)}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      boxSizing: 'border-box',
+                      padding: `${spacing.sm}px 0`,
+                      borderRadius: radius.sm,
+                      backgroundColor: isActive ? colors.primaryMuted : colors.surface,
+                      border: `1px solid ${isActive ? colors.primary : colors.border}`,
+                      color: isActive ? colors.primary : colors.textSecondary,
+                      fontSize: 14, fontWeight: 700,
+                      fontFamily: fonts.mono,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
