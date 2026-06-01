@@ -173,49 +173,54 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
-      {/* Tab switcher */}
-      <div style={{
-        display: 'flex', gap: 2,
-        padding: 3,
-        backgroundColor: colors.surface,
-        borderRadius: radius.md,
-        border: `1px solid ${colors.border}`,
-      }}>
-        {((BETTING_ENABLED ? ['games', 'betting'] : ['games']) as Tab[]).map(t => {
-          const active = tab === t;
-          const th = tabTheme[t];
-          return (
-            <button key={t} onClick={() => { setTab(t); setExpanded(null); }} style={{
-              flex: 1,
-              padding: `${spacing.sm + 2}px ${spacing.md}px`,
-              backgroundColor: active ? th.accent : 'transparent',
-              color: active ? colors.bg : colors.textSecondary,
-              border: 'none',
-              borderRadius: radius.sm,
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontFamily: fonts.sans,
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: spacing.xs,
-            }}>
-              <span style={{ display: 'flex', opacity: active ? 1 : 0.6 }}>{th.icon}</span>
-              {th.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Tab switcher — hidden when betting is off, since a single-tab
+          pill row and its subtitle add noise without choice. */}
+      {BETTING_ENABLED && (
+        <>
+          <div style={{
+            display: 'flex', gap: 2,
+            padding: 3,
+            backgroundColor: colors.surface,
+            borderRadius: radius.md,
+            border: `1px solid ${colors.border}`,
+          }}>
+            {(['games', 'betting'] as Tab[]).map(t => {
+              const active = tab === t;
+              const th = tabTheme[t];
+              return (
+                <button key={t} onClick={() => { setTab(t); setExpanded(null); }} style={{
+                  flex: 1,
+                  padding: `${spacing.sm + 2}px ${spacing.md}px`,
+                  backgroundColor: active ? th.accent : 'transparent',
+                  color: active ? colors.bg : colors.textSecondary,
+                  border: 'none',
+                  borderRadius: radius.sm,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: fonts.sans,
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: spacing.xs,
+                }}>
+                  <span style={{ display: 'flex', opacity: active ? 1 : 0.6 }}>{th.icon}</span>
+                  {th.label}
+                </button>
+              );
+            })}
+          </div>
 
-      {/* Tab subtitle */}
-      <p style={{
-        ...typeScale.caption, color: colors.muted, textAlign: 'center',
-        margin: 0, marginTop: -spacing.sm,
-      }}>
-        {theme.subtitle}
-      </p>
+          {/* Tab subtitle */}
+          <p style={{
+            ...typeScale.caption, color: colors.muted, textAlign: 'center',
+            margin: 0, marginTop: -spacing.sm,
+          }}>
+            {theme.subtitle}
+          </p>
+        </>
+      )}
 
       {/* Podium — top 3 */}
       {sorted.length >= 3 && (
