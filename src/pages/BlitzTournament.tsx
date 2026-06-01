@@ -311,6 +311,10 @@ export default function BlitzTournament() {
   // Delete tournament dialog state
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteCode, setDeleteCode] = useState('');
+  // Quick delete for setup-phase tournaments — no secret code required
+  // (the tournament is still being created, mistakes are common, no
+  // ranking data to lose). Only exposed in the Setup view header.
+  const [quickDeleteOpen, setQuickDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // Inline rename state — tap the title to edit, Enter/blur to save,
@@ -353,6 +357,18 @@ export default function BlitzTournament() {
     setDeleting(false);
     setDeleteOpen(false);
     setDeleteCode('');
+    navigate('/blitz');
+  };
+
+  // Quick delete from the Setup view — no secret code, single confirmation.
+  // Safe because nothing has been finalized yet (no ranking_entries, no
+  // completed rounds, no balances earned).
+  const handleQuickDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    await deleteTournament(id);
+    setDeleting(false);
+    setQuickDeleteOpen(false);
     navigate('/blitz');
   };
 
@@ -497,20 +513,55 @@ export default function BlitzTournament() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: colors.bg }}>
         <div style={{ maxWidth: 430, margin: '0 auto', padding: spacing.lg }}>
-          <button
-            onClick={() => fromAnnounced ? setSetupActive(false) : navigate('/blitz')}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: spacing.xs,
-              color: colors.textSecondary, fontSize: 14, fontWeight: 600,
-              fontFamily: fonts.sans, marginBottom: spacing.lg,
-            }}
-          >
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            {fromAnnounced ? 'Back to Save the Date' : 'Back'}
-          </button>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: spacing.lg,
+          }}>
+            <button
+              onClick={() => fromAnnounced ? setSetupActive(false) : navigate('/blitz')}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: spacing.xs,
+                color: colors.textSecondary, fontSize: 14, fontWeight: 600,
+                fontFamily: fonts.sans,
+                padding: 0,
+              }}
+            >
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              {fromAnnounced ? 'Back to Save the Date' : 'Back'}
+            </button>
+
+            {/* Quick delete — only for direct-setup tournaments (no Save
+                the Date yet). Mistakes during creation are common: typo
+                in name, wrong day, accidental tap on +. No secret code
+                needed because nothing has been finalized. The announced
+                branch already has its own delete in AnnouncedView. */}
+            {!fromAnnounced && canSetup && (
+              <button
+                onClick={() => setQuickDeleteOpen(true)}
+                aria-label="Delete tournament"
+                title="Delete tournament"
+                style={{
+                  background: 'none',
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  cursor: 'pointer',
+                  color: colors.muted,
+                  width: 36, height: 36,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                </svg>
+              </button>
+            )}
+          </div>
           {canSetup ? (
             <BlitzSetup tournament={tournament} onStart={handleStart} />
           ) : (
@@ -522,6 +573,28 @@ export default function BlitzTournament() {
             </div>
           )}
         </div>
+
+        {/* Quick-delete dialog — no secret code, just a confirm. */}
+        <AlertDialog open={quickDeleteOpen} onOpenChange={(v) => { if (!v) setQuickDeleteOpen(false); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete &quot;{tournament?.name}&quot;?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This tournament hasn&apos;t started yet, so nothing will be lost. The action can&apos;t be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleQuickDelete}
+                disabled={deleting}
+                style={{ backgroundColor: colors.destructive, color: '#fff' }}
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
