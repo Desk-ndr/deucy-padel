@@ -134,13 +134,21 @@ export default function BlitzTournament() {
     if (!id) return;
     const players = names.map((n, i) => ({ name: n.trim(), balance: 10, player_id: playerIds?.[i] || null }));
 
-    // Identify the top-2 globally-ranked players inside THIS tournament's
-    // pool. The schedule generator will then keep them on opposite teams
-    // every round (soft constraint, +1000 freshness penalty if same team).
-    // Skip the constraint when neither / only one of them has actually
-    // played a tournament yet (rankingScore > 0) — otherwise the rule
-    // is arbitrary on a fresh pool of brand-new players.
-    let avoidPair: [number, number] | null = null;
+    // Identify the top-2 AND bot-2 globally-ranked players inside THIS
+    // tournament's pool. The schedule generator will keep BOTH pairs on
+    // opposite teams every round (hard constraint — splits that would
+    // pair them up are excluded outright).
+    //
+    // Why both:
+    //   - top-2: stays competitive, no super-team dominating
+    //   - bot-2: no team is too weak, every match is balanced
+    //
+    // Guard (same logic for both): the constraint only kicks in when
+    // BOTH members of the pair have actually played at least one
+    // tournament (rankingScore > 0). Otherwise we'd "label" new players
+    // as bot before they had a chance to prove themselves, and the
+    // top-pair would be arbitrary on a brand-new pool.
+    const avoidPairs: Array<[number, number]> = [];
     try {
       const { data: ranking } = await getRanking();
       if (ranking && ranking.length > 0) {
@@ -148,15 +156,24 @@ export default function BlitzTournament() {
           const r = p.player_id ? ranking.find(x => x.playerId === p.player_id) : null;
           return { idx, score: r?.rankingScore ?? 0 };
         }).sort((a, b) => b.score - a.score);
+        // Top-2: highest-ranked two players in the pool
         if (ranked.length >= 2 && ranked[0].score > 0 && ranked[1].score > 0) {
-          avoidPair = [ranked[0].idx, ranked[1].idx];
+          avoidPairs.push([ranked[0].idx, ranked[1].idx]);
+        }
+        // Bot-2: lowest-ranked two players in the pool (symmetric to top)
+        if (ranked.length >= 4) {
+          const last = ranked[ranked.length - 1];
+          const secondLast = ranked[ranked.length - 2];
+          if (last.score > 0 && secondLast.score > 0) {
+            avoidPairs.push([last.idx, secondLast.idx]);
+          }
         }
       }
     } catch (e) {
-      console.warn('[handleStart] could not fetch ranking for top-pair constraint', e);
+      console.warn('[handleStart] could not fetch ranking for pair constraints', e);
     }
 
-    const schedule = generateSchedule(names.length, config.totalRounds, avoidPair);
+    const schedule = generateSchedule(names.length, config.totalRounds, avoidPairs);
     const { error } = await startTournament(id, config, players, schedule);
     if (error) toast({ title: 'Error starting', description: error, variant: 'destructive' });
     else {

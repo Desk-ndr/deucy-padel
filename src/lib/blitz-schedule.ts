@@ -83,22 +83,26 @@ export function getAllBlitzConfigs(
  * Each player must play exactly K = R*4/N rounds.
  */
 /**
- * Generate the round-robin schedule. avoidPair is an optional [a, b] tuple
- * of player indices that the algorithm will try VERY hard to keep on
- * opposite teams every round. Used to keep the two top-ranked players
- * apart so games stay competitive.
+ * Generate the round-robin schedule. `avoidPairs` is a list of [a, b]
+ * tuples of player indices that MUST end up on opposite teams every
+ * round (hard constraint — splits that would put any of these pairs on
+ * the same team are removed before scoring). Used to:
+ *   - keep the two top-ranked players apart (competitive balance)
+ *   - keep the two bottom-ranked players apart (no weak team gets buried)
+ * With our usage (max 2 pairs = 4 anchors) at least one valid split
+ * always exists, so the constraint never causes infeasibility.
  */
 export function generateSchedule(
   numPlayers: number,
   totalRounds: number,
-  avoidPair?: [number, number] | null,
+  avoidPairs: Array<[number, number]> = [],
 ): BlitzRoundSchedule[] {
   // Run multiple attempts with different seeds and pick the schedule with fewest repeated partners
   let bestSchedule: BlitzRoundSchedule[] = [];
   let bestPartnerRepeats = Infinity;
 
   for (let attempt = 0; attempt < 10; attempt++) {
-    const schedule = generateScheduleAttempt(numPlayers, totalRounds, attempt, avoidPair ?? null);
+    const schedule = generateScheduleAttempt(numPlayers, totalRounds, attempt, avoidPairs);
     const repeats = countPartnerRepeats(schedule, numPlayers);
     if (repeats < bestPartnerRepeats) {
       bestPartnerRepeats = repeats;
@@ -128,7 +132,7 @@ function countPartnerRepeats(schedule: BlitzRoundSchedule[], numPlayers: number)
   return repeats;
 }
 
-function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemptSeed: number, avoidPair: [number, number] | null): BlitzRoundSchedule[] {
+function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemptSeed: number, avoidPairs: Array<[number, number]>): BlitzRoundSchedule[] {
   const targetGames = (totalRounds * 4) / numPlayers;
   const playCounts = new Array(numPlayers).fill(0);
   const schedule: BlitzRoundSchedule[] = [];
@@ -165,7 +169,7 @@ function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemp
       chosen = [...mustPlay, ...fillers];
     }
 
-    const bestSplit = findBestSplit(chosen, partnerCount, opponentCount, seededRandom, avoidPair);
+    const bestSplit = findBestSplit(chosen, partnerCount, opponentCount, seededRandom, avoidPairs);
 
     const rest = Array.from({ length: numPlayers }, (_, i) => i).filter(i => !chosen.includes(i));
 
@@ -303,20 +307,42 @@ function findBestSplit(
   partnerCount: number[][],
   opponentCount: number[][],
   rand: () => number,
-  avoidPair: [number, number] | null = null,
+  avoidPairs: Array<[number, number]> = [],
 ): { teamA: [number, number]; teamB: [number, number] } {
   const [a, b, c, d] = players;
-  const splits: [number, number, number, number][] = [
+  const allSplits: [number, number, number, number][] = [
     [a, b, c, d],
     [a, c, b, d],
     [a, d, b, c],
   ];
 
-  // Pre-compute whether both members of avoidPair are in this group of 4.
-  // If only one (or none) is here, the constraint can't fire — skip.
-  const bothPresent = avoidPair !== null
-    && players.includes(avoidPair[0]) && players.includes(avoidPair[1]);
-  const TOP_PAIR_PENALTY = 1000; // enough to dominate any partner/opponent score
+  // HARD constraint: a split is banned outright if any avoidPair would
+  // land on the same team. avoidPairs typically contains the top-2 and
+  // bot-2 ranked players in this tournament's pool — we never want either
+  // pair to be teammates. With only 2 pairs of anchors (4 anchors total)
+  // and 3 possible splits, at least 2 splits will always be valid when
+  // all 4 anchors are active in the round, so infeasibility is impossible
+  // in practice.
+  const splitViolates = (s: [number, number, number, number]): boolean => {
+    const [p1, p2, p3, p4] = s;
+    const teamA = [p1, p2];
+    const teamB = [p3, p4];
+    for (const ap of avoidPairs) {
+      if (!players.includes(ap[0]) || !players.includes(ap[1])) continue;
+      const sameA = teamA.includes(ap[0]) && teamA.includes(ap[1]);
+      const sameB = teamB.includes(ap[0]) && teamB.includes(ap[1]);
+      if (sameA || sameB) return true;
+    }
+    return false;
+  };
+
+  const validSplits = allSplits.filter(s => !splitViolates(s));
+  // Defensive fallback: if every split somehow violates (would require
+  // >=3 anchors of the same kind in the round — impossible with our
+  // usage), fall back to the unfiltered set so the algorithm doesn't
+  // hard-crash. With current constraints (top-2 + bot-2) this branch
+  // is unreachable.
+  const splits = validSplits.length > 0 ? validSplits : allSplits;
 
   let bestScore = Infinity;
   let bestSplit = splits[0];
@@ -327,16 +353,7 @@ function findBestSplit(
     const opponentPenalty =
       opponentCount[p1][p3] + opponentCount[p1][p4] +
       opponentCount[p2][p3] + opponentCount[p2][p4];
-    // Soft constraint: huge penalty if the avoidPair lands on the same team
-    let topPairPenalty = 0;
-    if (bothPresent) {
-      const teamA = [p1, p2];
-      const teamB = [p3, p4];
-      const sameTeamA = teamA.includes(avoidPair![0]) && teamA.includes(avoidPair![1]);
-      const sameTeamB = teamB.includes(avoidPair![0]) && teamB.includes(avoidPair![1]);
-      if (sameTeamA || sameTeamB) topPairPenalty = TOP_PAIR_PENALTY;
-    }
-    const score = partnerPenalty + opponentPenalty + topPairPenalty;
+    const score = partnerPenalty + opponentPenalty;
     if (score < bestScore || (score === bestScore && rand() < 0.5)) {
       bestScore = score;
       bestSplit = [p1, p2, p3, p4];
