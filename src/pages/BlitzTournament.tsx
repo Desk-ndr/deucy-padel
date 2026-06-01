@@ -19,6 +19,7 @@ import BlitzMatchTab from '@/components/blitz/BlitzMatchTab';
 import BlitzCalendarTab from '@/components/blitz/BlitzCalendarTab';
 import BlitzLeaderboard from '@/components/blitz/BlitzLeaderboard';
 import BlitzBettingCard from '@/components/blitz/BlitzBettingCard';
+import { BETTING_ENABLED } from '@/lib/feature-flags';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -706,8 +707,9 @@ export default function BlitzTournament() {
                 onPauseTimer={handlePauseTimer} onResetTimer={handleResetTimer}
                 onSubmitScore={handleSubmitScore} onEditScore={handleEditScore} onBetClick={() => {}}
               />
-              {/* Betting card for resting players */}
-              {currentSchedule && playerIndex !== null && (
+              {/* Betting card for resting players — gated behind
+                  BETTING_ENABLED feature flag (paused 2026-06-01). */}
+              {BETTING_ENABLED && currentSchedule && playerIndex !== null && (
                 <div style={{ marginTop: spacing.lg }}>
                   <BlitzBettingCard
                     tournament={tournament}

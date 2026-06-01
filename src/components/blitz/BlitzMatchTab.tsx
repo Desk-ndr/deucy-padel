@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { BlitzTournamentData, BlitzRound, BlitzBet, EDIT_WINDOW_MS } from '@/services/blitzService';
 import { colors, spacing, radius, fonts, typeScale, shadows } from '@/lib/design-tokens';
+import { BETTING_ENABLED } from '@/lib/feature-flags';
 import { HeroCard } from '@/components/ui/deucy';
 import BlitzTimer from './BlitzTimer';
 
@@ -555,13 +556,16 @@ export default function BlitzMatchTab({
         onStart={onStartTimer} onPause={onPauseTimer} onReset={onResetTimer}
       />
 
-      {/* Live predictions on this round */}
-      <LivePredictions
-        bets={bets}
-        tournament={tournament}
-        currentRound={tournament.current_round}
-        myPlayerIndex={playerIndex}
-      />
+      {/* Live predictions on this round — gated behind BETTING_ENABLED
+          (paused 2026-06-01, betting feature temporarily off). */}
+      {BETTING_ENABLED && (
+        <LivePredictions
+          bets={bets}
+          tournament={tournament}
+          currentRound={tournament.current_round}
+          myPlayerIndex={playerIndex}
+        />
+      )}
 
       {/* Submit score trigger — any player in this tournament can submit */}
       {canSubmit && !showScoreInput && (

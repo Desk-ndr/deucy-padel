@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BlitzPlayer, BlitzRound, BlitzBet } from '@/services/blitzService';
 import { BlitzRoundSchedule, EUROS_PER_GAME } from '@/lib/blitz-schedule';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
+import { BETTING_ENABLED } from '@/lib/feature-flags';
 
 const BETTING_BONUS_POINTS = [8, 5, 3, 1, 0];
 
@@ -180,7 +181,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
         borderRadius: radius.md,
         border: `1px solid ${colors.border}`,
       }}>
-        {(['games', 'betting'] as Tab[]).map(t => {
+        {((BETTING_ENABLED ? ['games', 'betting'] : ['games']) as Tab[]).map(t => {
           const active = tab === t;
           const th = tabTheme[t];
           return (
