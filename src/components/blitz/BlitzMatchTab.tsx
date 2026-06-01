@@ -372,9 +372,11 @@ export default function BlitzMatchTab({
             <span style={{ ...typeScale.micro, color: colors.muted, fontSize: 14 }}>
               Placement: 50 / 35 / 22 / 12 / 5
             </span>
-            <span style={{ ...typeScale.micro, color: colors.accent, fontSize: 14 }}>
-              Betting bonus: +8 / +5 / +3 / +1 / 0
-            </span>
+            {BETTING_ENABLED && (
+              <span style={{ ...typeScale.micro, color: colors.accent, fontSize: 14 }}>
+                Betting bonus: +8 / +5 / +3 / +1 / 0
+              </span>
+            )}
           </div>
         </div>
 
@@ -532,7 +534,7 @@ export default function BlitzMatchTab({
             <p style={{
               ...typeScale.caption, color: colors.textSecondary, margin: 0,
             }}>
-              Round {tournament.current_round} — bet on the match below
+              Round {tournament.current_round}{BETTING_ENABLED ? ' — bet on the match below' : ' — enjoy the show'}
             </p>
           </div>
         </div>

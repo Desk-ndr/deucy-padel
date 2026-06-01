@@ -111,12 +111,14 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
     for (const bet of playerBets) {
       if (bet.status === 'won') {
         betProfit += bet.stake;
-        ledger.push({ round: bet.round_index, type: 'bet', label: 'Bet won', amount: bet.stake, detail: `Team ${bet.predicted_winner}` });
+        // Ledger row only when betting UI is on — otherwise the games-tab
+        // expanded view shouldn t show Bet won/lost lines from history.
+        if (BETTING_ENABLED) ledger.push({ round: bet.round_index, type: 'bet', label: 'Bet won', amount: bet.stake, detail: `Team ${bet.predicted_winner}` });
       } else if (bet.status === 'lost') {
         betProfit -= bet.stake;
-        ledger.push({ round: bet.round_index, type: 'bet', label: 'Bet lost', amount: -bet.stake, detail: `Team ${bet.predicted_winner}` });
+        if (BETTING_ENABLED) ledger.push({ round: bet.round_index, type: 'bet', label: 'Bet lost', amount: -bet.stake, detail: `Team ${bet.predicted_winner}` });
       } else if (bet.status === 'draw') {
-        ledger.push({ round: bet.round_index, type: 'bet', label: 'Bet refund', amount: 0, detail: 'Draw' });
+        if (BETTING_ENABLED) ledger.push({ round: bet.round_index, type: 'bet', label: 'Bet refund', amount: 0, detail: 'Draw' });
       }
     }
 

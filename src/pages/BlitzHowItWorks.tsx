@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
+import { BETTING_ENABLED } from '@/lib/feature-flags';
 
 const PLACEMENT_PTS = [
   { place: '1st', pts: 50, color: colors.gold },
@@ -183,7 +184,8 @@ export default function BlitzHowItWorks() {
           </div>
         </Section>
 
-        {/* Betting */}
+        {/* Betting — gated behind BETTING_ENABLED. */}
+        {BETTING_ENABLED && (
         <Section title="Betting Bonus">
           <Text>
             When you're resting (not playing a round), you can predict which team will win.
@@ -225,6 +227,7 @@ export default function BlitzHowItWorks() {
             ))}
           </div>
         </Section>
+        )}
 
         {/* Crown */}
         <Section title="The Crown">
@@ -323,12 +326,14 @@ export default function BlitzHowItWorks() {
             <ExampleRow label="Final placement" value="3rd" />
             <ExampleRow label="Placement points" value="+22" highlight />
           </div>
-          <Text>
-            Anna also placed 4 bets while resting: 3 won, 1 lost. Her betting
-            profit is +2 (she gained 3 stakes and lost 1). If that's the
-            second-best betting result of the tournament, she earns an extra
-            +5 betting bonus.
-          </Text>
+          {BETTING_ENABLED && (
+            <Text>
+              Anna also placed 4 bets while resting: 3 won, 1 lost. Her betting
+              profit is +2 (she gained 3 stakes and lost 1). If that's the
+              second-best betting result of the tournament, she earns an extra
+              +5 betting bonus.
+            </Text>
+          )}
           <div style={{
             background: colors.primaryMuted, borderRadius: radius.md,
             border: `1px solid rgba(34,197,94,0.25)`, padding: spacing.md,
@@ -341,7 +346,7 @@ export default function BlitzHowItWorks() {
                 fontFamily: fonts.mono, fontSize: 20, fontWeight: 900,
                 color: colors.primary,
               }}>
-                +27
+                +{BETTING_ENABLED ? 27 : 22}
               </span>
             </div>
           </div>
@@ -364,11 +369,13 @@ export default function BlitzHowItWorks() {
             resting that round. Whoever submits first wins the race; the other
             devices update automatically.
           </FAQ>
-          <FAQ q="My bet shows as cancelled — what happened?">
-            You have 60 seconds to cancel a bet after placing it. After that, or
-            once the round ends, the bet is locked. If a round ends in a draw,
-            your stake is refunded automatically.
-          </FAQ>
+          {BETTING_ENABLED && (
+            <FAQ q="My bet shows as cancelled — what happened?">
+              You have 60 seconds to cancel a bet after placing it. After that, or
+              once the round ends, the bet is locked. If a round ends in a draw,
+              your stake is refunded automatically.
+            </FAQ>
+          )}
           <FAQ q="Why are the top 2 ranked players never on the same team?">
             We try (not always possible) to put the two highest-ranked players
             in the pool on opposite teams. Keeps matches close and the
@@ -376,10 +383,9 @@ export default function BlitzHowItWorks() {
             satisfy it, fairness wins.
           </FAQ>
           <FAQ q="What's the difference between balance and ranking points?">
-            Balance is the in-tournament currency you use for betting. It
-            resets every tournament. Ranking points are the long-term score
-            you earn for placement and betting performance, summed across
-            tournaments.
+            {BETTING_ENABLED
+              ? 'Balance is the in-tournament currency you use for betting. It resets every tournament. Ranking points are the long-term score you earn for placement and betting performance, summed across tournaments.'
+              : 'Balance is your in-tournament score, reset every tournament. Ranking points are the long-term score you earn for placement across tournaments.'}
           </FAQ>
           <FAQ q="What does 'Save the date' mean?">
             A tournament announced ahead of time, with date and location but
