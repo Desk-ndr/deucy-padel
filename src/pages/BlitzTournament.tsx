@@ -130,9 +130,22 @@ export default function BlitzTournament() {
   
   // ── Handlers ──
 
-  const handleStart = async (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, names: string[], playerIds?: string[]) => {
+  const handleStart = async (
+    config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number },
+    names: string[],
+    playerIds?: Array<string | null>,
+    isGuests?: boolean[],
+  ) => {
     if (!id) return;
-    const players = names.map((n, i) => ({ name: n.trim(), balance: 10, player_id: playerIds?.[i] || null }));
+    // Guest players: ad-hoc names with player_id=null and isGuest=true.
+    // They play the tournament fully but `finalizeRanking` skips them
+    // when writing ranking_entries — they don't enter the global pool.
+    const players = names.map((n, i) => ({
+      name: n.trim(),
+      balance: 10,
+      player_id: playerIds?.[i] || null,
+      isGuest: isGuests?.[i] === true ? true : undefined,
+    }));
 
     // Identify the top-2 AND bot-2 globally-ranked players inside THIS
     // tournament's pool. The schedule generator will keep BOTH pairs on

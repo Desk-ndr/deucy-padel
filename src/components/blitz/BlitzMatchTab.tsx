@@ -484,14 +484,18 @@ export default function BlitzMatchTab({
         }}>
           <div style={{ textAlign: 'center' }}>
             <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.sm }}>Team A</span>
-            <p style={{ ...typeScale.title, color: colors.text, margin: 0 }}>{tournament.players[currentSchedule.teamA[0]]?.name}</p>
-            <p style={{ ...typeScale.title, color: colors.text, margin: 0, marginTop: spacing.xs }}>{tournament.players[currentSchedule.teamA[1]]?.name}</p>
+            <PlayerName player={tournament.players[currentSchedule.teamA[0]]} />
+            <div style={{ marginTop: spacing.xs }}>
+              <PlayerName player={tournament.players[currentSchedule.teamA[1]]} />
+            </div>
           </div>
           <span style={{ fontSize: 22, fontWeight: 900, color: colors.muted }}>VS</span>
           <div style={{ textAlign: 'center' }}>
             <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.sm }}>Team B</span>
-            <p style={{ ...typeScale.title, color: colors.text, margin: 0 }}>{tournament.players[currentSchedule.teamB[0]]?.name}</p>
-            <p style={{ ...typeScale.title, color: colors.text, margin: 0, marginTop: spacing.xs }}>{tournament.players[currentSchedule.teamB[1]]?.name}</p>
+            <PlayerName player={tournament.players[currentSchedule.teamB[0]]} />
+            <div style={{ marginTop: spacing.xs }}>
+              <PlayerName player={tournament.players[currentSchedule.teamB[1]]} />
+            </div>
           </div>
         </div>
       </HeroCard>
@@ -849,3 +853,24 @@ function LivePredictions({ bets, tournament, currentRound, myPlayerIndex }: {
     </div>
   );
 }
+
+// Shared inline helper: render a player name + small "guest" pill if
+// the player was added as an ad-hoc guest in setup. Used in team cards,
+// score lists, and completed-round summaries.
+function PlayerName({ player }: { player: any }) {
+  if (!player) return null;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ ...typeScale.title, color: colors.text, margin: 0 }}>{player.name}</span>
+      {player.isGuest && (
+        <span style={{
+          fontSize: 9, fontWeight: 700, color: colors.accent,
+          textTransform: 'uppercase', letterSpacing: '0.05em',
+          padding: '1px 5px', background: 'rgba(245,158,11,0.12)',
+          borderRadius: 4,
+        }}>guest</span>
+      )}
+    </span>
+  );
+}
+

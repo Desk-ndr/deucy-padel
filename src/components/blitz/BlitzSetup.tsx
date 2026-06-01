@@ -12,7 +12,7 @@ interface RegisteredPlayer {
 
 interface Props {
   tournament: BlitzTournamentData;
-  onStart: (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, playerNames: string[], playerIds: string[]) => Promise<void>;
+  onStart: (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, playerNames: string[], playerIds: Array<string | null>, isGuests: boolean[]) => Promise<void>;
 }
 
 type Step = 'players' | 'time' | 'config' | 'confirm';
@@ -23,6 +23,12 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   const [step, setStep] = useState<Step>('players');
   const [registeredPlayers, setRegisteredPlayers] = useState<RegisteredPlayer[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Guest players: ad-hoc names added by the host for one-off players who
+  // aren't in the registered pool. They participate fully in the tournament
+  // (leaderboard, balance, matches) but `finalizeRanking` skips them when
+  // writing ranking_entries — so they don't pollute the global ranking.
+  const [guestNames, setGuestNames] = useState<string[]>([]);
+  const [guestInput, setGuestInput] = useState('');
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [totalMinutes, setTotalMinutes] = useState(90);
   // Pause between rounds (real-world break: court swap, water, banter).
@@ -61,7 +67,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
     fetchPlayers();
   }, [tournament.id]);
 
-  const numPlayers = selectedIds.size;
+  const numPlayers = selectedIds.size + guestNames.length;
   const configs = numPlayers >= 5 ? getAllBlitzConfigs(numPlayers, totalMinutes, pauseSeconds) : [];
   const currentStepIndex = STEP_INDEX[step];
 
@@ -73,6 +79,34 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   };
 
   const selectedPlayers = registeredPlayers.filter(p => selectedIds.has(p.id));
+
+  // Combined list used by Confirm step and the final onStart payload.
+  // Registered players first, guests appended at the end with player_id=null.
+  type SetupRow = { name: string; player_id: string | null; isGuest: boolean };
+  const combinedRoster: SetupRow[] = [
+    ...selectedPlayers.map(p => ({ name: p.display_name, player_id: p.id as string | null, isGuest: false })),
+    ...guestNames.map(n => ({ name: n, player_id: null, isGuest: true })),
+  ];
+
+  const addGuest = () => {
+    const trimmed = guestInput.trim();
+    if (!trimmed) return;
+    // Block exact-match duplicates against registered + existing guests.
+    // Avoids accidental "Andrea + Andrea" rosters that would break the
+    // leaderboard naming. Case-insensitive comparison.
+    const lower = trimmed.toLowerCase();
+    const clash = registeredPlayers.some(p => p.display_name.toLowerCase() === lower)
+      || guestNames.some(g => g.toLowerCase() === lower);
+    if (clash) {
+      setGuestInput('');
+      return;
+    }
+    setGuestNames([...guestNames, trimmed]);
+    setGuestInput('');
+  };
+  const removeGuest = (name: string) => {
+    setGuestNames(guestNames.filter(g => g !== name));
+  };
 
   const buttonStyle = (primary: boolean, disabled = false): React.CSSProperties => ({
     flex: 1,
@@ -202,6 +236,99 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
               })}
             </div>
           )}
+
+          {/* Guest players — ad-hoc names that play this tournament only
+              and stay OUT of the global ranking. Use case: a friend comes
+              once, you don't want to register a phone+PIN for them. */}
+          <div style={{
+            padding: spacing.lg,
+            backgroundColor: colors.bg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+            marginBottom: spacing.lg,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.xs }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: colors.muted,
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}>
+                Guest players
+              </span>
+              <span style={{ fontSize: 12, color: colors.muted }}>
+                {guestNames.length} added
+              </span>
+            </div>
+            <p style={{ ...typeScale.caption, color: colors.muted, marginTop: 0, marginBottom: spacing.md }}>
+              One-off players, not in the global pool. They'll appear in this tournament's leaderboard but won't count toward Deucy ranking.
+            </p>
+            <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md }}>
+              <input
+                type="text"
+                value={guestInput}
+                onChange={(e) => setGuestInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addGuest(); } }}
+                placeholder="Guest name (e.g. Mario)"
+                maxLength={30}
+                style={{
+                  flex: 1,
+                  padding: `${spacing.sm}px ${spacing.md}px`,
+                  background: colors.surface,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  color: colors.text,
+                  fontSize: 14, fontFamily: fonts.sans,
+                  outline: 'none',
+                }}
+              />
+              <button
+                onClick={addGuest}
+                disabled={!guestInput.trim()}
+                style={{
+                  padding: `${spacing.sm}px ${spacing.lg}px`,
+                  backgroundColor: guestInput.trim() ? colors.primary : colors.surfaceElevated,
+                  color: guestInput.trim() ? colors.bg : colors.muted,
+                  border: 'none',
+                  borderRadius: radius.sm,
+                  fontSize: 14, fontWeight: 700, fontFamily: fonts.sans,
+                  cursor: guestInput.trim() ? 'pointer' : 'default',
+                }}
+              >
+                Add
+              </button>
+            </div>
+            {guestNames.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.sm }}>
+                {guestNames.map(g => (
+                  <button
+                    key={g}
+                    onClick={() => removeGuest(g)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: spacing.xs,
+                      padding: `${spacing.xs}px ${spacing.md}px`,
+                      background: colors.surface,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: radius.pill,
+                      cursor: 'pointer',
+                      fontFamily: fonts.sans,
+                    }}
+                    title="Remove guest"
+                  >
+                    <span style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>{g}</span>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, color: colors.accent,
+                      textTransform: 'uppercase', letterSpacing: '0.05em',
+                      padding: `1px ${spacing.xs}px`, background: 'rgba(245,158,11,0.12)',
+                      borderRadius: radius.sm,
+                    }}>guest</span>
+                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={colors.muted} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <button
             onClick={() => setStep('time')}
@@ -463,25 +590,31 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             display: 'flex', flexWrap: 'wrap', gap: spacing.sm,
             justifyContent: 'center', marginBottom: spacing.xl,
           }}>
-            {selectedPlayers.map(p => (
-              <div key={p.id} style={{
+            {combinedRoster.map((p, i) => (
+              <div key={p.player_id || `guest-${i}`} style={{
                 display: 'flex', alignItems: 'center', gap: spacing.sm,
                 padding: `${spacing.xs}px ${spacing.md}px`,
-                backgroundColor: colors.primaryMuted,
+                backgroundColor: p.isGuest ? 'rgba(245,158,11,0.08)' : colors.primaryMuted,
                 borderRadius: radius.pill,
-                border: `1px solid ${colors.primary}`,
+                border: `1px solid ${p.isGuest ? colors.accent : colors.primary}`,
               }}>
                 <div style={{
                   width: 24, height: 24, borderRadius: '50%',
-                  backgroundColor: colors.primary,
+                  backgroundColor: p.isGuest ? colors.accent : colors.primary,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 700, color: colors.bg,
                 }}>
-                  {p.display_name.charAt(0).toUpperCase()}
+                  {p.name.charAt(0).toUpperCase()}
                 </div>
                 <span style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>
-                  {p.display_name}
+                  {p.name}
                 </span>
+                {p.isGuest && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, color: colors.accent,
+                    textTransform: 'uppercase', letterSpacing: '0.05em',
+                  }}>guest</span>
+                )}
               </div>
             ))}
           </div>
@@ -493,8 +626,9 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             <button
               onClick={() => onStart(
                 selectedConfig,
-                selectedPlayers.map(p => p.display_name),
-                selectedPlayers.map(p => p.id)
+                combinedRoster.map(p => p.name),
+                combinedRoster.map(p => p.player_id),
+                combinedRoster.map(p => p.isGuest)
               )}
               style={buttonStyle(true)}
             >

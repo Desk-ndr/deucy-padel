@@ -307,9 +307,19 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                   </span>
                 )}
 
-                {/* Name */}
-                <span style={{ ...typeScale.body, color: colors.text, fontWeight: 600 }}>
-                  {p.name}
+                {/* Name + optional guest pill */}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ ...typeScale.body, color: colors.text, fontWeight: 600 }}>
+                    {p.name}
+                  </span>
+                  {(p as any).isGuest && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, color: colors.accent,
+                      textTransform: 'uppercase', letterSpacing: '0.05em',
+                      padding: '1px 5px', background: 'rgba(245,158,11,0.12)',
+                      borderRadius: 4,
+                    }}>guest</span>
+                  )}
                 </span>
 
                 {/* Matches won + Games won (only in games tab) */}
@@ -476,6 +486,14 @@ function PodiumSlot({ player, rank, color, tall, tab }: {
       }}>
         {player.name}
       </span>
+      {(player as any).isGuest && (
+        <span style={{
+          fontSize: 9, fontWeight: 700, color: colors.accent,
+          textTransform: 'uppercase', letterSpacing: '0.05em',
+          padding: '1px 5px', background: 'rgba(245,158,11,0.12)',
+          borderRadius: 4, marginTop: 2,
+        }}>guest</span>
+      )}
       <span style={{ fontFamily: fonts.mono, fontWeight: 800, fontSize: 14, color }}>
         {label}
       </span>

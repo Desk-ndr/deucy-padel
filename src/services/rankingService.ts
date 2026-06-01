@@ -201,6 +201,12 @@ export async function finalizeRanking(
 
   for (let i = 0; i < tournament.players.length; i++) {
     const player = tournament.players[i] as any;
+    // Guest players never get a ranking entry. They appear in the
+    // tournament leaderboard but stay out of the global ranking — Andrea
+    // can let an outsider play one Saturday without polluting the
+    // long-term pool. Explicit flag (not "player_id is null"), so that
+    // legacy tournaments without player_id can still resolve via name.
+    if (player.isGuest) continue;
     // Resolve player_id: direct link OR fallback to name match
     const resolvedId = player.player_id || nameToId[player.name.toLowerCase()] || null;
     if (!resolvedId) continue;
