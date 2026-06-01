@@ -18,10 +18,13 @@ export const PAUSE_BETWEEN_ROUNDS_SEC = 150; // 2.5 minutes
  * Given N players playing 2v2 (4 active per round), compute valid configurations
  * where every player plays exactly K rounds.
  * Total rounds R = N*K/4, so N*K must be divisible by 4.
+ * `pauseSec` is the pause between rounds (default 150s = 2:30), used to
+ * carve out real-world breaks before splitting the rest across rounds.
  */
 export function computeBlitzConfig(
   numPlayers: number,
-  totalMinutes: number
+  totalMinutes: number,
+  pauseSec: number = PAUSE_BETWEEN_ROUNDS_SEC
 ): { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null {
   if (numPlayers < 5) return null;
 
@@ -35,7 +38,7 @@ export function computeBlitzConfig(
     const k = minK * mult;
     const r = (numPlayers * k) / 4;
     // Reserve (r-1) pauses worth of time, then split the rest across r rounds.
-    const playSec = totalMinutes * 60 - (r - 1) * PAUSE_BETWEEN_ROUNDS_SEC;
+    const playSec = totalMinutes * 60 - (r - 1) * pauseSec;
     if (playSec <= 0) break; // not enough time even before the rounds start
     const roundSec = Math.floor(playSec / r);
     if (roundSec < 180) break; // less than 3 min per round is too short
@@ -52,11 +55,15 @@ export function computeBlitzConfig(
 }
 
 /**
- * Get all valid configurations for display
+ * Get all valid configurations for display. `pauseSec` controls the
+ * real-world break between rounds (default 150s = 2:30). Shorter pauses
+ * leave more time for actual play, so configurations with many rounds
+ * can become viable (the per-round duration grows).
  */
 export function getAllBlitzConfigs(
   numPlayers: number,
-  totalMinutes: number
+  totalMinutes: number,
+  pauseSec: number = PAUSE_BETWEEN_ROUNDS_SEC
 ): { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }[] {
   if (numPlayers < 5) return [];
 
@@ -68,7 +75,7 @@ export function getAllBlitzConfigs(
     const k = minK * mult;
     const r = (numPlayers * k) / 4;
     // Reserve (r-1) pauses worth of time, then split the rest across r rounds.
-    const playSec = totalMinutes * 60 - (r - 1) * PAUSE_BETWEEN_ROUNDS_SEC;
+    const playSec = totalMinutes * 60 - (r - 1) * pauseSec;
     if (playSec <= 0) break;
     const roundSec = Math.floor(playSec / r);
     if (roundSec < 180) break; // stop when rounds get too short

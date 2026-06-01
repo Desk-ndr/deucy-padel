@@ -25,6 +25,10 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [totalMinutes, setTotalMinutes] = useState(90);
+  // Pause between rounds (real-world break: court swap, water, banter).
+  // Shorter pause = more playing time per round. Carved out of totalMinutes
+  // before splitting the rest across rounds.
+  const [pauseSeconds, setPauseSeconds] = useState(150); // default 2:30
   const [selectedConfig, setSelectedConfig] = useState<{ totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null>(null);
 
   // Fetch registered players + apply RSVP pre-selection (one-shot).
@@ -58,7 +62,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   }, [tournament.id]);
 
   const numPlayers = selectedIds.size;
-  const configs = numPlayers >= 5 ? getAllBlitzConfigs(numPlayers, totalMinutes) : [];
+  const configs = numPlayers >= 5 ? getAllBlitzConfigs(numPlayers, totalMinutes, pauseSeconds) : [];
   const currentStepIndex = STEP_INDEX[step];
 
   const togglePlayer = (id: string) => {
@@ -285,6 +289,68 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             ))}
           </div>
 
+          {/* Pause between rounds — visible block, host picks how long the
+              break between matches is. Shorter pause = more playing time.
+              Section title + 3 pill presets + helper line explaining the
+              trade-off in plain language. */}
+          <div style={{
+            padding: spacing.lg,
+            backgroundColor: colors.bg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+            marginBottom: spacing.xl,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.sm }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: colors.muted,
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}>
+                Pause between rounds
+              </span>
+              <span style={{
+                fontSize: 13, fontWeight: 700, color: colors.text,
+                fontFamily: fonts.mono,
+              }}>
+                {Math.floor(pauseSeconds / 60)}:{String(pauseSeconds % 60).padStart(2, '0')}
+              </span>
+            </div>
+            <p style={{ ...typeScale.caption, color: colors.muted, marginTop: 0, marginBottom: spacing.md }}>
+              Court swap, water, trash talk. Shorter pause &rarr; longer rounds.
+            </p>
+            <div style={{ display: 'flex', gap: spacing.sm }}>
+              {[
+                { sec: 60,  label: '1 min',   tag: 'Tight' },
+                { sec: 120, label: '2 min',   tag: 'Balanced' },
+                { sec: 150, label: '2:30',    tag: 'Default' },
+                { sec: 180, label: '3 min',   tag: 'Relaxed' },
+              ].map(p => (
+                <button
+                  key={p.sec}
+                  onClick={() => setPauseSeconds(p.sec)}
+                  style={{
+                    flex: 1,
+                    padding: `${spacing.sm}px ${spacing.xs}px`,
+                    borderRadius: radius.sm,
+                    backgroundColor: pauseSeconds === p.sec ? colors.primaryMuted : colors.surface,
+                    border: `2px solid ${pauseSeconds === p.sec ? colors.primary : colors.border}`,
+                    color: pauseSeconds === p.sec ? colors.primary : colors.textSecondary,
+                    fontSize: 14, fontWeight: 700,
+                    cursor: 'pointer', fontFamily: fonts.sans,
+                    transition: 'all 0.15s',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                  }}
+                >
+                  <span>{p.label}</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600,
+                    color: pauseSeconds === p.sec ? colors.primary : colors.muted,
+                    textTransform: 'uppercase', letterSpacing: '0.05em',
+                  }}>{p.tag}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: spacing.sm }}>
             <button onClick={() => setStep('players')} style={buttonStyle(false)}>
               ← Back
@@ -308,7 +374,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             Choose a format
           </p>
           <p style={{ ...typeScale.caption, color: colors.muted, textAlign: 'center', marginBottom: spacing.xl }}>
-            {numPlayers} players · {totalMinutes} minutes · 2v2
+            {numPlayers} players · {totalMinutes} min · pause {Math.floor(pauseSeconds/60)}:{String(pauseSeconds%60).padStart(2,"0")}
           </p>
 
           {configs.length === 0 ? (
