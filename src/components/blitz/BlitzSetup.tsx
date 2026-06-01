@@ -239,13 +239,18 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
 
           {/* Guest players — ad-hoc names that play this tournament only
               and stay OUT of the global ranking. Use case: a friend comes
-              once, you don't want to register a phone+PIN for them. */}
+              once, you don't want to register a phone+PIN for them.
+              Card padding is `md` (not `lg`) because the parent step
+              wrapper already adds `lg` — nesting two `lg` paddings ate
+              ~96px on a 430px mobile container and pushed the input
+              + Add button past the card edge. */}
           <div style={{
-            padding: spacing.lg,
+            padding: spacing.md,
             backgroundColor: colors.bg,
             border: `1px solid ${colors.border}`,
             borderRadius: radius.md,
             marginBottom: spacing.lg,
+            boxSizing: 'border-box',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.xs }}>
               <span style={{
@@ -259,9 +264,14 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
               </span>
             </div>
             <p style={{ ...typeScale.caption, color: colors.muted, marginTop: 0, marginBottom: spacing.md }}>
-              One-off players, not in the global pool. They'll appear in this tournament's leaderboard but won't count toward Deucy ranking.
+              Won&apos;t count toward Deucy ranking.
             </p>
-            <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md }}>
+            <div style={{
+              display: 'flex',
+              gap: spacing.sm,
+              marginBottom: spacing.md,
+              width: '100%',
+            }}>
               <input
                 type="text"
                 value={guestInput}
@@ -271,6 +281,8 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
                 maxLength={30}
                 style={{
                   flex: 1,
+                  minWidth: 0,
+                  boxSizing: 'border-box',
                   padding: `${spacing.sm}px ${spacing.md}px`,
                   background: colors.surface,
                   border: `1px solid ${colors.border}`,
@@ -284,7 +296,9 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
                 onClick={addGuest}
                 disabled={!guestInput.trim()}
                 style={{
-                  padding: `${spacing.sm}px ${spacing.lg}px`,
+                  flexShrink: 0,
+                  boxSizing: 'border-box',
+                  padding: `${spacing.sm}px ${spacing.md}px`,
                   backgroundColor: guestInput.trim() ? colors.primary : colors.surfaceElevated,
                   color: guestInput.trim() ? colors.bg : colors.muted,
                   border: 'none',
