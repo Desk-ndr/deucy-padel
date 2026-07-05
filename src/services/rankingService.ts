@@ -3,7 +3,35 @@ import { BlitzTournamentData, BlitzBet, BlitzRound } from './blitzService';
 
 // ── Constants ──
 
-const PLACEMENT_POINTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
+// D3v5 placement points — scale with tournament size.
+// Formula: 1st = 50 + (N-8)*5, 2nd = 1st - 18, then exponential decay
+// down to a minimum of 2 at the last place. Every extra player is worth
+// +5 points to the winner; no cliff for lower positions.
+//
+// Table cache — built once per N and memoized so the runtime formula
+// stays in one place and finalize/simulator agree on the values.
+const _placementCache: Record<number, number[]> = {};
+function placementPointsTable(numPlayers: number): number[] {
+  if (_placementCache[numPlayers]) return _placementCache[numPlayers];
+  if (numPlayers < 2) return _placementCache[numPlayers] = [50 + (numPlayers - 8) * 5];
+  const top = 50 + (numPlayers - 8) * 5;
+  const second = top - 18;
+  if (numPlayers === 2) return _placementCache[numPlayers] = [top, second];
+  const out = [top, second];
+  const ratio = Math.pow(2 / second, 1 / (numPlayers - 2));
+  for (let r = 3; r <= numPlayers; r++) {
+    out.push(Math.max(2, Math.round(second * Math.pow(ratio, r - 2))));
+  }
+  // Strict monotonic decrement (round collisions → force a step down).
+  for (let i = 1; i < out.length; i++) {
+    if (out[i] >= out[i - 1]) out[i] = Math.max(2, out[i - 1] - 1);
+  }
+  return _placementCache[numPlayers] = out;
+}
+function placementPoints(rank: number, numPlayers: number): number {
+  if (rank < 1 || rank > numPlayers) return 0;
+  return placementPointsTable(numPlayers)[rank - 1];
+}
 const BETTING_BONUS: Record<number, number> = { 1: 8, 2: 5, 3: 3, 4: 1, 5: 0 };
 
 // Day-based decay with plateau. Weight = 1.0 for the first 21 days after
@@ -221,7 +249,7 @@ export async function finalizeRanking(
     if (!resolvedId) continue;
 
     const placement = gamePlacement[i];
-    const placementPts = PLACEMENT_POINTS[placement] || 0;
+    const placementPts = placementPoints(placement, tournament.players.length);
     const bettingPl = betPlacement[i];
     const bettingBon = playerHasBets[i] ? (BETTING_BONUS[bettingPl] || 0) : 0;
 
