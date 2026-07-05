@@ -6,23 +6,29 @@ import { BlitzTournamentData, BlitzBet, BlitzRound } from './blitzService';
 const PLACEMENT_POINTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
 const BETTING_BONUS: Record<number, number> = { 1: 8, 2: 5, 3: 3, 4: 1, 5: 0 };
 
-// Two-month weighted decay. Weight = 1.0 for entries played in the
-// current calendar month, 0.7 in the previous month, 0 beyond. This
-// replaces the old "best 4 of last 6" rule. Rationale: rewards recent
-// activity (so people show up to play) without the cliff-edge feel of
-// hard-truncating to N tournaments.
+// Day-based decay with plateau. Weight = 1.0 for the first 14 days after
+// the tournament, then linearly decays over the next 46 days until it
+// reaches 0 at 60 days. Replaces the previous calendar-month decay which
+// had a brutal cliff at month boundaries — a tournament played on the
+// 30th of the month lost 30% of its value on the 1st of the next month,
+// and 100% on the 1st of the month after that. With this rolling-day
+// version the value of a tournament changes gradually and predictably,
+// so a win on the 30th of a month is treated the same as a win on the
+// 1st (both are day-0 events).
 //
-// Examples (now = 2026-05-10):
-//   entry on 2026-05-04  → diff = 0 months → weight 1.0
-//   entry on 2026-04-22  → diff = 1 month  → weight 0.7
-//   entry on 2026-03-30  → diff = 2 months → weight 0 (drops out)
+// Curve:
+//   day 0–14   → weight 1.00 (full value, plateau)
+//   day 21     → weight ~0.85
+//   day 30     → weight ~0.65
+//   day 45     → weight ~0.33
+//   day 60+    → weight 0    (drops out)
 function decayWeight(entryIso: string, now: Date = new Date()): number {
   const d = new Date(entryIso);
   if (isNaN(d.getTime())) return 0;
-  const monthDiff = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
-  if (monthDiff <= 0) return 1.0;
-  if (monthDiff === 1) return 0.7;
-  return 0;
+  const days = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
+  if (days <= 14) return 1.0;
+  if (days > 60) return 0;
+  return 1 - (days - 14) / 46;
 }
 
 // Kept so BlitzRanking expanded view can still cap the "best results"
