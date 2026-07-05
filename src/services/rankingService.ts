@@ -6,29 +6,32 @@ import { BlitzTournamentData, BlitzBet, BlitzRound } from './blitzService';
 const PLACEMENT_POINTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
 const BETTING_BONUS: Record<number, number> = { 1: 8, 2: 5, 3: 3, 4: 1, 5: 0 };
 
-// Day-based decay with plateau. Weight = 1.0 for the first 14 days after
-// the tournament, then linearly decays over the next 46 days until it
-// reaches 0 at 60 days. Replaces the previous calendar-month decay which
-// had a brutal cliff at month boundaries — a tournament played on the
-// 30th of the month lost 30% of its value on the 1st of the next month,
-// and 100% on the 1st of the month after that. With this rolling-day
-// version the value of a tournament changes gradually and predictably,
-// so a win on the 30th of a month is treated the same as a win on the
-// 1st (both are day-0 events).
+// Day-based decay with plateau. Weight = 1.0 for the first 21 days after
+// the tournament, then linearly decays over the next 69 days until it
+// reaches 0 at 90 days. Replaces the previous calendar-month decay which
+// had a brutal cliff at month boundaries.
+//
+// Andrea chose the plateau-21 / out-90 curve because the earlier
+// plateau-14 / out-60 was too aggressive — a top-of-ranking player who
+// stopped winning saw a challenger with two recent second-place finishes
+// overtake them in a single month. This gentler curve preserves the
+// existing lead longer while still fading old results over a reasonable
+// three-month window.
 //
 // Curve:
-//   day 0–14   → weight 1.00 (full value, plateau)
-//   day 21     → weight ~0.85
-//   day 30     → weight ~0.65
-//   day 45     → weight ~0.33
-//   day 60+    → weight 0    (drops out)
+//   day 0–21   → weight 1.00 (full value, plateau — three weeks)
+//   day 30     → weight ~0.87
+//   day 45     → weight ~0.65
+//   day 60     → weight ~0.43
+//   day 75     → weight ~0.22
+//   day 90+    → weight 0    (drops out after three months)
 function decayWeight(entryIso: string, now: Date = new Date()): number {
   const d = new Date(entryIso);
   if (isNaN(d.getTime())) return 0;
   const days = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
-  if (days <= 14) return 1.0;
-  if (days > 60) return 0;
-  return 1 - (days - 14) / 46;
+  if (days <= 21) return 1.0;
+  if (days > 90) return 0;
+  return 1 - (days - 21) / 69;
 }
 
 // Kept so BlitzRanking expanded view can still cap the "best results"
