@@ -3,12 +3,18 @@ import { useState } from 'react';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 import { BETTING_ENABLED } from '@/lib/feature-flags';
 
+// D3v5 example points at N=8 players — the reference tournament size.
+// The full formula (1st = 50 + (N-8)*5) means winning at 5 players is 35,
+// at 12 players is 70. See the scaling table in the section below.
 const PLACEMENT_PTS = [
   { place: '1st', pts: 50, color: colors.gold },
-  { place: '2nd', pts: 35, color: colors.silver },
-  { place: '3rd', pts: 22, color: colors.bronze },
-  { place: '4th', pts: 12, color: colors.textSecondary },
-  { place: '5th', pts: 5, color: colors.textSecondary },
+  { place: '2nd', pts: 32, color: colors.silver },
+  { place: '3rd', pts: 20, color: colors.bronze },
+  { place: '4th', pts: 13, color: colors.textSecondary },
+  { place: '5th', pts: 8,  color: colors.textSecondary },
+  { place: '6th', pts: 5,  color: colors.textSecondary },
+  { place: '7th', pts: 3,  color: colors.textSecondary },
+  { place: '8th', pts: 2,  color: colors.textSecondary },
 ];
 
 const BETTING_PTS = [
@@ -151,8 +157,14 @@ export default function BlitzHowItWorks() {
         <Section title="Ranking Points">
           <Text>
             After each tournament, players earn ranking points based on their final placement
-            (determined by matches won, then games as tiebreaker).
-            Your overall ranking uses a two-month weighted decay (see below).
+            (matches won, then games as tiebreaker). Points scale with tournament size —
+            winning a bigger field is worth more. Everyone down to last place gets at least 2 points.
+            Your overall ranking uses a day-based decay curve (see below).
+          </Text>
+          <Text>
+            The table below shows the points at N=8 players (our reference size). At other sizes
+            every position scales up or down: winning at 5 players = 35 points, at 8 = 50, at 12 = 70.
+            Each extra player is worth +5 points to the winner.
           </Text>
           <div style={{
             background: colors.surface, borderRadius: radius.lg,
@@ -239,10 +251,11 @@ export default function BlitzHowItWorks() {
         </Section>
 
         {/* Decay model */}
-        <Section title="Two-month decay">
+        <Section title="Decay over time">
           <Text>
-            Your ranking score is the weighted sum of every tournament you've played in the last 2 months.
-            Recent results count more than older ones — you stay relevant only if you keep showing up.
+            Your ranking score is the weighted sum of every tournament you've played. A win
+            keeps its full value for 21 days, then fades gradually. After 90 days it drops out
+            entirely.
           </Text>
           <div style={{
             background: colors.surface, borderRadius: radius.lg,
@@ -254,36 +267,31 @@ export default function BlitzHowItWorks() {
               padding: `${spacing.sm}px ${spacing.lg}px`,
               borderBottom: `1px solid ${colors.border}`,
             }}>
-              <span style={{ fontFamily: fonts.sans, fontSize: 14, fontWeight: 600, color: colors.muted, textTransform: 'uppercase' }}>When played</span>
+              <span style={{ fontFamily: fonts.sans, fontSize: 14, fontWeight: 600, color: colors.muted, textTransform: 'uppercase' }}>Age</span>
               <span style={{ fontFamily: fonts.sans, fontSize: 14, fontWeight: 600, color: colors.muted, textTransform: 'uppercase', textAlign: 'right' }}>Weight</span>
             </div>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr',
-              padding: `${spacing.md}px ${spacing.lg}px`,
-              borderBottom: `1px solid ${colors.border}`,
-            }}>
-              <span style={{ fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, color: colors.text }}>This month</span>
-              <span style={{ fontFamily: fonts.mono, fontSize: 15, fontWeight: 700, color: colors.primary, textAlign: 'right' }}>×1.0</span>
-            </div>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr',
-              padding: `${spacing.md}px ${spacing.lg}px`,
-              borderBottom: `1px solid ${colors.border}`,
-            }}>
-              <span style={{ fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, color: colors.text }}>Last month</span>
-              <span style={{ fontFamily: fonts.mono, fontSize: 15, fontWeight: 700, color: colors.text, textAlign: 'right' }}>×0.7</span>
-            </div>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr',
-              padding: `${spacing.md}px ${spacing.lg}px`,
-            }}>
-              <span style={{ fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, color: colors.muted }}>Older</span>
-              <span style={{ fontFamily: fonts.mono, fontSize: 15, fontWeight: 700, color: colors.muted, textAlign: 'right' }}>drops out</span>
-            </div>
+            {[
+              { age: '0–21 days', weight: '100%', color: colors.primary, muted: false },
+              { age: '30 days',   weight: '87%',  color: colors.text,    muted: false },
+              { age: '45 days',   weight: '65%',  color: colors.text,    muted: false },
+              { age: '60 days',   weight: '43%',  color: colors.text,    muted: false },
+              { age: '75 days',   weight: '22%',  color: colors.text,    muted: false },
+              { age: '90+ days',  weight: 'drops out', color: colors.muted, muted: true },
+            ].map((row, i, arr) => (
+              <div key={row.age} style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr',
+                padding: `${spacing.md}px ${spacing.lg}px`,
+                borderBottom: i < arr.length - 1 ? `1px solid ${colors.border}` : 'none',
+              }}>
+                <span style={{ fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, color: row.muted ? colors.muted : colors.text }}>{row.age}</span>
+                <span style={{ fontFamily: fonts.mono, fontSize: 15, fontWeight: 700, color: row.color, textAlign: 'right' }}>{row.weight}</span>
+              </div>
+            ))}
           </div>
           <Text>
-            Example: a 1st place earned this month is worth 50 points. The same 1st place from last month
-            counts as 35 (50 × 0.7). Two months later, it's gone.
+            Example: a 1st place at 8 players is worth 50 points. In the first three weeks it stays
+            at 50. At 30 days it counts as 44 (50 × 0.87). At 60 days it's down to 22. At 90 days it
+            drops out entirely.
           </Text>
         </Section>
 
