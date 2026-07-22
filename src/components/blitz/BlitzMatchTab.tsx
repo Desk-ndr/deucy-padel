@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { BlitzTournamentData, BlitzRound, BlitzBet, EDIT_WINDOW_MS } from '@/services/blitzService';
 import { colors, spacing, radius, fonts, typeScale, shadows } from '@/lib/design-tokens';
@@ -725,8 +725,8 @@ function CompletedRounds({ rounds, tournament, canEdit, editingRound, editScoreA
         if (!s) return null;
         const isEditing = editingRound?.id === r.id;
 
-        return (
-          <div key={r.id} style={{
+        return (<React.Fragment key={r.id}>
+          <div style={{
             display: 'flex', alignItems: 'center', gap: spacing.sm,
             padding: `${spacing.sm}px ${spacing.md}px`,
             backgroundColor: isEditing ? colors.surface : colors.surfaceElevated,
@@ -800,7 +800,42 @@ function CompletedRounds({ rounds, tournament, canEdit, editingRound, editScoreA
               </>
             )}
           </div>
-        );
+          {s.courtB && r.team_a_score_b != null && r.team_b_score_b != null && (
+            <div key={r.id + '-B'} style={{
+              display: 'flex', alignItems: 'center', gap: spacing.sm,
+              padding: `\${spacing.sm}px \${spacing.md}px`,
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.sm, fontSize: 14,
+              border: '1px solid transparent',
+              marginTop: 2,
+            }}>
+              <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted, minWidth: 28 }}>
+                R{r.round_index}
+                <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.6 }}>B</span>
+              </span>
+              <span style={{
+                flex: 1, color: colors.textSecondary,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                fontFamily: fonts.sans, fontWeight: 500,
+              }}>
+                {tournament.players[s.courtB.teamA[0]]?.name} & {tournament.players[s.courtB.teamA[1]]?.name}
+              </span>
+              <span style={{
+                fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
+                color: colors.primary, minWidth: 44, textAlign: 'center',
+              }}>
+                {r.team_a_score_b} - {r.team_b_score_b}
+              </span>
+              <span style={{
+                flex: 1, color: colors.textSecondary, textAlign: 'right',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                fontFamily: fonts.sans, fontWeight: 500,
+              }}>
+                {tournament.players[s.courtB.teamB[0]]?.name} & {tournament.players[s.courtB.teamB[1]]?.name}
+              </span>
+            </div>
+          )}
+        </React.Fragment>);
       })}
     </div>
   );
