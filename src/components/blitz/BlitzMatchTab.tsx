@@ -823,10 +823,10 @@ function CompletedRounds({ rounds, tournament, canEdit, editingRound, editingCou
           {s.courtB && r.team_a_score_b != null && r.team_b_score_b != null && (
             <div key={r.id + '-B'} style={{
               display: 'flex', alignItems: 'center', gap: spacing.sm,
-              padding: \`\${spacing.sm}px \${spacing.md}px\`,
+              padding: `${spacing.sm}px ${spacing.md}px`,
               backgroundColor: isEditingB ? colors.surface : colors.surfaceElevated,
               borderRadius: radius.sm, fontSize: 14,
-              border: isEditingB ? \`1px solid \${colors.primary}\` : '1px solid transparent',
+              border: isEditingB ? `1px solid ${colors.primary}` : '1px solid transparent',
               marginTop: 2,
               transition: 'all 0.15s',
             }}>
