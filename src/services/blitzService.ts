@@ -403,7 +403,7 @@ export async function submitScore(
     const { error: pErr } = await supabase.from('blitz_tournaments').update({
       players: updatedPlayers as any,
     } as any).eq('id', id);
-    return { error: pErr?.message ?? null };
+    return { error: pErr?.message ?? null, waiting: true };
   }
 
   // 3. Settle bets

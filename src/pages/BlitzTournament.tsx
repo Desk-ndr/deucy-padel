@@ -211,7 +211,9 @@ export default function BlitzTournament() {
     if (!id || !tournament) return;
     const round = rounds.find(r => r.round_index === tournament.current_round);
     if (!round) return;
-    const { error } = await submitScore(id, round.id, round.round_index, scoreA, scoreB, tournament, bets, court);
+    const result = await submitScore(id, round.id, round.round_index, scoreA, scoreB, tournament, bets, court);
+    const error = result?.error;
+    const waiting = (result as any)?.waiting;
     if (error) {
       // Soft handling: another player beat us to it. Realtime will update
       // the UI. Don't show a destructive toast — the round-change watcher
@@ -224,7 +226,7 @@ export default function BlitzTournament() {
     }
 
     const isLast = tournament.current_round >= tournament.total_rounds;
-    if (isLast) {
+    if (isLast && !waiting) {
       // Stay on the Match tab — that's where the celebration screen
       // lives (confetti, trophy, ranking points). User can still switch
       // to Standings via the bottom nav if they want the table view.
@@ -239,6 +241,12 @@ export default function BlitzTournament() {
       return;
     }
 
+    if (waiting) {
+      const otherCourt = court === 'A' ? 'B' : 'A';
+      toast({ title: `Court ${court} submitted`, description: `Waiting for court ${otherCourt}` });
+      refetch();
+      return;
+    }
     toast({ title: `Round ${tournament.current_round} done!` });
     // For non-last rounds we still benefit from a refetch as a belt-and-
     // suspenders sync, since the cascade is small and realtime alone
