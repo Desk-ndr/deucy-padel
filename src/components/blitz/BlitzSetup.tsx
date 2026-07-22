@@ -12,7 +12,7 @@ interface RegisteredPlayer {
 
 interface Props {
   tournament: BlitzTournamentData;
-  onStart: (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, playerNames: string[], playerIds: Array<string | null>, isGuests: boolean[]) => Promise<void>;
+  onStart: (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, playerNames: string[], playerIds: Array<string | null>, isGuests: boolean[], courts: 1 | 2) => Promise<void>;
 }
 
 type Step = 'players' | 'time' | 'config' | 'confirm';
@@ -35,6 +35,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   // Shorter pause = more playing time per round. Carved out of totalMinutes
   // before splitting the rest across rounds.
   const [pauseSeconds, setPauseSeconds] = useState(150); // default 2:30
+  const [courts, setCourts] = useState<1 | 2>(1);
   const [selectedConfig, setSelectedConfig] = useState<{ totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null>(null);
 
   // Fetch registered players + apply RSVP pre-selection (one-shot).
@@ -68,7 +69,15 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   }, [tournament.id]);
 
   const numPlayers = selectedIds.size + guestNames.length;
-  const configs = numPlayers >= 5 ? getAllBlitzConfigs(numPlayers, totalMinutes, pauseSeconds) : [];
+  // If the roster drops below 8 (guest removed or player unchecked), fall
+  // back to single court — dual court needs 8 active per round.
+  useEffect(() => {
+    if (courts === 2 && numPlayers < 8) {
+      setCourts(1);
+      setSelectedConfig(null);
+    }
+  }, [numPlayers, courts]);
+  const configs = numPlayers >= 5 ? getAllBlitzConfigs(numPlayers, totalMinutes, pauseSeconds, courts) : [];
   const currentStepIndex = STEP_INDEX[step];
 
   const togglePlayer = (id: string) => {
@@ -491,7 +500,73 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
           </div>
 
           <div style={{ display: 'flex', gap: spacing.sm }}>
-            <button onClick={() => setStep('players')} style={buttonStyle(false)}>
+                      {/* Courts selector — 1 or 2 parallel courts. Dual court requires
+              at least 8 players (2 matches x 4 players simultaneous). */}
+          <div style={{
+            padding: spacing.md,
+            backgroundColor: colors.bg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+            marginBottom: spacing.xl,
+            boxSizing: 'border-box',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.sm }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: colors.muted,
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}>
+                Courts
+              </span>
+              <span style={{
+                fontSize: 13, fontWeight: 700, color: colors.text,
+                fontFamily: fonts.mono,
+              }}>
+                {courts === 1 ? '1 court' : '2 courts'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: spacing.xs, width: '100%' }}>
+              {[1, 2].map(c => {
+                const isActive = courts === c;
+                const disabled = c === 2 && numPlayers < 8;
+                return (
+                  <button
+                    key={c}
+                    onClick={() => { if (!disabled) { setCourts(c as 1 | 2); setSelectedConfig(null); } }}
+                    disabled={disabled}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      boxSizing: 'border-box',
+                      padding: `${spacing.sm}px 0`,
+                      borderRadius: radius.sm,
+                      backgroundColor: isActive ? colors.primaryMuted : colors.surface,
+                      border: `1px solid ${isActive ? colors.primary : colors.border}`,
+                      color: disabled ? colors.muted : isActive ? colors.primary : colors.textSecondary,
+                      fontSize: 14, fontWeight: 700,
+                      fontFamily: fonts.sans,
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.15s',
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                      opacity: disabled ? 0.5 : 1,
+                    }}
+                    title={disabled ? 'Requires at least 8 players' : ''}
+                  >
+                    {c} court{c === 2 ? 's' : ''}
+                  </button>
+                );
+              })}
+            </div>
+            {numPlayers < 8 && (
+              <p style={{
+                ...typeScale.caption, color: colors.muted, marginTop: spacing.sm, marginBottom: 0,
+              }}>
+                2 courts requires 8+ players.
+              </p>
+            )}
+          </div>
+
+          <button onClick={() => setStep('players')} style={buttonStyle(false)}>
               ← Back
             </button>
             <button onClick={() => { setSelectedConfig(null); setStep('config'); }} style={buttonStyle(true)}>
@@ -640,7 +715,8 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
                 selectedConfig,
                 combinedRoster.map(p => p.name),
                 combinedRoster.map(p => p.player_id),
-                combinedRoster.map(p => p.isGuest)
+                combinedRoster.map(p => p.isGuest),
+                courts
               )}
               style={buttonStyle(true)}
             >

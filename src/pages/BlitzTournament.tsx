@@ -136,6 +136,7 @@ export default function BlitzTournament() {
     names: string[],
     playerIds?: Array<string | null>,
     isGuests?: boolean[],
+    courts: 1 | 2 = 1,
   ) => {
     if (!id) return;
     // Guest players: ad-hoc names with player_id=null and isGuest=true.
@@ -187,8 +188,8 @@ export default function BlitzTournament() {
       console.warn('[handleStart] could not fetch ranking for pair constraints', e);
     }
 
-    const schedule = generateSchedule(names.length, config.totalRounds, avoidPairs);
-    const { error } = await startTournament(id, config, players, schedule);
+    const schedule = generateSchedule(names.length, config.totalRounds, avoidPairs, courts);
+    const { error } = await startTournament(id, config, players, schedule, courts);
     if (error) toast({ title: 'Error starting', description: error, variant: 'destructive' });
     else {
       toast({ title: 'Tournament started!' });
@@ -206,11 +207,11 @@ export default function BlitzTournament() {
   const handlePauseTimer = async () => { if (id) await pauseTimer(id, Math.ceil(timerProps.secondsLeft)); };
   const handleResetTimer = async () => { if (id && tournament) await resetTimer(id, tournament.round_duration_seconds); };
 
-  const handleSubmitScore = async (scoreA: number, scoreB: number) => {
+  const handleSubmitScore = async (scoreA: number, scoreB: number, court?: 'A' | 'B') => {
     if (!id || !tournament) return;
     const round = rounds.find(r => r.round_index === tournament.current_round);
     if (!round) return;
-    const { error } = await submitScore(id, round.id, round.round_index, scoreA, scoreB, tournament, bets);
+    const { error } = await submitScore(id, round.id, round.round_index, scoreA, scoreB, tournament, bets, court);
     if (error) {
       // Soft handling: another player beat us to it. Realtime will update
       // the UI. Don't show a destructive toast — the round-change watcher

@@ -7,7 +7,8 @@ export interface BlitzPlayer { name: string; balance: number; }
 
 export interface BlitzRound {
   id: string; round_index: number; team_a_score: number | null;
-  team_b_score: number | null; status: string;
+  team_b_score: number | null; team_a_score_b: number | null;
+  team_b_score_b: number | null; status: string;
 }
 
 export interface BlitzBet {
@@ -29,7 +30,8 @@ export interface BlitzRsvp {
 export interface BlitzTournamentData {
   id: string; name: string; status: string; players: BlitzPlayer[];
   current_round: number; total_rounds: number; round_duration_seconds: number;
-  schedule: BlitzRoundSchedule[]; timer_started_at: string | null;
+  court_count: number; schedule: BlitzRoundSchedule[];
+  timer_started_at: string | null;
   timer_paused_remaining: number | null; created_by: string | null;
   finished_at: string | null;
   // Save the Date metadata. Both optional: a tournament can be created
@@ -286,6 +288,7 @@ export async function startTournament(
   config: { totalRounds: number; roundDurationSeconds: number },
   players: BlitzPlayer[],
   schedule: BlitzRoundSchedule[],
+  courts: 1 | 2 = 1,
 ) {
   // Insert rounds FIRST, then flip the tournament to 'live'. Reversed
   // order vs the obvious one: this way, if the rounds insert fails
@@ -309,6 +312,7 @@ export async function startTournament(
     players: players as any, status: 'live', current_round: 1,
     total_rounds: config.totalRounds, round_duration_seconds: config.roundDurationSeconds,
     schedule: schedule as any,
+    court_count: courts,
   } as any).eq('id', id);
   return { error: tErr?.message ?? null };
 }
@@ -342,14 +346,34 @@ export async function submitScore(
   id: string, roundId: string, roundIndex: number,
   scoreA: number, scoreB: number,
   tournament: BlitzTournamentData, bets: BlitzBet[],
+  court: 'A' | 'B' = 'A',
 ) {
-  // 1. Complete the round — compare-and-swap on status to prevent
-  // double-submission when multiple players hit Submit simultaneously.
-  // Only the first request finds status='active' and succeeds; the second
-  // matches zero rows and we return ALREADY_COMPLETED, which the UI shows
-  // as a soft toast instead of crashing.
+  const schedule = tournament.schedule[roundIndex - 1];
+  const isDual = !!schedule?.courtB && tournament.court_count === 2;
+
+  // 1. UPDATE the appropriate score columns. Compare-and-swap on status
+  // prevents double-submission for the same court. In dual-court mode the
+  // round only becomes 'completed' once both courts have submitted.
+  const scoreFields = court === 'B'
+    ? { team_a_score_b: scoreA, team_b_score_b: scoreB }
+    : { team_a_score: scoreA, team_b_score: scoreB };
+
+  const { data: existingRound, error: fErr } = await supabase
+    .from('blitz_rounds').select('*').eq('id', roundId).eq('status', 'active').maybeSingle();
+  if (fErr) return { error: fErr.message };
+  if (!existingRound) return { error: 'ALREADY_COMPLETED' };
+
+  const otherCourtDone = isDual
+    ? (court === 'A' ? existingRound.team_a_score_b != null : existingRound.team_a_score != null)
+    : true;
+
+  const bothDoneAfterThis = isDual ? otherCourtDone : true;
+
+  const updatePayload: any = { ...scoreFields };
+  if (bothDoneAfterThis) updatePayload.status = 'completed';
+
   const { data: updatedRound, error: rErr } = await supabase.from('blitz_rounds')
-    .update({ team_a_score: scoreA, team_b_score: scoreB, status: 'completed' })
+    .update(updatePayload)
     .eq('id', roundId)
     .eq('status', 'active')
     .select('id');
@@ -358,16 +382,28 @@ export async function submitScore(
     return { error: 'ALREADY_COMPLETED' };
   }
 
-  // 2. Calculate new balances
+  // 2. Calculate new balances — only for the players of the court we
+  // just submitted. Dual-court balance updates happen incrementally per
+  // court so the other court can settle later without race conditions.
   const updatedPlayers = [...tournament.players];
-  const schedule = tournament.schedule[roundIndex - 1];
   if (schedule) {
-    schedule.teamA.forEach(idx => {
+    const teamA = court === 'B' && schedule.courtB ? schedule.courtB.teamA : schedule.teamA;
+    const teamB = court === 'B' && schedule.courtB ? schedule.courtB.teamB : schedule.teamB;
+    teamA.forEach(idx => {
       updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + scoreA * EUROS_PER_GAME };
     });
-    schedule.teamB.forEach(idx => {
+    teamB.forEach(idx => {
       updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + scoreB * EUROS_PER_GAME };
     });
+  }
+
+  // If the round is not yet complete (waiting for the other court),
+  // persist balances now and return early — no advancing.
+  if (!bothDoneAfterThis) {
+    const { error: pErr } = await supabase.from('blitz_tournaments').update({
+      players: updatedPlayers as any,
+    } as any).eq('id', id);
+    return { error: pErr?.message ?? null };
   }
 
   // 3. Settle bets

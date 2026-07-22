@@ -151,19 +151,24 @@ export async function finalizeRanking(
   const matchesPlayed: number[] = tournament.players.map(() => 0);
   const completedRounds = rounds.filter(r => r.status === 'completed' && r.team_a_score !== null);
 
+  const applyMatchResult = (
+    teamA: readonly number[], teamB: readonly number[],
+    scoreA: number, scoreB: number,
+  ) => {
+    teamA.forEach(i => { gamesWon[i] += scoreA; });
+    teamB.forEach(i => { gamesWon[i] += scoreB; });
+    const aWon = scoreA > scoreB ? 1 : scoreA === scoreB ? 0.5 : 0;
+    const bWon = scoreB > scoreA ? 1 : scoreA === scoreB ? 0.5 : 0;
+    teamA.forEach(i => { matchesWon[i] += aWon; matchesPlayed[i] += 1; });
+    teamB.forEach(i => { matchesWon[i] += bWon; matchesPlayed[i] += 1; });
+  };
   for (const round of completedRounds) {
     const schedule = tournament.schedule[round.round_index - 1];
     if (!schedule) continue;
-    const scoreA = round.team_a_score!;
-    const scoreB = round.team_b_score!;
-    // Games won (for placement ranking)
-    schedule.teamA.forEach(i => { gamesWon[i] += scoreA; });
-    schedule.teamB.forEach(i => { gamesWon[i] += scoreB; });
-    // Matches won/played (for W%) — draw = 0.5 each
-    const aWon = scoreA > scoreB ? 1 : scoreA === scoreB ? 0.5 : 0;
-    const bWon = scoreB > scoreA ? 1 : scoreA === scoreB ? 0.5 : 0;
-    schedule.teamA.forEach(i => { matchesWon[i] += aWon; matchesPlayed[i] += 1; });
-    schedule.teamB.forEach(i => { matchesWon[i] += bWon; matchesPlayed[i] += 1; });
+    applyMatchResult(schedule.teamA, schedule.teamB, round.team_a_score!, round.team_b_score!);
+    if (schedule.courtB && round.team_a_score_b != null && round.team_b_score_b != null) {
+      applyMatchResult(schedule.courtB.teamA, schedule.courtB.teamB, round.team_a_score_b, round.team_b_score_b);
+    }
   }
 
   // 2. Calculate betting profit per player

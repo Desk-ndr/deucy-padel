@@ -16,7 +16,7 @@ interface Props {
   onStartTimer: () => void;
   onPauseTimer: () => void;
   onResetTimer: () => void;
-  onSubmitScore: (scoreA: number, scoreB: number) => Promise<void>;
+  onSubmitScore: (scoreA: number, scoreB: number, court?: 'A' | 'B') => Promise<void>;
   onEditScore: (roundId: string, roundIndex: number, scoreA: number, scoreB: number) => Promise<void>;
   onBetClick: () => void;
 }
@@ -28,6 +28,7 @@ export default function BlitzMatchTab({
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
   const [showScoreInput, setShowScoreInput] = useState(false);
+  const [submittingCourt, setSubmittingCourt] = useState<'A' | 'B'>('A');
   const [editingRound, setEditingRound] = useState<BlitzRound | null>(null);
   const [editScoreA, setEditScoreA] = useState('');
   const [editScoreB, setEditScoreB] = useState('');
@@ -441,9 +442,10 @@ export default function BlitzMatchTab({
     const a = parseInt(scoreA);
     const b = parseInt(scoreB);
     if (isNaN(a) || isNaN(b) || a < 0 || b < 0) return;
-    await onSubmitScore(a, b);
+    await onSubmitScore(a, b, isDual ? submittingCourt : undefined);
     setScoreA(''); setScoreB(''); setShowScoreInput(false);
   };
+  const isDual = !!currentSchedule?.courtB;
 
   const completedRounds = rounds.filter(r => r.status === 'completed');
 
@@ -479,7 +481,14 @@ export default function BlitzMatchTab({
         </div>
       </div>
 
-      {/* Teams card */}
+      {/* Teams card — court A */}
+      {isDual && (
+        <span style={{
+          ...typeScale.micro, color: colors.primary, letterSpacing: '0.08em',
+          textTransform: 'uppercase', textAlign: 'center', display: 'block',
+          marginBottom: -spacing.sm,
+        }}>Court A</span>
+      )}
       <HeroCard glow="primary">
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr auto 1fr',
@@ -502,6 +511,37 @@ export default function BlitzMatchTab({
           </div>
         </div>
       </HeroCard>
+      {isDual && currentSchedule.courtB && (
+        <>
+          <span style={{
+            ...typeScale.micro, color: colors.primary, letterSpacing: '0.08em',
+            textTransform: 'uppercase', textAlign: 'center', display: 'block',
+            marginBottom: -spacing.sm,
+          }}>Court B</span>
+          <HeroCard glow="primary">
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr auto 1fr',
+              alignItems: 'center', gap: spacing.md, padding: spacing.sm,
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.sm }}>Team A</span>
+                <PlayerName player={tournament.players[currentSchedule.courtB.teamA[0]]} />
+                <div style={{ marginTop: spacing.xs }}>
+                  <PlayerName player={tournament.players[currentSchedule.courtB.teamA[1]]} />
+                </div>
+              </div>
+              <span style={{ fontSize: 22, fontWeight: 900, color: colors.muted }}>VS</span>
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.sm }}>Team B</span>
+                <PlayerName player={tournament.players[currentSchedule.courtB.teamB[0]]} />
+                <div style={{ marginTop: spacing.xs }}>
+                  <PlayerName player={tournament.players[currentSchedule.courtB.teamB[1]]} />
+                </div>
+              </div>
+            </div>
+          </HeroCard>
+        </>
+      )}
 
       {/* Resting — big card if it's me, small text for everyone else */}
       {amResting ? (
@@ -589,6 +629,21 @@ export default function BlitzMatchTab({
           display: 'flex', flexDirection: 'column', gap: spacing.md,
         }}>
           <p style={{ ...typeScale.title, color: colors.text, textAlign: 'center', margin: 0 }}>Enter Final Score</p>
+
+          {isDual && (
+            <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'center' }}>
+              {(['A', 'B'] as const).map(c => (
+                <button key={c} onClick={() => setSubmittingCourt(c)} style={{
+                  padding: `\${spacing.sm}px \${spacing.lg}px`,
+                  borderRadius: radius.pill,
+                  border: `1px solid \${submittingCourt === c ? colors.primary : colors.border}`,
+                  background: submittingCourt === c ? colors.primaryMuted : colors.bg,
+                  color: submittingCourt === c ? colors.primary : colors.textSecondary,
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: fonts.sans,
+                }}>Court {c}</button>
+              ))}
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-end', gap: spacing.md }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>

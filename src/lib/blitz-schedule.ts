@@ -3,6 +3,7 @@
 export interface BlitzRoundSchedule {
   teamA: [number, number];
   teamB: [number, number];
+  courtB?: { teamA: [number, number]; teamB: [number, number] };
   rest: number[];
 }
 
@@ -24,19 +25,21 @@ export const PAUSE_BETWEEN_ROUNDS_SEC = 150; // 2.5 minutes
 export function computeBlitzConfig(
   numPlayers: number,
   totalMinutes: number,
-  pauseSec: number = PAUSE_BETWEEN_ROUNDS_SEC
+  pauseSec: number = PAUSE_BETWEEN_ROUNDS_SEC,
+  courts: 1 | 2 = 1
 ): { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null {
   if (numPlayers < 5) return null;
 
-  const g = gcd(numPlayers, 4);
-  const minK = 4 / g; // smallest K where N*K % 4 == 0
+  const activePerRound = courts * 4;
+  const g = gcd(numPlayers, activePerRound);
+  const minK = activePerRound / g;
 
   // Try multiples of minK, pick best where round duration is 5-20 min
   let bestConfig: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null = null;
 
   for (let mult = 1; mult <= 20; mult++) {
     const k = minK * mult;
-    const r = (numPlayers * k) / 4;
+    const r = (numPlayers * k) / activePerRound;
     // Reserve (r-1) pauses worth of time, then split the rest across r rounds.
     const playSec = totalMinutes * 60 - (r - 1) * pauseSec;
     if (playSec <= 0) break; // not enough time even before the rounds start
@@ -63,17 +66,19 @@ export function computeBlitzConfig(
 export function getAllBlitzConfigs(
   numPlayers: number,
   totalMinutes: number,
-  pauseSec: number = PAUSE_BETWEEN_ROUNDS_SEC
+  pauseSec: number = PAUSE_BETWEEN_ROUNDS_SEC,
+  courts: 1 | 2 = 1
 ): { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }[] {
   if (numPlayers < 5) return [];
 
-  const g = gcd(numPlayers, 4);
-  const minK = 4 / g;
+  const activePerRound = courts * 4;
+  const g = gcd(numPlayers, activePerRound);
+  const minK = activePerRound / g;
   const configs: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }[] = [];
 
   for (let mult = 1; mult <= 20; mult++) {
     const k = minK * mult;
-    const r = (numPlayers * k) / 4;
+    const r = (numPlayers * k) / activePerRound;
     // Reserve (r-1) pauses worth of time, then split the rest across r rounds.
     const playSec = totalMinutes * 60 - (r - 1) * pauseSec;
     if (playSec <= 0) break;
@@ -103,13 +108,14 @@ export function generateSchedule(
   numPlayers: number,
   totalRounds: number,
   avoidPairs: Array<[number, number]> = [],
+  courts: 1 | 2 = 1,
 ): BlitzRoundSchedule[] {
   // Run multiple attempts with different seeds and pick the schedule with fewest repeated partners
   let bestSchedule: BlitzRoundSchedule[] = [];
   let bestPartnerRepeats = Infinity;
 
   for (let attempt = 0; attempt < 10; attempt++) {
-    const schedule = generateScheduleAttempt(numPlayers, totalRounds, attempt, avoidPairs);
+    const schedule = generateScheduleAttempt(numPlayers, totalRounds, attempt, avoidPairs, courts);
     const repeats = countPartnerRepeats(schedule, numPlayers);
     if (repeats < bestPartnerRepeats) {
       bestPartnerRepeats = repeats;
@@ -129,6 +135,12 @@ function countPartnerRepeats(schedule: BlitzRoundSchedule[], numPlayers: number)
     pc[round.teamA[1]][round.teamA[0]]++;
     pc[round.teamB[0]][round.teamB[1]]++;
     pc[round.teamB[1]][round.teamB[0]]++;
+    if (round.courtB) {
+      pc[round.courtB.teamA[0]][round.courtB.teamA[1]]++;
+      pc[round.courtB.teamA[1]][round.courtB.teamA[0]]++;
+      pc[round.courtB.teamB[0]][round.courtB.teamB[1]]++;
+      pc[round.courtB.teamB[1]][round.courtB.teamB[0]]++;
+    }
   }
   let repeats = 0;
   for (let i = 0; i < numPlayers; i++) {
@@ -139,8 +151,9 @@ function countPartnerRepeats(schedule: BlitzRoundSchedule[], numPlayers: number)
   return repeats;
 }
 
-function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemptSeed: number, avoidPairs: Array<[number, number]>): BlitzRoundSchedule[] {
-  const targetGames = (totalRounds * 4) / numPlayers;
+function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemptSeed: number, avoidPairs: Array<[number, number]>, courts: 1 | 2 = 1): BlitzRoundSchedule[] {
+  const activePerRound = courts * 4;
+  const targetGames = (totalRounds * activePerRound) / numPlayers;
   const playCounts = new Array(numPlayers).fill(0);
   const schedule: BlitzRoundSchedule[] = [];
 
@@ -157,7 +170,7 @@ function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemp
     const eligible = Array.from({ length: numPlayers }, (_, i) => i)
       .filter(i => playCounts[i] < targetGames);
 
-    let pool = eligible.length >= 4 ? eligible :
+    let pool = eligible.length >= activePerRound ? eligible :
       Array.from({ length: numPlayers }, (_, i) => i);
 
     pool.sort((a, b) => playCounts[a] - playCounts[b]);
@@ -168,35 +181,46 @@ function generateScheduleAttempt(numPlayers: number, totalRounds: number, attemp
 
     let chosen: number[];
 
-    if (mustPlay.length >= 4) {
+    if (mustPlay.length >= activePerRound) {
       chosen = pickBestFour(mustPlay, partnerCount, opponentCount, seededRandom);
+      if (courts === 2) {
+        const remaining = mustPlay.filter(p => !chosen.includes(p));
+        const second = pickBestFour(remaining, partnerCount, opponentCount, seededRandom);
+        chosen = [...chosen, ...second];
+      }
     } else {
-      const remaining = 4 - mustPlay.length;
+      const remaining = activePerRound - mustPlay.length;
       const fillers = pickBestFillers(mustPlay, canPlay.length > 0 ? canPlay : pool.filter(p => !mustPlay.includes(p)), remaining, partnerCount, opponentCount, seededRandom);
       chosen = [...mustPlay, ...fillers];
     }
 
-    const bestSplit = findBestSplit(chosen, partnerCount, opponentCount, seededRandom, avoidPairs);
+    const splitA = findBestSplit(chosen.slice(0, 4), partnerCount, opponentCount, seededRandom, avoidPairs);
+    const splitB = courts === 2 ? findBestSplit(chosen.slice(4, 8), partnerCount, opponentCount, seededRandom, avoidPairs) : null;
 
     const rest = Array.from({ length: numPlayers }, (_, i) => i).filter(i => !chosen.includes(i));
 
     schedule.push({
-      teamA: [bestSplit.teamA[0], bestSplit.teamA[1]],
-      teamB: [bestSplit.teamB[0], bestSplit.teamB[1]],
+      teamA: [splitA.teamA[0], splitA.teamA[1]],
+      teamB: [splitA.teamB[0], splitA.teamB[1]],
+      courtB: splitB ? { teamA: [splitB.teamA[0], splitB.teamA[1]], teamB: [splitB.teamB[0], splitB.teamB[1]] } : undefined,
       rest,
     });
 
     for (const idx of chosen) playCounts[idx]++;
-    partnerCount[bestSplit.teamA[0]][bestSplit.teamA[1]]++;
-    partnerCount[bestSplit.teamA[1]][bestSplit.teamA[0]]++;
-    partnerCount[bestSplit.teamB[0]][bestSplit.teamB[1]]++;
-    partnerCount[bestSplit.teamB[1]][bestSplit.teamB[0]]++;
-    for (const a of bestSplit.teamA) {
-      for (const b of bestSplit.teamB) {
-        opponentCount[a][b]++;
-        opponentCount[b][a]++;
+    const updateCounters = (tA: [number, number], tB: [number, number]) => {
+      partnerCount[tA[0]][tA[1]]++;
+      partnerCount[tA[1]][tA[0]]++;
+      partnerCount[tB[0]][tB[1]]++;
+      partnerCount[tB[1]][tB[0]]++;
+      for (const a of tA) {
+        for (const b of tB) {
+          opponentCount[a][b]++;
+          opponentCount[b][a]++;
+        }
       }
-    }
+    };
+    updateCounters(splitA.teamA, splitA.teamB);
+    if (splitB) updateCounters(splitB.teamA, splitB.teamB);
   }
 
   return schedule;
