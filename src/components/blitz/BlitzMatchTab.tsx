@@ -462,17 +462,26 @@ export default function BlitzMatchTab({
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: spacing.md,
+    padding: `${spacing.sm}px ${spacing.xs}px`,
     backgroundColor: colors.bg,
     border: `1px solid ${colors.border}`,
     borderRadius: radius.sm,
     color: colors.text,
-    fontSize: 24, fontWeight: 800,
+    fontSize: 20, fontWeight: 800,
     textAlign: 'center',
     fontFamily: fonts.mono,
     outline: 'none',
     boxSizing: 'border-box',
   };
+  const teamLabelStyle: React.CSSProperties = {
+    fontSize: 12, fontWeight: 700, color: colors.text,
+    textAlign: 'center', fontFamily: fonts.sans,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+    lineHeight: 1.25,
+  };
+  const teamPair = (a?: string, b?: string) => `${a ?? '—'} & ${b ?? '—'}`;
+  const cA = currentSchedule;
+  const cB = currentSchedule?.courtB;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
@@ -642,36 +651,31 @@ export default function BlitzMatchTab({
           <p style={{ ...typeScale.title, color: colors.text, textAlign: 'center', margin: 0 }}>Enter Final Score</p>
 
           {isDual && (
-            <p style={{ ...typeScale.caption, color: colors.muted, textAlign: 'center', margin: 0 }}>
-              Both courts must be entered to advance.
-            </p>
-          )}
-          {isDual && (
             <p style={{ ...typeScale.micro, color: colors.primary, textAlign: 'center', margin: 0, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Court A</p>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-end', gap: spacing.md }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-              <label style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center' }}>Team A</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-end', gap: spacing.sm }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, minWidth: 0 }}>
+              <div style={teamLabelStyle}>{cA ? teamPair(tournament.players[cA.teamA[0]]?.name, tournament.players[cA.teamA[1]]?.name) : 'Team A'}</div>
               <input type="number" min="0" placeholder="0" value={scoreA} onChange={e => setScoreA(e.target.value)} style={inputStyle} />
             </div>
-            <span style={{ fontSize: 20, fontWeight: 700, color: colors.muted, paddingBottom: spacing.md }}>—</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-              <label style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center' }}>Team B</label>
+            <span style={{ fontSize: 18, fontWeight: 700, color: colors.muted, paddingBottom: spacing.sm }}>—</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, minWidth: 0 }}>
+              <div style={teamLabelStyle}>{cA ? teamPair(tournament.players[cA.teamB[0]]?.name, tournament.players[cA.teamB[1]]?.name) : 'Team B'}</div>
               <input type="number" min="0" placeholder="0" value={scoreB} onChange={e => setScoreB(e.target.value)} style={inputStyle} />
             </div>
           </div>
           {isDual && (
             <>
               <p style={{ ...typeScale.micro, color: colors.primary, textAlign: 'center', margin: 0, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Court B</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-end', gap: spacing.md }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                  <label style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center' }}>Team A</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-end', gap: spacing.sm }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, minWidth: 0 }}>
+                  <div style={teamLabelStyle}>{cB ? teamPair(tournament.players[cB.teamA[0]]?.name, tournament.players[cB.teamA[1]]?.name) : 'Team A'}</div>
                   <input type="number" min="0" placeholder="0" value={scoreA_B} onChange={e => setScoreA_B(e.target.value)} style={inputStyle} />
                 </div>
-                <span style={{ fontSize: 20, fontWeight: 700, color: colors.muted, paddingBottom: spacing.md }}>—</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                  <label style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center' }}>Team B</label>
+                <span style={{ fontSize: 18, fontWeight: 700, color: colors.muted, paddingBottom: spacing.sm }}>—</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, minWidth: 0 }}>
+                  <div style={teamLabelStyle}>{cB ? teamPair(tournament.players[cB.teamB[0]]?.name, tournament.players[cB.teamB[1]]?.name) : 'Team B'}</div>
                   <input type="number" min="0" placeholder="0" value={scoreB_B} onChange={e => setScoreB_B(e.target.value)} style={inputStyle} />
                 </div>
               </div>
