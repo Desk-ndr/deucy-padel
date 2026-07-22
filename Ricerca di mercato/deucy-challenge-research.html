@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deucy Challenge System — Product Discovery (May 2026)</title>
+<style>
+  :root {
+    --bg: #fafaf7; --surface: #ffffff; --text: #1a1a1a; --text-muted: #6b6b6b;
+    --text-faint: #9a9a9a; --border: #e8e6df; --accent: #d97706; --primary: #15803d;
+    --danger: #b91c1c; --warn: #b45309; --info: #1e6db8;
+    --rad-md: 10px; --rad-lg: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 16px; line-height: 1.55; }
+  .container { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+  @media (max-width: 640px) { .container { padding: 28px 18px 64px; } }
+
+  header.hero { border-bottom: 1px solid var(--border); padding-bottom: 36px; margin-bottom: 48px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 14px; }
+  h1 { font-size: 42px; line-height: 1.05; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 20px; }
+  @media (max-width: 640px) { h1 { font-size: 32px; } }
+  .lead { font-size: 18px; color: var(--text); margin: 0 0 16px; max-width: 70ch; }
+  .meta { font-size: 13px; color: var(--text-muted); }
+  .verdict { margin-top: 28px; padding: 22px; border-radius: var(--rad-md); font-size: 16px; font-weight: 600; }
+  .verdict.pivot { background: #fef3c7; border-left: 4px solid var(--warn); color: #713f12; }
+  .verdict.go { background: #d4f4dd; border-left: 4px solid var(--primary); color: #14532d; }
+  .verdict.nogo { background: #fee2e2; border-left: 4px solid var(--danger); color: #7f1d1d; }
+  .verdict .label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; opacity: 0.7; }
+
+  nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: var(--rad-md); padding: 18px 22px; margin-bottom: 56px; }
+  nav.toc h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 700; margin: 0 0 12px; }
+  nav.toc ol { list-style: decimal-leading-zero inside; margin: 0; padding: 0; columns: 2; column-gap: 32px; }
+  @media (max-width: 640px) { nav.toc ol { columns: 1; } }
+  nav.toc li { margin-bottom: 6px; color: var(--text-muted); font-size: 14px; }
+  nav.toc a { color: var(--text); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  section { margin-bottom: 64px; scroll-margin-top: 24px; }
+  h2.sec { font-size: 28px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 6px; }
+  h2.sec .num { color: var(--text-faint); font-weight: 600; font-size: 18px; display: inline-block; margin-right: 12px; }
+  .sec-sub { color: var(--text-muted); margin: 0 0 28px; font-size: 15px; }
+  h3 { font-size: 18px; font-weight: 700; margin: 28px 0 12px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+
+  .table-wrap { overflow-x: auto; margin: 16px 0 24px; border: 1px solid var(--border); border-radius: var(--rad-md); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); }
+  th, td { padding: 10px 14px; text-align: left; vertical-align: top; }
+  th { background: #f4f2ec; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+  td { border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+
+  .quote { background: var(--surface); border-left: 3px solid var(--text-faint); padding: 14px 18px; margin: 12px 0; font-style: italic; color: var(--text-muted); border-radius: 0 8px 8px 0; font-size: 14px; }
+  .quote cite { display: block; font-style: normal; font-size: 12px; color: var(--text-faint); margin-top: 6px; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; background: #f4f2ec; color: var(--text-muted); }
+  .pill.go { background: #dcfce7; color: #166534; }
+  .pill.warn { background: #fef3c7; color: #854d0e; }
+  .pill.danger { background: #fee2e2; color: #991b1b; }
+  .pill.info { background: #dbeafe; color: #1e3a8a; }
+
+  .risk-card { padding: 16px 18px; border-radius: var(--rad-md); margin-bottom: 12px; border: 1px solid; }
+  .risk-card.green { background: #f0fdf4; border-color: #86efac; }
+  .risk-card.yellow { background: #fff7ed; border-color: #fdba74; }
+  .risk-card.red { background: #fef2f2; border-color: #fca5a5; }
+  .risk-card .title { font-weight: 700; margin-bottom: 6px; }
+  .risk-card .verdict { all: unset; display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .risk-card.green .verdict { background: #dcfce7; color: #166534; }
+  .risk-card.yellow .verdict { background: #fef3c7; color: #854d0e; }
+  .risk-card.red .verdict { background: #fee2e2; color: #991b1b; }
+
+  footer.foot { margin-top: 80px; padding-top: 32px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-faint); text-align: center; }
+
+  .next-step { background: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid var(--primary); border-radius: var(--rad-md); padding: 14px 18px; font-size: 14px; color: #14532d; margin: 10px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="hero">
+    <div class="eyebrow">Product Discovery · skill: digital-product-discovery · May 2026</div>
+    <h1>Deucy Challenge System<br><span style="color: var(--accent)">Padel match-based ELO platform</span></h1>
+    <p class="lead">Validation pre-build dell'idea: app padel amateur con sistema sfide ad-hoc tra coppie composte + ranking ELO individuale + leghe + tornei. Framework 6-stage industry standard (IDEO + Cagan + Torres + JTBD + Lean).</p>
+    <div class="meta">Single founder · lifestyle pace · Italia primary · 45+ fonti</div>
+
+    <div class="verdict pivot">
+      <span class="label">Verdict</span>
+      <strong>PIVOT cautious</strong> — l'idea ha base solida (pain validato, tech feasibility ✅, adjacent successes ✅) ma 2 assunzioni critiche restano BLOCKER per GO immediato: <em>willingness-to-pay del padel amateur EU</em> e <em>pattern reale di "coppia ad-hoc" vs "coppia stabile"</em>. Raccomandazione: PIVOT verso scope ridotto (challenge system come killer feature, no full platform) + MVP minimal 4-6 settimane per testare le 2 assunzioni blocker su gruppo Trieste reale.
+    </div>
+  </header>
+
+  <nav class="toc">
+    <h2>Indice</h2>
+    <ol>
+      <li><a href="#summary">Executive summary</a></li>
+      <li><a href="#stage1">Stage 1 — Strategic framing</a></li>
+      <li><a href="#stage2">Stage 2 — Market landscape</a></li>
+      <li><a href="#stage3">Stage 3 — Problem & customer</a></li>
+      <li><a href="#stage4">Stage 4 — Solution hypothesis</a></li>
+      <li><a href="#stage5">Stage 5 — Risk (Cagan's 4)</a></li>
+      <li><a href="#assumptions">Assumption matrix</a></li>
+      <li><a href="#stage6">Stage 6 — Decision & roadmap</a></li>
+      <li><a href="#sources">Sources</a></li>
+    </ol>
+  </nav>
+
+  <!-- EXEC SUMMARY -->
+  <section id="summary">
+    <h2 class="sec"><span class="num">00</span>Executive summary</h2>
+    <p class="sec-sub">I 5 finding chiave del discovery.</p>
+
+    <ol>
+      <li><strong>Il pain è validato e ricorrente</strong>: WhatsApp è il default ovunque per organizzare padel, gruppi 200+ member, "chaos" è la parola che ricorre. Multipli articoli/blog/post documentano la frustrazione organizzativa.</li>
+      <li><strong>Adjacent success patterns esistono</strong>: Lichess (chess), USTA Flex League (tennis), DUPR Sessions (pickleball) hanno tutti validato challenge/league based systems con utenti reali. Il padel non ha equivalente — gap concreto.</li>
+      <li><strong>Tech feasibility è ALTA</strong>: TrueSkill (Microsoft) e OpenSkill (academic) sono pronti per team-based rating. PadelRank.dev offre già API specifica per padel doubles. Build solo è realistico.</li>
+      <li><strong>Willingness-to-pay è la zona grigia critica</strong>: padel community EU è abituata al free (Playtomic, PadelMix). Nessuna evidenza forte di disposizione a pagare per challenge system. BLOCKER per business viability.</li>
+      <li><strong>"Coppia ad-hoc vs stabile" è non-validato</strong>: la tua intuizione su Trieste è plausibile ma non confermata cross-EU. È il pattern centrale del prodotto — se è errato, il modello crolla.</li>
+    </ol>
+
+    <h3>Cagan's 4 risks — riepilogo</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Risk</th><th>Verdetto</th><th>Reason</th></tr></thead>
+        <tbody>
+          <tr><td>Value</td><td><span class="pill warn">🟡 Moderate</span></td><td>Pain confermato, willingness-to-pay no</td></tr>
+          <tr><td>Usability</td><td><span class="pill go">🟢 Manageable</span></td><td>Pattern UX esistono (Lichess/USTA/DUPR), tu hai design skills</td></tr>
+          <tr><td>Feasibility</td><td><span class="pill go">🟢 Manageable</span></td><td>TrueSkill/OpenSkill/PadelRank disponibili</td></tr>
+          <tr><td>Business viability</td><td><span class="pill danger">🔴 Severe</span></td><td>Mercato consumer padel = free-first, no proof of paid conversion</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- STAGE 1 -->
+  <section id="stage1">
+    <h2 class="sec"><span class="num">01</span>Strategic framing</h2>
+    <p class="sec-sub">Anchor della validation.</p>
+
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><th>Customer primario</th><td>Capitano/co-organizzatore di gruppo padel amatoriale (25-50 anni) in città italiane medie (Trieste, Milano, Bologna, Torino, Padova)</td></tr>
+          <tr><th>Pain core</th><td>Coordinare partite tra coppie con livelli sbilanciati è chaos su WhatsApp. Manca un sistema "ufficiale" che dia senso competitivo alle sfide</td></tr>
+          <tr><th>Outcome 12 mesi</th><td>50-100 gruppi attivi che usano il sistema sfide settimanale</td></tr>
+          <tr><th>North Star metric</th><td>Sfide accettate-e-giocate per utente attivo/mese (target: ≥2)</td></tr>
+          <tr><th>Constraint operativi</th><td>Single founder, lifestyle pace (5-10h/sett), no budget marketing iniziale</td></tr>
+          <tr><th>Critical hypothesis</th><td>"Le persone vogliono ufficializzare sfide tra coppie ad-hoc con un ELO ranking, invece di organizzare informalmente via WhatsApp"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- STAGE 2 -->
+  <section id="stage2">
+    <h2 class="sec"><span class="num">02</span>Market & competitive landscape</h2>
+    <p class="sec-sub">Dati cumulati con la previous research Deucy generale, aggiornati al sub-segmento "challenge/ranking".</p>
+
+    <h3>Numeri chiave</h3>
+    <ul>
+      <li>35M+ giocatori padel amateur globali (FIP estimate 2025)</li>
+      <li>Italia = 2° paese mondo per club (3.795) e campi (10.220)</li>
+      <li>Mercato globale 2026: $273M → $661M nel 2035 (+10.3% CAGR)</li>
+      <li>EU = 55% del mercato globale</li>
+    </ul>
+
+    <h3>Sub-landscape: ranking/challenge systems per padel</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Player</th><th>Cosa fa</th><th>Overlap</th><th>Threat level</th></tr></thead>
+        <tbody>
+          <tr><td><strong>PadelRank.dev</strong></td><td>API rating algorithm con TrueSkill per padel (85% prediction accuracy). Indirizza app esterne</td><td>HIGH — è esattamente il rating layer</td><td><span class="pill warn">🟡 Medium</span> — è API, non end-user product. Possibile partner o build over</td></tr>
+          <tr><td><strong>SliceWin</strong></td><td>Elo-based ranking padel/tennis/pickleball/table-tennis</td><td>HIGH</td><td><span class="pill warn">🟡 Medium</span> — esistono ma small audience</td></tr>
+          <tr><td><strong>World Padel Rating</strong></td><td>Amateur padel rating platform indipendente</td><td>HIGH</td><td><span class="pill warn">🟡 Medium</span> — embrionale, no challenge feature</td></tr>
+          <tr><td><strong>DUPR (pickleball)</strong></td><td>1M+ rated player, Digital Clubs + Sessions, integrazioni</td><td>Adjacent</td><td><span class="pill info">📘 Reference model</span></td></tr>
+          <tr><td><strong>UTR (tennis)</strong></td><td>800K+ player con UTR, 8M+ match</td><td>Adjacent</td><td><span class="pill info">📘 Reference model</span></td></tr>
+          <tr><td><strong>Playtomic</strong></td><td>Booking + match-finding (no challenge formale)</td><td>Low</td><td><span class="pill go">🟢 Bassa</span> — loro non vogliono il social/competitive</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><strong>White space concreto</strong>: nessun prodotto end-user padel-specific combina (1) ELO individuale dinamico + (2) challenge system formale tra coppie + (3) UX consumer-friendly. PadelRank ha il pezzo 1 ma è API; nessuno mette insieme i 3.</p>
+  </section>
+
+  <!-- STAGE 3 -->
+  <section id="stage3">
+    <h2 class="sec"><span class="num">03</span>Problem & customer discovery</h2>
+    <p class="sec-sub">Behavior actual estratto da community pubbliche. JTBD framework + voci letterali.</p>
+
+    <h3>JTBD framework</h3>
+    <p><strong>Persona core</strong>: il capitano del gruppo padel</p>
+    <ul>
+      <li><strong>Job statement</strong>: "Quando voglio organizzare una sfida padel tra il mio gruppo, io voglio un modo per ufficializzare il match e tracciare chi vince/perde nel tempo, così che ci sia un livello di competizione vera e non solo 'partita amichevole'"</li>
+      <li><strong>Workaround attuale</strong>: gruppo WhatsApp con 20-200 member, spreadsheet personali, memoria orale</li>
+      <li><strong>Compensating behavior</strong>: alcuni tengono Excel personali; altri usano apps non-padel (Rankat); altri rinunciano</li>
+    </ul>
+
+    <h3>Voci letterali dalla community (selezione)</h3>
+    <div class="quote">"WhatsApp groups have become unmanageable in some cases, with groups sometimes comprising more than 200 members in the amateur padel world."<cite>— Padel Magazine</cite></div>
+    <div class="quote">"Off-topic messages, loss of important information, the inability to easily find an invitation posted a few hours earlier, confusion between pseudonyms used on WhatsApp and official player names."<cite>— Padel Magazine</cite></div>
+    <div class="quote">"Players want to know how they're performing, who they'll play next, what they need to qualify."<cite>— MATCHi</cite></div>
+    <div class="quote">"Manual scheduling is complex for larger groups, and for 8+ players, automatic scheduling tools are strongly recommended."<cite>— PadelMix blog</cite></div>
+
+    <h3>Pattern di organizzazione (behavior actual)</h3>
+    <ul>
+      <li><strong>WhatsApp è il default ovunque</strong> (Italia, Spagna, UAE, UK): confermato in 6 fonti diverse</li>
+      <li><strong>Coppia stabile è MIX</strong>: alcuni hanno partner fisso ("storico"), alcuni ruotano ("comodità"). La ricerca non trova un pattern dominante chiaro — varia per gruppo, città, età. <strong>Indica che il modello "ad-hoc" potrebbe essere quello vincente proprio perché abbraccia entrambi i sub-pattern</strong>.</li>
+      <li><strong>Voglia competitiva esiste ma è sub-dichiarata</strong>: i player parlano di "performance", "rivalry", "want to know who's better" ma raramente di "ranking sistema strutturato"</li>
+    </ul>
+
+    <h3>Opportunity space (top 5)</h3>
+    <ol>
+      <li>🔴 Eliminare il chaos organizzativo dei gruppi WhatsApp (frequenza altissima)</li>
+      <li>🔴 Avere un ranking persistente che dia senso competitivo cross-tournament (frequenza alta)</li>
+      <li>🟠 Trovare partner del livello giusto per match equilibrati (frequenza media)</li>
+      <li>🟠 Mostrare progressi nel tempo come "fitness journey" (Strava-style) (frequenza media)</li>
+      <li>🟡 Sfidare formalmente avversari specifici per "settle the score" (frequenza bassa-media — ma alta intensità per chi lo vuole)</li>
+    </ol>
+
+    <p><strong>Insight critico</strong>: la feature challenge formale è opportunità #5 in frequenza ma probabilmente #1 in intensità per il subset di player competitivi. È un <em>niche-deep</em> opportunity, non broad.</p>
+  </section>
+
+  <!-- STAGE 4 -->
+  <section id="stage4">
+    <h2 class="sec"><span class="num">04</span>Solution hypothesis</h2>
+    <p class="sec-sub">Opportunity Solution Tree (Torres method). Da opportunità → 3 solution candidate.</p>
+
+    <h3>Tree (simplified)</h3>
+    <pre style="background: var(--surface); padding: 16px; border-radius: var(--rad-md); border: 1px solid var(--border); font-size: 13px; overflow-x: auto; line-height: 1.6;">
+OUTCOME: 50-100 gruppi padel attivi che si sfidano regolarmente
+
+    ├─ OPPORTUNITY: eliminare chaos WhatsApp
+    │   ├─ Sol A: "scheduling app" generica (non-differente)
+    │   ├─ Sol B: "challenge system" con scheduling integrato ⭐
+    │   └─ Sol C: "club management" per piccoli club
+    │
+    ├─ OPPORTUNITY: ranking persistente competitivo
+    │   ├─ Sol B (riusabile): challenge → ELO update
+    │   ├─ Sol D: tournament-based ranking (DUPR style)
+    │   └─ Sol E: pair ELO statico
+    │
+    └─ OPPORTUNITY: trovare partner di livello giusto
+        ├─ Sol B (riusabile): suggerisce partner via ELO compatibility
+        ├─ Sol F: matchmaking app (Tinder for padel)
+        └─ Sol G: "open challenge" pool — chi accetta gioca
+    </pre>
+
+    <h3>Top 3 candidate ranked</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Solution</th><th>Impact</th><th>Build effort</th><th>Time-to-value</th><th>Differentiation</th><th>Total</th></tr></thead>
+        <tbody>
+          <tr style="background:#f0fdf4"><td><strong>B. Challenge system + integrated ELO + scheduling</strong></td><td>5</td><td>3</td><td>4</td><td>5 (white space)</td><td><strong>17/20 ⭐</strong></td></tr>
+          <tr><td>D. Tournament-based ranking (DUPR-style)</td><td>4</td><td>2 (esistente in Deucy)</td><td>4</td><td>3 (DUPR/UTR esistono)</td><td>13/20</td></tr>
+          <tr><td>G. Open challenge pool (Lichess-style)</td><td>4</td><td>3</td><td>3</td><td>4</td><td>14/20</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><strong>Winner</strong>: Solution B — challenge system tra coppie con ELO update automatico e scheduling integrato. È la combinazione che nessun competitor padel offre oggi.</p>
+  </section>
+
+  <!-- STAGE 5 -->
+  <section id="stage5">
+    <h2 class="sec"><span class="num">05</span>Risk assessment (Cagan's 4 risks)</h2>
+    <p class="sec-sub">Per Solution B. Ogni risk valutato esplicitamente.</p>
+
+    <div class="risk-card yellow">
+      <div class="title">1. Value Risk — lo useranno?</div>
+      <span class="verdict">🟡 Moderate</span>
+      <p style="margin-top:10px;margin-bottom:6px"><strong>Evidence supportiva</strong>:</p>
+      <ul>
+        <li>Pain WhatsApp chaos confermato da 6+ fonti</li>
+        <li>DUPR ha 1M+ rated player → dimostra appetito per ranking</li>
+        <li>USTA Flex League funziona ("Players group in flight, schedule themselves") → modello validato in tennis amateur USA</li>
+      </ul>
+      <p style="margin-bottom:6px"><strong>Evidence contraria</strong>:</p>
+      <ul>
+        <li>Padel community EU è "casual-first", la voglia di competizione formale è sub-dichiarata</li>
+        <li>Nessuno chiede esplicitamente "challenge system tra coppie" sui forum padel</li>
+      </ul>
+      <p style="margin:0"><strong>Mitigation</strong>: validazione qualitativa diretta (Wizard-of-Oz su gruppo Trieste, 4 settimane). Costo basso, evidence brutale.</p>
+    </div>
+
+    <div class="risk-card green">
+      <div class="title">2. Usability Risk — capiranno come usarlo?</div>
+      <span class="verdict">🟢 Manageable</span>
+      <p style="margin-top:10px;margin-bottom:6px">Pattern UX consolidati esistono:</p>
+      <ul>
+        <li>Lichess challenge system: 1-tap accept/reject (chess players l'hanno adottato in massa)</li>
+        <li>DUPR Sessions UX: round-robin auto-generate, score submission</li>
+        <li>USTA Flex App: in-app chat per scheduling</li>
+        <li>Tu hai design system + UX experience (Deucy ha già pattern usabili)</li>
+      </ul>
+      <p style="margin:0"><strong>Mitigation non necessaria</strong>: replica i pattern esistenti, no inventare.</p>
+    </div>
+
+    <div class="risk-card green">
+      <div class="title">3. Feasibility Risk — si può costruire?</div>
+      <span class="verdict">🟢 Manageable</span>
+      <p style="margin-top:10px;margin-bottom:6px">Tutto è risolto a livello tech:</p>
+      <ul>
+        <li><strong>TrueSkill</strong> (Microsoft): specificamente progettato per team-based games — padel doubles è il caso d'uso</li>
+        <li><strong>OpenSkill</strong>: open-source equivalente, faster, multi-team</li>
+        <li><strong>PadelRank.dev API</strong>: claim 85% prediction accuracy specifically per padel doubles</li>
+        <li><strong>Stack</strong>: già provato con Deucy (React + TypeScript + Supabase)</li>
+        <li><strong>Single founder feasibility</strong>: validato da DUPR-style apps costruite con team 1-3</li>
+      </ul>
+      <p style="margin:0"><strong>No major tech blockers</strong>.</p>
+    </div>
+
+    <div class="risk-card red">
+      <div class="title">4. Business Viability Risk — regge come business?</div>
+      <span class="verdict">🔴 Severe</span>
+      <p style="margin-top:10px;margin-bottom:6px"><strong>Problemi seri</strong>:</p>
+      <ul>
+        <li>Mercato consumer padel EU è dominato da FREE apps (Playtomic, PadelMix free tier, blah blah)</li>
+        <li>DUPR è gratuito per i player base (monetizza B2B via clubs)</li>
+        <li>Nessuna evidenza concreta di willingness-to-pay individual padel EU ≥€3/mese</li>
+        <li>Lifestyle single founder = no budget marketing → growth lento → unit economics late</li>
+      </ul>
+      <p style="margin-bottom:6px"><strong>Possibili paths</strong>:</p>
+      <ul>
+        <li>Pivot a B2B: vendi a piccoli club come "internal league tool" — ma compete con Book&Go/FenixPlay</li>
+        <li>Freemium con Pro tier "advanced challenge" — ma conversion rate sconosciuto, probabilmente <2%</li>
+        <li>Sponsor model — partnership con brand padel (Adidas, HEAD) — richiede scale prima</li>
+      </ul>
+      <p style="margin:0"><strong>Mitigation necessaria</strong>: validare WTP via interviste 1:1 (10+) PRIMA di committarsi al build. Se WTP non c'è, accettare che è progetto "passion" senza monetization, oppure pivot a B2B.</p>
+    </div>
+  </section>
+
+  <!-- ASSUMPTION MATRIX -->
+  <section id="assumptions">
+    <h2 class="sec"><span class="num">06</span>Assumption matrix</h2>
+    <p class="sec-sub">Tutte le assunzioni implicite del modello, esplicitate e valutate. Le 🔴 con confidence &lt;80% sono BLOCKER del verdict GO.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Statement</th><th>Stage</th><th>Critico</th><th>Evidence</th><th>Confidence</th><th>Come validare</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>"Giocatori padel vogliono ufficializzare sfide tra coppie ad-hoc"</td><td>3</td><td>🔴 alto</td><td>⚠️ ambigua — pain confermato MA challenge specifica non emerge dai forum</td><td><strong>medium (60%)</strong></td><td>Wizard-of-Oz su gruppo Trieste 4 settimane</td></tr>
+          <tr><td>2</td><td>"Il pattern 'coppia ad-hoc' è altrettanto/più diffuso della 'coppia stabile'"</td><td>3</td><td>🔴 alto</td><td>⚠️ ambigua — research non conclude</td><td><strong>medium (55%)</strong></td><td>Survey n=100+ giocatori IT padel</td></tr>
+          <tr><td>3</td><td>"Ranking dinamico ELO crea engagement loop come in DUPR"</td><td>3</td><td>🟠 medio</td><td>✅ supportata — DUPR 1M+ player</td><td>high (85%)</td><td>OK desk-only</td></tr>
+          <tr><td>4</td><td>"TrueSkill/OpenSkill funzionano per padel doubles"</td><td>5 (Feasibility)</td><td>🟠 medio</td><td>✅ supportata — PadelRank claims 85% accuracy</td><td>high (90%)</td><td>OK + simulation prima del build</td></tr>
+          <tr><td>5</td><td>"Single founder può gestire consumer app a 1K MAU"</td><td>5 (Feasibility)</td><td>🟠 medio</td><td>✅ supportata — case study indie SaaS</td><td>high (80%)</td><td>OK desk-only</td></tr>
+          <tr><td>6</td><td><strong>"Mercato padel EU pagherà €3-5/mo per Pro tier"</strong></td><td>5 (Business)</td><td>🔴 alto</td><td>❌ <strong>contraddetta</strong> — community padel = free-first, DUPR free per player</td><td><strong>low (30%)</strong></td><td>Interviste 1:1 willingness-to-pay (10-15 organizzatori)</td></tr>
+          <tr><td>7</td><td>"Notifiche push arrivano e vengono lette in tempo"</td><td>5 (Value)</td><td>🟠 medio</td><td>⚠️ dipende OS/device</td><td>medium (65%)</td><td>A/B test in MVP</td></tr>
+          <tr><td>8</td><td>"4 player coinvolti in una sfida hanno tutti l'app"</td><td>5 (Value)</td><td>🔴 alto</td><td>⚠️ network effect problem — chicken-egg</td><td><strong>medium (50%)</strong></td><td>MVP pilot su gruppo già motivato (Trieste)</td></tr>
+          <tr><td>9</td><td>"Si trova data/luogo che combina per 4 persone &lt;1 settimana"</td><td>5 (Usability)</td><td>🟠 medio</td><td>⚠️ — WhatsApp scheduling è già lento</td><td>medium (60%)</td><td>Osservare nel Wizard-of-Oz</td></tr>
+          <tr><td>10</td><td>"Risultati sottomessi sono onesti / system di dispute regge"</td><td>5 (Usability)</td><td>🟡 basso</td><td>✅ — pattern esistente in DUPR/USTA, raro fraud</td><td>high (85%)</td><td>OK desk-only</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>BLOCKER per il GO</h3>
+    <p>3 assunzioni sono ROSSE con confidence &lt;80%:</p>
+    <ol>
+      <li>#1 "Vogliono ufficializzare sfide" — needs Wizard-of-Oz</li>
+      <li>#2 "Coppie ad-hoc dominante" — needs survey</li>
+      <li>#6 "Pagheranno €3-5/mo" — needs interviste WTP</li>
+      <li>#8 "Tutti hanno l'app" — needs MVP pilot reale</li>
+    </ol>
+    <p>Non si può emettere verdict GO finché queste 4 non passano confidence ≥80%. Mid-priority: #7 e #9.</p>
+  </section>
+
+  <!-- STAGE 6 -->
+  <section id="stage6">
+    <h2 class="sec"><span class="num">07</span>Decision & validation roadmap</h2>
+    <p class="sec-sub">Verdict finale + cosa serve per chiudere il loop.</p>
+
+    <h3>Verdict: PIVOT CAUTIOUS</h3>
+    <p>L'idea ha base solida ma 4 assunzioni 🔴 con confidence insufficiente. Procedere al build full = scommessa cieca su 4 unknown critiche.</p>
+
+    <p><strong>Raccomandazione</strong>:</p>
+    <ol>
+      <li><strong>RIDUCI scope</strong>: focus su challenge system come killer feature, non platform completa. Niente leghe, niente tornei multi-format al lancio.</li>
+      <li><strong>RIDUCI ambizione monetization</strong>: parti free-forever, monetization come fase 2 SOLO se trazione organica si dimostra</li>
+      <li><strong>VALIDA prima di buildare</strong>: 6-8 settimane di pre-build validation come da piano qui sotto</li>
+    </ol>
+
+    <h3>Validation roadmap (6-8 settimane PRIMA del build)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Settimana</th><th>Cosa</th><th>Assumption testate</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Setup Wizard-of-Oz: gruppo WhatsApp Trieste 15-20 player, regole + tracking sheet</td><td>—</td></tr>
+          <tr><td>2-5</td><td>Esecuzione WoZ: tu gestisci manualmente sfide + ELO + ranking. Osservi participation, drop-off, conflitti</td><td>#1, #2, #7, #8, #9</td></tr>
+          <tr><td>3-4 (parallel)</td><td>Survey n=100+ via FB groups padel IT: pattern coppie + voglia challenge + WTP</td><td>#2, #6</td></tr>
+          <tr><td>5-6 (parallel)</td><td>Interviste 1:1 con 10-15 organizzatori amatoriali: dolori reali + willingness-to-pay specifico</td><td>#6</td></tr>
+          <tr><td>7-8</td><td>Sintesi finale + decision rivisitato: GO/NO-GO/ulteriore PIVOT</td><td>Tutte</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Decision gates futuri</h3>
+    <div class="next-step">
+      <strong>GATE post-validation (settimana 8)</strong>:<br>
+      • Se WoZ ha &gt;60% participation continua + ≥30% disposti a pagare → <strong>GO con MVP minimal</strong> (challenge system core, 4-6 sett build)<br>
+      • Se WoZ &gt;60% participation MA WTP=0 → <strong>GO ma free-forever</strong> (passion project, no monetization)<br>
+      • Se WoZ &lt;30% participation → <strong>NO-GO</strong>, l'idea non regge
+    </div>
+
+    <h3>Cosa NON fare</h3>
+    <ul>
+      <li>❌ NON partire a buildare ora (4 BLOCKER non risolti)</li>
+      <li>❌ NON tentare di replicare Playtomic/Book&Go (saturi)</li>
+      <li>❌ NON spingere ambizioni di scale Y1 (single founder lifestyle = no)</li>
+    </ul>
+  </section>
+
+  <!-- SOURCES -->
+  <section id="sources">
+    <h2 class="sec"><span class="num">08</span>Sources principali</h2>
+    <p class="sec-sub">Fonti citate. Plus le 60+ già in <code>deucy-market-research-2026-05.docx</code> per il contesto generale.</p>
+
+    <ul style="font-size: 14px; line-height: 1.7;">
+      <li><a href="https://lichess.org/page/rating-systems" target="_blank">Lichess chess rating systems (Glicko-2)</a></li>
+      <li><a href="https://lichess.org/faq" target="_blank">Lichess FAQ — challenge system</a></li>
+      <li><a href="https://www.usta.com/en/home/play/usta-apps/usta-flex-tennis.html" target="_blank">USTA Flex tennis app</a></li>
+      <li><a href="https://customercare.usta.com/hc/en-us/articles/39736129466772-USTA-Flex-League-Match-Guidelines-Explained" target="_blank">USTA Flex League match guidelines</a></li>
+      <li><a href="https://www.usta.com/en/home/play/adult-tennis/programs/eastern/flex-leagues.html" target="_blank">Flex League programming USTA Eastern</a></li>
+      <li><a href="https://www.dupr.com/" target="_blank">DUPR — Dynamic Universal Pickleball Rating</a></li>
+      <li><a href="https://www.dupr.com/how-it-works" target="_blank">DUPR — how it works (Digital Clubs, Sessions)</a></li>
+      <li><a href="https://www.utrsports.net/" target="_blank">UTR Sports — tennis universal rating</a></li>
+      <li><a href="https://padelrank.dev/" target="_blank">PadelRank.dev — TrueSkill API for padel</a></li>
+      <li><a href="https://slicewin.com/elo-system" target="_blank">SliceWin Elo Ranking System (padel/tennis/pickleball)</a></li>
+      <li><a href="https://pypi.org/project/openskill/4.0.0/" target="_blank">OpenSkill PyPI</a></li>
+      <li><a href="https://arxiv.org/pdf/2401.05451" target="_blank">OpenSkill paper (2024) — asymmetric multi-team rating</a></li>
+      <li><a href="https://arxiv.org/pdf/2109.15046" target="_blank">Elo-type rating for variable strength teams (arXiv 2021)</a></li>
+      <li><a href="https://padel-magazine.co.uk/une-solution-pour-mettre-fin-au-chaos-des-groupes-whatsapp-dans-lorganisation-du-padel/" target="_blank">Padel Magazine — fine al chaos WhatsApp</a></li>
+      <li><a href="https://kb.score7.io/blog/guides/how-to-organize-a-padel-tournament/" target="_blank">Score7 — how to organize padel tournament</a></li>
+      <li><a href="https://padeltennisrackets.com/blog/how-to-organise-a-padel-match" target="_blank">Padel Tennis Rackets — organize match guide</a></li>
+      <li><a href="https://playerhelp.playtomic.com/hc/en-gb/articles/19831492584721-Official-WhatsApp-groups-to-organize-Padel-matches-in-Dubai" target="_blank">Playtomic — official WhatsApp groups padel Dubai</a></li>
+      <li><a href="https://playtomic.com/clubs/polisportiva-opicina" target="_blank">Polisportiva Opicina — primo padel club Trieste</a></li>
+      <li><a href="https://www.facebook.com/PadelEventsFvgTrieste/" target="_blank">PADEL events FVG Trieste Facebook</a></li>
+      <li><a href="https://productschool.com/blog/product-fundamentals/what-is-product-discovery" target="_blank">Product School — product discovery</a></li>
+      <li><a href="https://thoughtbot.com/discovery-sprint" target="_blank">ThoughtBot — discovery sprint</a></li>
+      <li><a href="https://www.gv.com/sprint/" target="_blank">GV Design Sprint</a></li>
+      <li><a href="https://www.producttalk.org/2021/05/continuous-discovery-habits/" target="_blank">Teresa Torres — Continuous Discovery Habits</a></li>
+    </ul>
+  </section>
+
+  <footer class="foot">
+    Prodotto da Claude — skill <code>digital-product-discovery</code> · 6-stage framework (IDEO + Cagan + Torres + JTBD + Lean)<br>
+    Generato il 19 maggio 2026 · Per il contesto Deucy completo vedi anche <code>deucy-research</code> sul drive
+  </footer>
+
+</div>
+</body>
+</html>

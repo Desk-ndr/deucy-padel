@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deucy — Market Research & Strategic Discovery (May 2026)</title>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-muted: #6b6b6b;
+    --text-faint: #9a9a9a;
+    --border: #e8e6df;
+    --border-strong: #d0cdc4;
+    --accent: #d97706;
+    --primary: #15803d;
+    --danger: #b91c1c;
+    --warn: #b45309;
+    --info: #1e6db8;
+    --rad-sm: 6px;
+    --rad-md: 10px;
+    --rad-lg: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+  .container {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+  @media (max-width: 640px) { .container { padding: 28px 18px 64px; } }
+
+  /* HERO */
+  header.hero {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 36px;
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: 44px;
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 20px;
+  }
+  @media (max-width: 640px) { h1 { font-size: 32px; } }
+  .hero .lead {
+    font-size: 19px;
+    color: var(--text);
+    margin: 0 0 24px;
+    max-width: 70ch;
+  }
+  .hero .meta {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .tesi {
+    margin-top: 28px;
+    padding: 18px 22px;
+    background: #fff8e8;
+    border: 1px solid #f0d894;
+    border-left: 4px solid var(--accent);
+    border-radius: var(--rad-md);
+    font-size: 16px;
+  }
+  .tesi strong { color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 6px; }
+
+  /* TOC */
+  nav.toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--rad-md);
+    padding: 18px 22px;
+    margin-bottom: 56px;
+  }
+  nav.toc h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-muted); font-weight: 700; margin: 0 0 12px;
+  }
+  nav.toc ol {
+    list-style: decimal-leading-zero inside;
+    margin: 0; padding: 0;
+    columns: 2; column-gap: 32px;
+  }
+  @media (max-width: 640px) { nav.toc ol { columns: 1; } }
+  nav.toc li {
+    margin-bottom: 6px; padding-left: 4px;
+    color: var(--text-muted); font-size: 14px;
+  }
+  nav.toc a { color: var(--text); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  /* SECTIONS */
+  section { margin-bottom: 64px; scroll-margin-top: 24px; }
+  h2.sec {
+    font-size: 28px; font-weight: 800; letter-spacing: -0.01em;
+    margin: 0 0 6px; color: var(--text);
+  }
+  h2.sec .num {
+    color: var(--text-faint); font-weight: 600; font-size: 18px;
+    display: inline-block; margin-right: 12px; vertical-align: middle;
+  }
+  .sec-sub { color: var(--text-muted); margin: 0 0 28px; font-size: 15px; }
+  h3 { font-size: 19px; font-weight: 700; margin: 32px 0 14px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+
+  /* METRIC CARDS */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin: 24px 0;
+  }
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--rad-md);
+    padding: 18px 20px;
+  }
+  .metric .num {
+    font-size: 28px; font-weight: 800; color: var(--primary);
+    letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 4px;
+  }
+  .metric .label { font-size: 12px; color: var(--text-muted); line-height: 1.3; }
+
+  /* QUOTES */
+  .quote {
+    background: var(--surface);
+    border-left: 3px solid var(--text-faint);
+    padding: 14px 18px;
+    margin: 12px 0;
+    font-style: italic;
+    color: var(--text-muted);
+    border-radius: 0 var(--rad-sm) var(--rad-sm) 0;
+  }
+  .quote cite { display: block; font-style: normal; font-size: 12px; color: var(--text-faint); margin-top: 6px; }
+
+  /* PAIN POINTS */
+  .pains { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .pain {
+    border-radius: var(--rad-md);
+    padding: 14px 18px;
+    border: 1px solid;
+  }
+  .pain.high { background: #fef2f2; border-color: #fca5a5; color: #7f1d1d; }
+  .pain.mid  { background: #fff7ed; border-color: #fdba74; color: #7c2d12; }
+  .pain.low  { background: #fefce8; border-color: #fde68a; color: #713f12; }
+  .pain .tag { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; }
+  .pain .label { font-weight: 600; margin-top: 4px; }
+
+  /* TABLES */
+  .table-wrap { overflow-x: auto; margin: 16px 0 24px; border: 1px solid var(--border); border-radius: var(--rad-md); }
+  table {
+    width: 100%; border-collapse: collapse; font-size: 14px;
+    background: var(--surface);
+  }
+  th, td { padding: 10px 14px; text-align: left; vertical-align: top; }
+  th {
+    background: #f4f2ec; font-weight: 700; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-strong);
+  }
+  td { border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr.highlight td { background: #fff7ed; }
+
+  /* PERSONAS */
+  .personas { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .persona {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--rad-md);
+    padding: 18px 20px;
+  }
+  .persona .name { font-weight: 700; font-size: 15px; margin-bottom: 4px; color: #5b21b6; }
+  .persona .desc { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+  .persona ul { padding-left: 18px; margin: 0; font-size: 13px; }
+  .persona li { margin-bottom: 4px; }
+  .persona .price {
+    font-size: 11px; color: var(--primary); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border);
+  }
+
+  /* OPPORTUNITY CARDS */
+  .opps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .opp {
+    border-radius: var(--rad-md);
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .opp.winner { background: #f0fdf4; border-color: #86efac; }
+  .opp.loser  { background: #fef2f2; border-color: #fca5a5; opacity: 0.85; }
+  .opp .star { position: absolute; top: 14px; right: 16px; font-size: 14px; }
+  .opp .title { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+  .opp .scores { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.5; }
+  .opp .total {
+    font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
+    color: var(--primary);
+  }
+  .opp.loser .total { color: var(--danger); }
+
+  /* TIMELINE */
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .ms {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--rad-md);
+    padding: 14px 16px;
+    font-size: 13px;
+  }
+  .ms .when { font-weight: 800; color: var(--primary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+
+  /* GAPS */
+  .gaps { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .gap {
+    background: #eff8ff;
+    border: 1px solid #bedbf7;
+    border-radius: var(--rad-md);
+    padding: 14px 18px;
+    font-size: 14px;
+  }
+  .gap .q { font-weight: 700; color: var(--info); margin-bottom: 4px; }
+  .gap .how { font-size: 13px; color: var(--text-muted); }
+
+  .next-steps { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+  .next-step {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    border-left: 4px solid var(--primary);
+    border-radius: var(--rad-md);
+    padding: 14px 18px;
+    font-size: 14px;
+    color: #14532d;
+  }
+
+  /* FOOTER */
+  footer.foot {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-faint);
+    text-align: center;
+  }
+  footer.foot a { color: var(--text-muted); }
+
+  /* UTILITIES */
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: #f4f2ec;
+    color: var(--text-muted);
+  }
+  .pill.win { background: #dcfce7; color: #166534; }
+  .pill.warn { background: #fef3c7; color: #854d0e; }
+  .pill.danger { background: #fee2e2; color: #991b1b; }
+
+  details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--rad-md);
+    padding: 12px 16px;
+    margin-bottom: 8px;
+  }
+  details[open] { padding-bottom: 16px; }
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 4px 0;
+  }
+  summary:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="hero">
+    <div class="eyebrow">Market research · maggio 2026</div>
+    <h1>Deucy<br><span style="color: var(--accent)">Strategic discovery</span></h1>
+    <p class="lead">Tesi, dati, competitor, opportunità — sintesi della Phase 1 (desk research) per decidere dove e come spingere il prodotto nei prossimi 18 mesi.</p>
+    <div class="meta">Andrea + Claude · 7 pillar coperti · 60+ fonti</div>
+    <div class="tesi">
+      <strong>Tesi in una riga</strong>
+      Il padel amateur è enorme e cresce. Nessuno presidia il <em>"campionato perpetuo tra amici"</em>. Difendibile per 24-36 mesi se attaccato con focus.
+    </div>
+  </header>
+
+  <nav class="toc">
+    <h2>Indice</h2>
+    <ol>
+      <li><a href="#summary">Top 5 finding</a></li>
+      <li><a href="#market">Market sizing & trends</a></li>
+      <li><a href="#competitors">Competitor deep dive</a></li>
+      <li><a href="#voices">Voci dalla community</a></li>
+      <li><a href="#pains">Pain points (8)</a></li>
+      <li><a href="#personas">Personas (5)</a></li>
+      <li><a href="#adjacent">Adjacent markets</a></li>
+      <li><a href="#opps">Opportunity matrix</a></li>
+      <li><a href="#roadmap">Roadmap 18 mesi</a></li>
+      <li><a href="#gaps">Gaps & next steps</a></li>
+      <li><a href="#sources">Sources</a></li>
+    </ol>
+  </nav>
+
+  <!-- ─── TOP 5 FINDING ─── -->
+  <section id="summary">
+    <h2 class="sec"><span class="num">00</span>Top 5 finding</h2>
+    <p class="sec-sub">I 5 takeaway che spostano la conversazione strategica.</p>
+
+    <ol>
+      <li><strong>Mercato gigante e in crescita stabile</strong> — 35M+ giocatori amatoriali globali, Europa al 55%. Italia 2° paese al mondo per club (3.795) e campi (10.220). Mercato stimato €273M nel 2026, proiezione €661M nel 2035 (CAGR 10.3%).</li>
+      <li><strong>Capitale fluisce nel padel ma sull'infrastruttura, NON sulle app community</strong> — Epic Padel $10M, Pro Padel League $10M (Q4 2024). Le tournament-management app non hanno raccolto round significativi → opportunità sottocapitalizzata.</li>
+      <li><strong>Playtomic ha un buco gigante</strong> — versione post-acquisizione Kourts è bloated, friend-booking è "broken by design", rating algorithm contestato. Lascia spazio a un competitor friend-group focused.</li>
+      <li><strong>DUPR è il template di successo da studiare</strong> — partito come rating system pickleball, ora dominante con 1M+ rated player + Digital Clubs feature. Stesso playbook è APERTO nel padel.</li>
+      <li><strong>FIP Beyond appena lanciato (Dec 2024)</strong> — global tour amatoriale ufficiale FIP, segnale forte che l'amateur space è il prossimo battle. Ma è B2B/pro-am, non friend-group.</li>
+    </ol>
+
+    <h3>Verdetto strategico</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Opzione</th><th>Posizionamento</th><th>Trazione</th><th>Differenziazione</th></tr>
+        </thead>
+        <tbody>
+          <tr class="highlight">
+            <td><strong>A. Friend-pool perpetual league</strong> ⭐</td>
+            <td>"Strava + DUPR per gruppi padel di amici"</td>
+            <td><span class="pill win">Alta</span></td>
+            <td>Forte — concept persistent friend-pool è unico</td>
+          </tr>
+          <tr>
+            <td>B. White-label club tool</td>
+            <td>Piccoli club europei</td>
+            <td><span class="pill danger">Bassa</span></td>
+            <td>Debole — feature commodity</td>
+          </tr>
+          <tr>
+            <td>C. Padel Universal Rating</td>
+            <td>Rating system trasversale</td>
+            <td><span class="pill warn">Media</span></td>
+            <td>Media — World Padel Rating esiste</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Raccomandazione</strong>: Opzione A primaria + estensione a C come layer monetizzabile in fase 2.</p>
+  </section>
+
+  <!-- ─── MARKET ─── -->
+  <section id="market">
+    <h2 class="sec"><span class="num">01</span>Market sizing & trends</h2>
+    <p class="sec-sub">Il padel come categoria, in numeri verificabili.</p>
+
+    <div class="metrics">
+      <div class="metric"><div class="num">35M+</div><div class="label">giocatori padel amateur globali (FIP 2025)</div></div>
+      <div class="metric"><div class="num">10.220</div><div class="label">campi padel in Italia (2° paese al mondo)</div></div>
+      <div class="metric"><div class="num">3.795</div><div class="label">padel club in Italia</div></div>
+      <div class="metric"><div class="num">+38%</div><div class="label">crescita campi Italia 2023 (+1.200 nuovi campi)</div></div>
+      <div class="metric"><div class="num">€273M</div><div class="label">mercato globale 2026</div></div>
+      <div class="metric"><div class="num">€661M</div><div class="label">mercato globale proiezione 2035</div></div>
+      <div class="metric"><div class="num">10.3%</div><div class="label">CAGR globale 2026-2035</div></div>
+      <div class="metric"><div class="num">55%</div><div class="label">quota EU del mercato globale</div></div>
+    </div>
+
+    <h3>Trend macro 2026-2030</h3>
+    <ul>
+      <li><strong>Espansione geografica</strong>: padel sta saturando Spagna/Italia/Svezia, ora boom in Germania, UK, Francia, US (start-up phase)</li>
+      <li><strong>Professionalizzazione amateur</strong>: nascita FIP Beyond (Dec 2024), World Padel Rating, sistemi ELO amatoriali → mercato maturo per ranking ATP-style amatoriale</li>
+      <li><strong>Senior padel (40+)</strong>: FIP Beyond ha categorie dedicate +40 a +60 con prize money — segmento ad alto valore (paying capacity, time, frequenza)</li>
+      <li><strong>Pickleball USA come early warning</strong>: 24M+ giocatori USA 2025 (era 5M nel 2020). Padel sta seguendo la stessa curva con 5-7 anni di delay → opportunità simile in finestra 2026-2032</li>
+    </ul>
+
+    <h3>Implicazioni per Deucy</h3>
+    <ul>
+      <li><strong>TAM realistico</strong> (giocatori amatoriali che organizzano tornei tra amici, EU): stimato 2-3M player in pool attivi (~6-8% del totale amatoriale)</li>
+      <li><strong>SAM</strong> (Italia + Spagna che organizzano gruppi ricorrenti): ~500K-1M</li>
+      <li><strong>SOM</strong> (Y1-3 con execution focused): 3.000-15.000 player attivi mensili = 300-1.500 pool</li>
+    </ul>
+  </section>
+
+  <!-- ─── COMPETITORS ─── -->
+  <section id="competitors">
+    <h2 class="sec"><span class="num">02</span>Competitor deep dive</h2>
+    <p class="sec-sub">7 competitor analizzati: posizionamento, target, sovrapposizione con Deucy, punto debole rilevato.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Competitor</th><th>Target</th><th>Overlap Deucy</th><th>Weak point</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Playtomic</strong><br><span style="font-size:11px;color:var(--text-faint)">2M+ utenti, 16K campi, Series C €70M+</span></td>
+            <td>Booking + match-finding B2C globale</td>
+            <td><span class="pill">Bassa</span></td>
+            <td>Bloated post-Kourts. Friend booking spezzato. Rating algoritmo contestato.</td>
+          </tr>
+          <tr>
+            <td><strong>FenixPlay</strong><br><span style="font-size:11px;color:var(--text-faint)">B2B clubs in 30 paesi</span></td>
+            <td>Tournament management B2B</td>
+            <td><span class="pill warn">Media</span></td>
+            <td>Club-centric, NO friend-pool persistent concept.</td>
+          </tr>
+          <tr class="highlight">
+            <td><strong>⚠️ PadelMix</strong><br><span style="font-size:11px;color:var(--text-faint)">~10K download Google Play</span></td>
+            <td>Tournament generator B2C friend groups</td>
+            <td><span class="pill danger">ALTA — diretto</span></td>
+            <td>NO ranking persistente · NO RSVP · NO Save the Date · algoritmo Mexicano buggy.</td>
+          </tr>
+          <tr>
+            <td><strong>PadelFast</strong><br><span style="font-size:11px;color:var(--text-faint)">Desktop tool semi-pro</span></td>
+            <td>Organizzatori semi-pro</td>
+            <td><span class="pill">Bassa</span></td>
+            <td>Desktop-first, no realtime mobile.</td>
+          </tr>
+          <tr>
+            <td><strong>Padelboard (MATCHi)</strong></td>
+            <td>Enterprise B2B</td>
+            <td><span class="pill">Bassa</span></td>
+            <td>Enterprise, no consumer brand.</td>
+          </tr>
+          <tr>
+            <td><strong>Book & Go</strong><br><span style="font-size:11px;color:var(--text-faint)">30+ club in 10+ paesi</span></td>
+            <td>White-label app per club</td>
+            <td><span class="pill warn">Media (B2B)</span></td>
+            <td>Forte ops club, debole community/friend-pool.</td>
+          </tr>
+          <tr>
+            <td><strong>PadelOS / TPC / Anolla / 360Player</strong></td>
+            <td>Club operations enterprise</td>
+            <td><span class="pill">Bassa</span></td>
+            <td>Enterprise, ops-heavy, no friend-group focus.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Lo strategic angle</h3>
+    <p><strong>Playtomic = booking transactional</strong>. Vuole essere così, non vuole pivotare verso il social. Lascia un'opportunità chiara nel community/persistent.</p>
+    <p><strong>PadelMix = chiusura del singolo torneo</strong>. Tu sei l'OVER-tournament: pool persistente, ranking decay, rivalry, history, RSVP. Sei un livello sopra.</p>
+    <p><strong>Book & Go / Club OS = B2B consolidato</strong>. Skip — non vale entrare lì.</p>
+  </section>
+
+  <!-- ─── USER VOICES ─── -->
+  <section id="voices">
+    <h2 class="sec"><span class="num">03</span>Voci dalla community</h2>
+    <p class="sec-sub">Quote letterali estratte da blog, Reddit, App Store reviews. Sintesi dei pain ricorrenti.</p>
+
+    <div class="quote">"Manual scheduling is complex for larger groups, and for 8+ players, automatic scheduling tools are strongly recommended."<cite>— PadelMix blog</cite></div>
+    <div class="quote">"Time management is one of the most common challenges when organizing padel tournaments, with delays, long waiting times, and unclear schedules frustrating participants."<cite>— Sportmadness</cite></div>
+    <div class="quote">"Managing a padel tournament manually using spreadsheets, paper notes, or chat groups often leads to mistakes, including wrong pairings, missed matches, and incorrect rankings."<cite>— PadelFast blog</cite></div>
+    <div class="quote">"While the Americano format is fun for players, it is notoriously stressful for organizers."<cite>— SliceWin blog</cite></div>
+    <div class="quote">"The multiplication of groups and countless messages create problems, with players getting lost at times."<cite>— Padel Magazine</cite></div>
+    <div class="quote">"Players want to know how they're performing, who they'll play next, and what they need to qualify, with live updates significantly increasing engagement."<cite>— MATCHi insights</cite></div>
+
+    <h3>Cosa rivela questa voce</h3>
+    <p>Tre cluster di dolore reali:</p>
+    <ol>
+      <li><strong>Operational chaos</strong>: scheduling manuale + comunicazione frammentata = problema #1 che le persone cercano di risolvere</li>
+      <li><strong>Missing engagement loop</strong>: mancanza di live standings / ranking persistente / history rende il padel amatoriale "tante partite scollegate" invece di "un campionato"</li>
+      <li><strong>Trust gap nei risultati</strong>: senza fonte unica, le dispute creano frizione sociale</li>
+    </ol>
+    <p><strong>Insight strategico</strong>: il dolore principale è OPERATIVO (cluster 1), ma il valore differenziante è nel cluster 2 (engagement). Risolvere solo #1 = commodity (PadelMix). Risolvere #1 + #2 = piattaforma persistente con stickiness.</p>
+  </section>
+
+  <!-- ─── PAIN POINTS ─── -->
+  <section id="pains">
+    <h2 class="sec"><span class="num">04</span>Pain points</h2>
+    <p class="sec-sub">8 pain ranked per frequenza di menzione, color-coded per severità.</p>
+
+    <div class="pains">
+      <div class="pain high"><div class="tag">🔴 Alto · #1</div><div class="label">Manual scheduling per 8+ player è un INCUBO</div></div>
+      <div class="pain high"><div class="tag">🔴 Alto · #2</div><div class="label">WhatsApp + Excel = errori reali (wrong pairings, missed matches)</div></div>
+      <div class="pain high"><div class="tag">🔴 Alto · #3</div><div class="label">Real-life disruptions (ritardi, breaks) rompono i bracket rigidi</div></div>
+      <div class="pain mid"><div class="tag">🟠 Medio-Alto · #4</div><div class="label">Coordinamento "chi viene?" frammentato su WhatsApp</div></div>
+      <div class="pain mid"><div class="tag">🟠 Medio-Alto · #5</div><div class="label">Mancanza di live scores/standings = engagement basso</div></div>
+      <div class="pain low"><div class="tag">🟡 Medio · #6</div><div class="label">Ranking persistente cross-tournament inesistente</div></div>
+      <div class="pain low"><div class="tag">🟡 Medio · #7</div><div class="label">Disputes su risultati senza source-of-truth</div></div>
+      <div class="pain low"><div class="tag">🟡 Medio · #8</div><div class="label">Playtomic open-play scheduling è broken (consensus problem)</div></div>
+    </div>
+  </section>
+
+  <!-- ─── PERSONAS ─── -->
+  <section id="personas">
+    <h2 class="sec"><span class="num">05</span>Personas (5)</h2>
+    <p class="sec-sub">Cinque persona ipotetiche con i loro Jobs To Be Done. Da validare in Phase 2 con interviste 1:1.</p>
+
+    <div class="personas">
+      <div class="persona">
+        <div class="name">👤 L'organizzatore stanco</div>
+        <div class="desc">30-45 anni, gioca 1-2x/sett, organizza torneo weekend per 8-12 amici. <em>(= Andrea oggi)</em></div>
+        <ul>
+          <li>"Non perdere 1h il giovedì a contare i sì su WhatsApp"</li>
+          <li>"Score si registrino senza che io scriva su Excel"</li>
+          <li>"Resta una traccia di chi ha vinto → rivalità chiara"</li>
+        </ul>
+        <div class="price">Pricing: €3-10/mese per Pro tier</div>
+      </div>
+
+      <div class="persona">
+        <div class="name">👤 Il capitano del gruppo</div>
+        <div class="desc">35-50 anni, IL coordinatore del gruppo padel da anni.</div>
+        <ul>
+          <li>"Il mio gruppo deve avere un'IDENTITÀ — un campionato, non partite scollegate"</li>
+          <li>"Mostrare a Bruno il suo H2H contro di me da tutto l'anno"</li>
+          <li>"Invitare un amico nuovo SENZA spiegargli WA + ranking + storia"</li>
+        </ul>
+        <div class="price">Pricing: probabile, se diventa "il club digitale"</div>
+      </div>
+
+      <div class="persona">
+        <div class="name">👤 Il club piccolo</div>
+        <div class="desc">10-30 padel members, 1-3 campi, gestisce internal league senza budget per Book&Go.</div>
+        <ul>
+          <li>"4 tornei/anno per i miei soci senza spreadsheet"</li>
+          <li>"Ranking del club che dia sense of community"</li>
+          <li>"Convertire visitor occasionale in member ricorrente"</li>
+        </ul>
+        <div class="price">Pricing: €15-40/mese (sotto soglia Book&Go)</div>
+      </div>
+
+      <div class="persona">
+        <div class="name">👤 Pickleball USA</div>
+        <div class="desc">USA, gruppo amici 6-12 persone, gioca 2x/sett. Pivot Y2 hypothesis.</div>
+        <ul>
+          <li>JTBD identici a Persona 1 ma per pickleball</li>
+          <li>Mercato in boom: 24M player USA 2025</li>
+          <li>Refactor minimo dell'app esistente</li>
+        </ul>
+        <div class="price">Pricing: $3-8/mese</div>
+      </div>
+
+      <div class="persona">
+        <div class="name">👤 Senior 40+</div>
+        <div class="desc">Targeting FIP Beyond senior categories (+40 a +60). Emergente.</div>
+        <ul>
+          <li>"Ranking serio per la mia categoria d'età"</li>
+          <li>"Match curated col mio livello, non con chiunque"</li>
+        </ul>
+        <div class="price">Esplorare in Y2-3</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── ADJACENT MARKETS ─── -->
+  <section id="adjacent">
+    <h2 class="sec"><span class="num">06</span>Adjacent markets — lessons</h2>
+    <p class="sec-sub">App simili in altri sport: cosa ha funzionato, cosa replicare.</p>
+
+    <details open>
+      <summary>🏆 DUPR — il template di successo (1M+ rated pickleball player)</summary>
+      <p><strong>Cosa è</strong>: rating system pickleball diventato la piattaforma dominante.</p>
+      <p><strong>Lezione per Deucy</strong>: parti dal rating system per costruire network effect. Il rating diventa "moneta" → tutti vogliono migliorarlo → engagement loop forte. <strong>Digital Clubs</strong> sono il layer middle tra "single player" e "tournament" — perfetto match con il tuo "friend pool".</p>
+    </details>
+
+    <details>
+      <summary>🎾 UTR — Universal Tennis Rating (800K+ player, 8M+ match)</summary>
+      <p>Rating universale per tennis amateur + pro. App reviews "OK ma migliorabile". <strong>Lezione</strong>: rating universale crea LOCK-IN brutale → l'utente non vuole perdere il proprio score. Opportunità di fare meglio sull'UX.</p>
+    </details>
+
+    <details>
+      <summary>🎮 Rankat — friend group ELO generic</summary>
+      <p>ELO leaderboard per qualsiasi sport tra amici. <strong>Lezione</strong>: conferma il dolore "voglio classifica tra i miei amici" MA è generico → verticalizzare PER padel = vantaggio enorme.</p>
+    </details>
+
+    <details>
+      <summary>🏃 Strava Clubs / Hevy — leaderboard fitness</summary>
+      <p>Strava 100M+ utenti, Hevy 10M+. Il "club leaderboard" è un pattern social proven con +30-40% engagement boost.</p>
+    </details>
+
+    <details>
+      <summary>📈 Pickleball USA growth = padel EU 2030?</summary>
+      <p>Pickleball USA: 3M (2017) → 8.9M (2022) → 24M+ (2025). Padel EU sta seguendo la stessa curva con 5 anni di delay. <strong>Implicazione</strong>: la finestra di mercato è simile, e l'analogo di "DUPR per padel" è ancora APERTO.</p>
+    </details>
+  </section>
+
+  <!-- ─── OPPORTUNITY ─── -->
+  <section id="opps">
+    <h2 class="sec"><span class="num">07</span>Opportunity matrix</h2>
+    <p class="sec-sub">5 opportunità scored su Build · Acquisition · TAM · Differenziazione · Time-to-revenue (1-5 ognuna).</p>
+
+    <div class="opps">
+      <div class="opp winner">
+        <div class="star">⭐</div>
+        <div class="title">#1 Friend-pool perpetual league</div>
+        <div class="scores">Build: 4 (già 70% built)<br>Acquisition: 3<br>TAM: 4<br>Differ: 5 (UNICO)<br>Time to revenue: 4</div>
+        <div class="total">20/25</div>
+      </div>
+
+      <div class="opp">
+        <div class="title">#2 Padel Universal Rating standalone</div>
+        <div class="scores">Build: 3 · Acq: 2 · TAM: 5<br>Differ: 3 · Revenue: 2</div>
+        <div class="total" style="color:var(--text-muted)">15/25</div>
+      </div>
+
+      <div class="opp loser">
+        <div class="title">#3 Club B2B white-label</div>
+        <div class="scores">Build: 2 · Acq: 2 · TAM: 3<br>Differ: 2 · Revenue: 3</div>
+        <div class="total">12/25</div>
+      </div>
+
+      <div class="opp winner">
+        <div class="star">🚀 Y2</div>
+        <div class="title">#4 Pickleball pivot Y2</div>
+        <div class="scores">Build: 4 · Acq: 4 · TAM: 5<br>Differ: 4 · Revenue: 3</div>
+        <div class="total">20/25</div>
+      </div>
+
+      <div class="opp loser">
+        <div class="title">#5 Tournament-only commodity</div>
+        <div class="scores">Build: 5 · Acq: 3 · TAM: 3<br>Differ: 1 (commodity) · Revenue: 4</div>
+        <div class="total">16/25</div>
+      </div>
+    </div>
+
+    <div class="next-step" style="margin-top:24px">
+      <strong>✅ Strategia</strong>: Opzione #1 (friend-pool perpetual league) come primaria + Opzione #4 (pickleball pivot) come optionality Y2.
+    </div>
+  </section>
+
+  <!-- ─── ROADMAP ─── -->
+  <section id="roadmap">
+    <h2 class="sec"><span class="num">08</span>Roadmap 18 mesi</h2>
+    <p class="sec-sub">High-level execution path per Opzione #1.</p>
+
+    <div class="timeline">
+      <div class="ms"><div class="when">M1-3</div><strong>Discovery</strong><br>Validation con i tuoi pool + 1 secondo pool. Conferma JTBD via interviste, metriche reali.</div>
+      <div class="ms"><div class="when">M4-6</div><strong>Build core gaps</strong><br>Multi-pool architecture, auth proper, customization base.</div>
+      <div class="ms"><div class="when">M7-9</div><strong>Pricing test</strong><br>Pro tier €3-5/mo, club tier €15-40/mo. Primi €100-500 MRR.</div>
+      <div class="ms"><div class="when">M10-12</div><strong>Growth playbook</strong><br>Content engine partner social, IT+ES SEO, partnership 2-3 club. 50-200 active pool.</div>
+      <div class="ms"><div class="when">M13-18</div><strong>Scale prep</strong><br>App stores Capacitor, push, payment, multi-lingue. 500-2K pool · €2-5K MRR.</div>
+      <div class="ms"><div class="when">M18+</div><strong>Pivot/expand</strong><br>Doubling padel-EU vs pickleball-US extension. Strategic milestone.</div>
+    </div>
+  </section>
+
+  <!-- ─── GAPS ─── -->
+  <section id="gaps">
+    <h2 class="sec"><span class="num">09</span>Gaps & Phase 2 next steps</h2>
+    <p class="sec-sub">Cosa NON ho coperto in desk research → diventa il backlog di Phase 2 (interviste + focus group).</p>
+
+    <h3>Gap da chiudere</h3>
+    <div class="gaps">
+      <div class="gap"><div class="q">❓ Disposizione effettiva a pagare</div><div class="how">→ Solo interviste 1:1 (10-20 organizzatori)</div></div>
+      <div class="gap"><div class="q">❓ Insider knowledge competitor</div><div class="how">→ LinkedIn outreach a ex-employee FenixPlay/PadelMix</div></div>
+      <div class="gap"><div class="q">❓ Mystery shopping prolungato</div><div class="how">→ Uso reale 2 settimane di FenixPlay + PadelMix</div></div>
+      <div class="gap"><div class="q">❓ TAM preciso friend-group organizer</div><div class="how">→ Survey quantitativa community FB padel IT/ES (n=200)</div></div>
+      <div class="gap"><div class="q">❓ Brand naming definitivo</div><div class="how">→ Laboratorio creativo separato (5 nomi, test users)</div></div>
+      <div class="gap"><div class="q">❓ Verifica rollout reale FIP Beyond</div><div class="how">→ Osservare evolversi B1/B2/B3 nei prossimi 3 mesi</div></div>
+    </div>
+
+    <h3>Cosa fare questa settimana</h3>
+    <div class="next-steps">
+      <div class="next-step">🎯 <strong>Sit-down 90 min con il partner</strong>: tempo/sett sostenibile, role split (tu prodotto, lui growth?), definizione di "successo" in 12 mesi (numero che inseguite, non "vediamo").</div>
+      <div class="next-step">🎯 <strong>Setup analytics</strong> (PostHog free tier, 30 min): tracciare le 5 metriche chiave (Weekly Active Pool, RSVP→Show ratio, Tournament cadence, NPS qualitativo, Organic invites).</div>
+      <div class="next-step">🎯 <strong>Mini-questionario WhatsApp post-torneo del 17 maggio</strong>: 3 domande — "Cosa apriresti l'app per fare ma non puoi?" "Cosa NON apriresti mai?" "A chi la consiglieresti, e perché?".</div>
+    </div>
+  </section>
+
+  <!-- ─── SOURCES ─── -->
+  <section id="sources">
+    <h2 class="sec"><span class="num">10</span>Sources principali</h2>
+    <p class="sec-sub">60+ fonti citate nel report .docx completo. Le 12 più rilevanti:</p>
+
+    <ul style="font-size: 14px; line-height: 1.7;">
+      <li><a href="https://padeltelegraph.com/padel-statistics/" target="_blank">Padel Statistics 2025 — Padel Telegraph</a></li>
+      <li><a href="https://www.intelmarketresearch.com/europe-padel-sports-market-market-43171" target="_blank">Europe Padel Sports Market 2026-2034 — Intel Market Research</a></li>
+      <li><a href="https://www.supertennis.tv/News/Padel/fip-world-padel-2025-dati-italia-sviluppo-padel" target="_blank">FIP World Padel Report 2025 — SuperTennis TV</a></li>
+      <li><a href="https://uk.trustpilot.com/review/www.playtomic.io" target="_blank">Playtomic Trustpilot reviews</a></li>
+      <li><a href="https://properpadel.uk/2025/09/12/is-playtomics-rating-system-flawed/" target="_blank">Is Playtomic's rating system flawed? — Proper Padel</a></li>
+      <li><a href="https://padelmix.app/" target="_blank">PadelMix</a></li>
+      <li><a href="https://fenixplay.app/en/" target="_blank">FenixPlay</a></li>
+      <li><a href="https://www.dupr.com/" target="_blank">DUPR — Pickleball Universal Rating</a></li>
+      <li><a href="https://www.utrsports.net/" target="_blank">UTR Sports — Universal Tennis Rating</a></li>
+      <li><a href="https://www.wamda.com/2025/09/epic-padel-secures-10-million-launch-global-padel-ventures" target="_blank">Epic Padel $10M seed — Wamda</a></li>
+      <li><a href="https://www.padelfip.com/2025/12/fip-beyond-is-born-the-new-global-tour-dedicated-to-amateur-padel/" target="_blank">FIP Beyond launch — Padel FIP</a></li>
+      <li><a href="https://thezubairusman.medium.com/why-95-of-micro-saas-startups-fail-and-how-solo-founders-can-win-in-2025-a971594a9134" target="_blank">Why 95% of Micro-SaaS Startups Fail</a></li>
+    </ul>
+  </section>
+
+  <footer class="foot">
+    Documento prodotto da Claude (deep-research framework) · Phase 1 desk research completa · Phase 2 (interviste + focus group) da pianificare.<br>
+    Report .docx completo: <code>deucy-market-research-2026-05.docx</code>
+  </footer>
+
+</div>
+</body>
+</html>

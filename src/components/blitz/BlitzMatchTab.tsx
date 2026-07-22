@@ -28,7 +28,8 @@ export default function BlitzMatchTab({
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
   const [showScoreInput, setShowScoreInput] = useState(false);
-  const [submittingCourt, setSubmittingCourt] = useState<'A' | 'B'>('A');
+  const [scoreA_B, setScoreA_B] = useState('');
+  const [scoreB_B, setScoreB_B] = useState('');
   const [editingRound, setEditingRound] = useState<BlitzRound | null>(null);
   const [editScoreA, setEditScoreA] = useState('');
   const [editScoreB, setEditScoreB] = useState('');
@@ -438,14 +439,23 @@ export default function BlitzMatchTab({
   // amResting + canSubmit are hoisted at the top of the component so
   // they remain in scope for the finished-branch render too. See above.
 
+  const isDual = !!currentSchedule?.courtB;
   const handleSubmit = async () => {
     const a = parseInt(scoreA);
     const b = parseInt(scoreB);
     if (isNaN(a) || isNaN(b) || a < 0 || b < 0) return;
-    await onSubmitScore(a, b, isDual ? submittingCourt : undefined);
-    setScoreA(''); setScoreB(''); setShowScoreInput(false);
+    if (isDual) {
+      const a2 = parseInt(scoreA_B);
+      const b2 = parseInt(scoreB_B);
+      if (isNaN(a2) || isNaN(b2) || a2 < 0 || b2 < 0) return;
+      await onSubmitScore(a, b, 'A');
+      await onSubmitScore(a2, b2, 'B');
+    } else {
+      await onSubmitScore(a, b);
+    }
+    setScoreA(''); setScoreB(''); setScoreA_B(''); setScoreB_B('');
+    setShowScoreInput(false);
   };
-  const isDual = !!currentSchedule?.courtB;
 
   const completedRounds = rounds.filter(r => r.status === 'completed');
 
