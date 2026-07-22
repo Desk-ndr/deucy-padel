@@ -631,18 +631,12 @@ export default function BlitzMatchTab({
           <p style={{ ...typeScale.title, color: colors.text, textAlign: 'center', margin: 0 }}>Enter Final Score</p>
 
           {isDual && (
-            <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'center' }}>
-              {(['A', 'B'] as const).map(c => (
-                <button key={c} onClick={() => setSubmittingCourt(c)} style={{
-                  padding: `\${spacing.sm}px \${spacing.lg}px`,
-                  borderRadius: radius.pill,
-                  border: `1px solid \${submittingCourt === c ? colors.primary : colors.border}`,
-                  background: submittingCourt === c ? colors.primaryMuted : colors.bg,
-                  color: submittingCourt === c ? colors.primary : colors.textSecondary,
-                  fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: fonts.sans,
-                }}>Court {c}</button>
-              ))}
-            </div>
+            <p style={{ ...typeScale.caption, color: colors.muted, textAlign: 'center', margin: 0 }}>
+              Both courts must be entered to advance.
+            </p>
+          )}
+          {isDual && (
+            <p style={{ ...typeScale.micro, color: colors.primary, textAlign: 'center', margin: 0, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Court A</p>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-end', gap: spacing.md }}>
@@ -656,6 +650,22 @@ export default function BlitzMatchTab({
               <input type="number" min="0" placeholder="0" value={scoreB} onChange={e => setScoreB(e.target.value)} style={inputStyle} />
             </div>
           </div>
+          {isDual && (
+            <>
+              <p style={{ ...typeScale.micro, color: colors.primary, textAlign: 'center', margin: 0, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Court B</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-end', gap: spacing.md }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                  <label style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center' }}>Team A</label>
+                  <input type="number" min="0" placeholder="0" value={scoreA_B} onChange={e => setScoreA_B(e.target.value)} style={inputStyle} />
+                </div>
+                <span style={{ fontSize: 20, fontWeight: 700, color: colors.muted, paddingBottom: spacing.md }}>—</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                  <label style={{ ...typeScale.micro, color: colors.muted, textAlign: 'center' }}>Team B</label>
+                  <input type="number" min="0" placeholder="0" value={scoreB_B} onChange={e => setScoreB_B(e.target.value)} style={inputStyle} />
+                </div>
+              </div>
+            </>
+          )}
 
           <div style={{ display: 'flex', gap: spacing.sm }}>
             <button onClick={() => setShowScoreInput(false)} style={{
@@ -663,11 +673,7 @@ export default function BlitzMatchTab({
               border: `1px solid ${colors.border}`, borderRadius: radius.sm,
               fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: fonts.sans,
             }}>Cancel</button>
-            <button onClick={handleSubmit} disabled={!scoreA || !scoreB} style={{
-              flex: 1, padding: spacing.md, backgroundColor: colors.primary, color: colors.bg,
-              border: 'none', borderRadius: radius.sm, fontSize: 14, fontWeight: 700,
-              cursor: 'pointer', fontFamily: fonts.sans, opacity: scoreA && scoreB ? 1 : 0.4,
-            }}>Confirm →</button>
+            <button onClick={handleSubmit} disabled={!scoreA || !scoreB || (isDual && (!scoreA_B || !scoreB_B))} style={{ flex: 1, padding: spacing.md, backgroundColor: colors.primary, color: colors.bg, border: 'none', borderRadius: radius.sm, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: fonts.sans, opacity: (scoreA && scoreB && (!isDual || (scoreA_B && scoreB_B))) ? 1 : 0.4, }}>Confirm →</button>
           </div>
         </div>
       )}
