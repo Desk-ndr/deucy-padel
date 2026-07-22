@@ -254,9 +254,9 @@ export default function BlitzTournament() {
     refetch();
   };
 
-  const handleEditScore = async (roundId: string, roundIndex: number, scoreA: number, scoreB: number) => {
+  const handleEditScore = async (roundId: string, roundIndex: number, scoreA: number, scoreB: number, court: 'A' | 'B' = 'A') => {
     if (!id || !tournament) return;
-    const { error } = await editScore(id, roundId, roundIndex, scoreA, scoreB, tournament, bets, rounds);
+    const { error } = await editScore(id, roundId, roundIndex, scoreA, scoreB, tournament, bets, rounds, court);
     if (error) {
       if (error === 'EDIT_WINDOW_EXPIRED') {
         toast({

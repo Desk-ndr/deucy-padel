@@ -617,6 +617,7 @@ export async function editScore(
   newScoreA: number, newScoreB: number,
   tournament: BlitzTournamentData, bets: BlitzBet[],
   allRounds: BlitzRound[],
+  court: 'A' | 'B' = 'A',
 ) {
   // 0. Edit window check — once a tournament is finished, scores can
   // be corrected for EDIT_WINDOW_MS (10 minutes). After that the
@@ -631,40 +632,51 @@ export async function editScore(
   }
 
   // 1. Update the round scores
+  const scorePatch = court === 'B'
+    ? { team_a_score_b: newScoreA, team_b_score_b: newScoreB }
+    : { team_a_score: newScoreA, team_b_score: newScoreB };
   const { error: rErr } = await supabase.from('blitz_rounds')
-    .update({ team_a_score: newScoreA, team_b_score: newScoreB }).eq('id', roundId);
+    .update(scorePatch).eq('id', roundId);
   if (rErr) return { error: rErr.message };
 
   // 2. Recalculate ALL balances from scratch (starting balance + all completed rounds + all settled bets)
   const startingBalance = 10;
   const updatedPlayers = tournament.players.map(p => ({ ...p, balance: startingBalance }));
 
-  // Build a map of rounds with updated scores
-  const roundScores = new Map<number, { a: number; b: number }>();
+  // Apply game earnings for all completed rounds, handling both courts.
+  // For each round we honor the currently-being-edited court override.
   for (const r of allRounds) {
-    if (r.status === 'completed' && r.team_a_score != null && r.team_b_score != null) {
-      if (r.round_index === roundIndex) {
-        roundScores.set(r.round_index, { a: newScoreA, b: newScoreB });
-      } else {
-        roundScores.set(r.round_index, { a: r.team_a_score, b: r.team_b_score });
-      }
+    if (r.status !== 'completed') continue;
+    const sched = tournament.schedule[r.round_index - 1];
+    if (!sched) continue;
+    // Court A
+    if (r.team_a_score != null && r.team_b_score != null) {
+      const isEditA = r.round_index === roundIndex && court === 'A';
+      const a = isEditA ? newScoreA : r.team_a_score;
+      const b = isEditA ? newScoreB : r.team_b_score;
+      sched.teamA.forEach(idx => {
+        updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + a * EUROS_PER_GAME };
+      });
+      sched.teamB.forEach(idx => {
+        updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + b * EUROS_PER_GAME };
+      });
+    }
+    // Court B
+    if (sched.courtB && r.team_a_score_b != null && r.team_b_score_b != null) {
+      const isEditB = r.round_index === roundIndex && court === 'B';
+      const a = isEditB ? newScoreA : r.team_a_score_b;
+      const b = isEditB ? newScoreB : r.team_b_score_b;
+      sched.courtB.teamA.forEach(idx => {
+        updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + a * EUROS_PER_GAME };
+      });
+      sched.courtB.teamB.forEach(idx => {
+        updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + b * EUROS_PER_GAME };
+      });
     }
   }
 
-  // Apply game earnings for all completed rounds
-  for (const [ri, scores] of roundScores) {
-    const s = tournament.schedule[ri - 1];
-    if (!s) continue;
-    s.teamA.forEach(idx => {
-      updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + scores.a * EUROS_PER_GAME };
-    });
-    s.teamB.forEach(idx => {
-      updatedPlayers[idx] = { ...updatedPlayers[idx], balance: updatedPlayers[idx].balance + scores.b * EUROS_PER_GAME };
-    });
-  }
-
-  // 3. Re-settle bets for the edited round
-  const roundBets = bets.filter(b => b.round_index === roundIndex);
+  // 3. Re-settle bets for the edited round (only Court A affects bets)
+  const roundBets = court === 'A' ? bets.filter(b => b.round_index === roundIndex) : [];
   const newWinner = newScoreA > newScoreB ? 'A' : newScoreB > newScoreA ? 'B' : 'draw';
 
   for (const bet of roundBets) {

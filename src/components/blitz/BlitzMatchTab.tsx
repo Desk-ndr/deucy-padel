@@ -17,7 +17,7 @@ interface Props {
   onPauseTimer: () => void;
   onResetTimer: () => void;
   onSubmitScore: (scoreA: number, scoreB: number, court?: 'A' | 'B') => Promise<void>;
-  onEditScore: (roundId: string, roundIndex: number, scoreA: number, scoreB: number) => Promise<void>;
+  onEditScore: (roundId: string, roundIndex: number, scoreA: number, scoreB: number, court?: 'A' | 'B') => Promise<void>;
   onBetClick: () => void;
 }
 
@@ -31,6 +31,7 @@ export default function BlitzMatchTab({
   const [scoreA_B, setScoreA_B] = useState('');
   const [scoreB_B, setScoreB_B] = useState('');
   const [editingRound, setEditingRound] = useState<BlitzRound | null>(null);
+  const [editingCourt, setEditingCourt] = useState<'A' | 'B'>('A');
   const [editScoreA, setEditScoreA] = useState('');
   const [editScoreB, setEditScoreB] = useState('');
   // Used to force a re-render when the edit window closes (10 min after
@@ -387,8 +388,8 @@ export default function BlitzMatchTab({
           <div style={{ position: 'relative', zIndex: 1 }}>
             <CompletedRounds
               rounds={completedAll} tournament={tournament} canEdit={canEdit}
-              editingRound={editingRound} editScoreA={editScoreA} editScoreB={editScoreB}
-              setEditingRound={setEditingRound} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
+              editingRound={editingRound} editingCourt={editingCourt} editScoreA={editScoreA} editScoreB={editScoreB}
+              setEditingRound={setEditingRound} setEditingCourt={setEditingCourt} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
               onEditScore={onEditScore}
             />
           </div>
@@ -692,8 +693,8 @@ export default function BlitzMatchTab({
       {completedRounds.length > 0 && (
         <CompletedRounds
           rounds={completedRounds} tournament={tournament} canEdit={canEdit}
-          editingRound={editingRound} editScoreA={editScoreA} editScoreB={editScoreB}
-          setEditingRound={setEditingRound} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
+          editingRound={editingRound} editingCourt={editingCourt} editScoreA={editScoreA} editScoreB={editScoreB}
+          setEditingRound={setEditingRound} setEditingCourt={setEditingCourt} setEditScoreA={setEditScoreA} setEditScoreB={setEditScoreB}
           onEditScore={onEditScore}
         />
       )}
@@ -704,25 +705,27 @@ export default function BlitzMatchTab({
 
 /* ── Completed Rounds sub-component with inline edit ──────────── */
 
-function CompletedRounds({ rounds, tournament, canEdit, editingRound, editScoreA, editScoreB, setEditingRound, setEditScoreA, setEditScoreB, onEditScore }: {
+function CompletedRounds({ rounds, tournament, canEdit, editingRound, editingCourt, editScoreA, editScoreB, setEditingRound, setEditingCourt, setEditScoreA, setEditScoreB, onEditScore }: {
   rounds: BlitzRound[];
   tournament: BlitzTournamentData;
   canEdit: boolean;
   editingRound: BlitzRound | null;
+  editingCourt: 'A' | 'B';
   editScoreA: string;
   editScoreB: string;
   setEditingRound: (r: BlitzRound | null) => void;
+  setEditingCourt: (c: 'A' | 'B') => void;
   setEditScoreA: (v: string) => void;
   setEditScoreB: (v: string) => void;
-  onEditScore: (roundId: string, roundIndex: number, scoreA: number, scoreB: number) => Promise<void>;
+  onEditScore: (roundId: string, roundIndex: number, scoreA: number, scoreB: number, court?: 'A' | 'B') => Promise<void>;
 }) {
   const handleEditConfirm = async () => {
     if (!editingRound) return;
     const a = parseInt(editScoreA);
     const b = parseInt(editScoreB);
     if (isNaN(a) || isNaN(b) || a < 0 || b < 0) return;
-    await onEditScore(editingRound.id, editingRound.round_index, a, b);
-    setEditingRound(null); setEditScoreA(''); setEditScoreB('');
+    await onEditScore(editingRound.id, editingRound.round_index, a, b, editingCourt);
+    setEditingRound(null); setEditingCourt('A'); setEditScoreA(''); setEditScoreB('');
   };
 
   const editInputStyle: React.CSSProperties = {
@@ -739,15 +742,16 @@ function CompletedRounds({ rounds, tournament, canEdit, editingRound, editScoreA
       {rounds.map(r => {
         const s = tournament.schedule[r.round_index - 1];
         if (!s) return null;
-        const isEditing = editingRound?.id === r.id;
+        const isEditingA = editingRound?.id === r.id && editingCourt === 'A';
+        const isEditingB = editingRound?.id === r.id && editingCourt === 'B';
 
         return (<React.Fragment key={r.id}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: spacing.sm,
             padding: `${spacing.sm}px ${spacing.md}px`,
-            backgroundColor: isEditing ? colors.surface : colors.surfaceElevated,
+            backgroundColor: isEditingA ? colors.surface : colors.surfaceElevated,
             borderRadius: radius.sm, fontSize: 14,
-            border: isEditing ? `1px solid ${colors.primary}` : '1px solid transparent',
+            border: isEditingA ? `1px solid ${colors.primary}` : '1px solid transparent',
             transition: 'all 0.15s',
           }}>
             <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted, minWidth: 28 }}>
@@ -761,7 +765,7 @@ function CompletedRounds({ rounds, tournament, canEdit, editingRound, editScoreA
               {tournament.players[s.teamA[0]]?.name} & {tournament.players[s.teamA[1]]?.name}
             </span>
 
-            {isEditing ? (
+            {isEditingA ? (
               <>
                 <input type="number" min="0" value={editScoreA} onChange={e => setEditScoreA(e.target.value)} style={editInputStyle} />
                 <span style={{ color: colors.muted, fontWeight: 700 }}>-</span>
@@ -819,11 +823,12 @@ function CompletedRounds({ rounds, tournament, canEdit, editingRound, editScoreA
           {s.courtB && r.team_a_score_b != null && r.team_b_score_b != null && (
             <div key={r.id + '-B'} style={{
               display: 'flex', alignItems: 'center', gap: spacing.sm,
-              padding: `\${spacing.sm}px \${spacing.md}px`,
-              backgroundColor: colors.surfaceElevated,
+              padding: \`\${spacing.sm}px \${spacing.md}px\`,
+              backgroundColor: isEditingB ? colors.surface : colors.surfaceElevated,
               borderRadius: radius.sm, fontSize: 14,
-              border: '1px solid transparent',
+              border: isEditingB ? \`1px solid \${colors.primary}\` : '1px solid transparent',
               marginTop: 2,
+              transition: 'all 0.15s',
             }}>
               <span style={{ ...typeScale.mono, fontSize: 14, color: colors.muted, minWidth: 28 }}>
                 R{r.round_index}
@@ -836,19 +841,61 @@ function CompletedRounds({ rounds, tournament, canEdit, editingRound, editScoreA
               }}>
                 {tournament.players[s.courtB.teamA[0]]?.name} & {tournament.players[s.courtB.teamA[1]]?.name}
               </span>
-              <span style={{
-                fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
-                color: colors.primary, minWidth: 44, textAlign: 'center',
-              }}>
-                {r.team_a_score_b} - {r.team_b_score_b}
-              </span>
-              <span style={{
-                flex: 1, color: colors.textSecondary, textAlign: 'right',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                fontFamily: fonts.sans, fontWeight: 500,
-              }}>
-                {tournament.players[s.courtB.teamB[0]]?.name} & {tournament.players[s.courtB.teamB[1]]?.name}
-              </span>
+              {isEditingB ? (
+                <>
+                  <input type="number" min="0" value={editScoreA} onChange={e => setEditScoreA(e.target.value)} style={editInputStyle} />
+                  <span style={{ color: colors.muted, fontWeight: 700 }}>-</span>
+                  <input type="number" min="0" value={editScoreB} onChange={e => setEditScoreB(e.target.value)} style={editInputStyle} />
+                  <button onClick={handleEditConfirm} style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: spacing.xs,
+                    color: colors.primary, display: 'flex',
+                  }}>
+                    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </button>
+                  <button onClick={() => { setEditingRound(null); setEditingCourt('A'); }} style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: spacing.xs,
+                    color: colors.destructive, display: 'flex',
+                  }}>
+                    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span style={{
+                    fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
+                    color: colors.primary, minWidth: 44, textAlign: 'center',
+                  }}>
+                    {r.team_a_score_b} - {r.team_b_score_b}
+                  </span>
+                  <span style={{
+                    flex: 1, color: colors.textSecondary, textAlign: 'right',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    fontFamily: fonts.sans, fontWeight: 500,
+                  }}>
+                    {tournament.players[s.courtB.teamB[0]]?.name} & {tournament.players[s.courtB.teamB[1]]?.name}
+                  </span>
+                  {canEdit && (
+                    <button onClick={() => {
+                      setEditingRound(r);
+                      setEditingCourt('B');
+                      setEditScoreA(String(r.team_a_score_b ?? 0));
+                      setEditScoreB(String(r.team_b_score_b ?? 0));
+                    }} style={{
+                      background: 'none', border: 'none', cursor: 'pointer', padding: spacing.xs,
+                      color: colors.muted, display: 'flex', flexShrink: 0,
+                    }}>
+                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           )}
         </React.Fragment>);

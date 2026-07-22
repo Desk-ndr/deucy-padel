@@ -151,12 +151,22 @@ export default function BlitzCalendarTab({ tournament, rounds, isCreator = false
 
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
             {isCompleted && round && (
-              <span style={{
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
                 fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
                 color: colors.primary,
               }}>
-                {round.team_a_score} - {round.team_b_score}
-              </span>
+                <span>
+                  {s.courtB && <span style={{ fontSize: 9, opacity: 0.6, marginRight: 4, fontFamily: fonts.sans, fontWeight: 700 }}>A</span>}
+                  {round.team_a_score} - {round.team_b_score}
+                </span>
+                {s.courtB && round.team_a_score_b != null && round.team_b_score_b != null && (
+                  <span style={{ fontSize: 12, opacity: 0.9 }}>
+                    <span style={{ fontSize: 9, opacity: 0.6, marginRight: 4, fontFamily: fonts.sans, fontWeight: 700 }}>B</span>
+                    {round.team_a_score_b} - {round.team_b_score_b}
+                  </span>
+                )}
+              </div>
             )}
             {/* Chevron */}
             <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={colors.muted}
@@ -170,7 +180,16 @@ export default function BlitzCalendarTab({ tournament, rounds, isCreator = false
         {/* Expanded content */}
         {isExpanded && (
           <>
-            {/* Teams grid */}
+            {/* Court A label (only shown when dual) */}
+            {s.courtB && (
+              <div style={{
+                ...typeScale.micro, color: colors.muted, fontWeight: 800,
+                letterSpacing: 1, marginBottom: spacing.xs,
+              }}>
+                COURT A
+              </div>
+            )}
+            {/* Teams grid — Court A */}
             <div style={{
               display: 'grid', gridTemplateColumns: '1fr auto 1fr',
               alignItems: 'center', gap: spacing.sm,
@@ -199,6 +218,46 @@ export default function BlitzCalendarTab({ tournament, rounds, isCreator = false
                 </p>
               </div>
             </div>
+            {/* Teams grid — Court B */}
+            {s.courtB && (
+              <>
+                <div style={{
+                  ...typeScale.micro, color: colors.muted, fontWeight: 800,
+                  letterSpacing: 1, marginTop: spacing.md, marginBottom: spacing.xs,
+                  paddingTop: spacing.sm, borderTop: `1px solid ${colors.border}`,
+                }}>
+                  COURT B
+                </div>
+                <div style={{
+                  display: 'grid', gridTemplateColumns: '1fr auto 1fr',
+                  alignItems: 'center', gap: spacing.sm,
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.xs }}>
+                      Team A
+                    </span>
+                    <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
+                      {tournament.players[s.courtB.teamA[0]]?.name}
+                    </p>
+                    <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
+                      {tournament.players[s.courtB.teamA[1]]?.name}
+                    </p>
+                  </div>
+                  <span style={{ ...typeScale.caption, color: colors.muted, fontWeight: 800 }}>vs</span>
+                  <div style={{ textAlign: 'center' }}>
+                    <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.xs }}>
+                      Team B
+                    </span>
+                    <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
+                      {tournament.players[s.courtB.teamB[0]]?.name}
+                    </p>
+                    <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
+                      {tournament.players[s.courtB.teamB[1]]?.name}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Resting players */}
             {s.rest.length > 0 && (
