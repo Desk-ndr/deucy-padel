@@ -25,6 +25,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { buildWeakTripleAvoidPairs } from '@/lib/pairing-constraints';
 
 export default function BlitzTournament() {
   const { id } = useParams<{ id: string }>();
@@ -149,21 +150,28 @@ export default function BlitzTournament() {
       isGuest: isGuests?.[i] === true ? true : undefined,
     }));
 
-    // Identify the top-2 AND bot-2 globally-ranked players inside THIS
-    // tournament's pool. The schedule generator will keep BOTH pairs on
-    // opposite teams every round (hard constraint — splits that would
-    // pair them up are excluded outright).
+    // Pair-constraints for team composition. Two families:
     //
-    // Why both:
-    //   - top-2: stays competitive, no super-team dominating
-    //   - bot-2: no team is too weak, every match is balanced
+    //   1. Top-2 anchor (dynamic, from ranking): the two highest-ranked
+    //      players in this pool are never on the same team. Prevents a
+    //      super-team from dominating the whole tournament. Only kicks
+    //      in when both players have played at least one previous event
+    //      (score > 0) — otherwise a brand-new pool would produce an
+    //      arbitrary "top" pair.
     //
-    // Guard (same logic for both): the constraint only kicks in when
-    // BOTH members of the pair have actually played at least one
-    // tournament (rankingScore > 0). Otherwise we'd "label" new players
-    // as bot before they had a chance to prove themselves, and the
-    // top-pair would be arbitrary on a brand-new pool.
+    //   2. Weak-triple (fixed roster of 3 IDs, see pairing-constraints.ts):
+    //      the three named "weaker" regulars are never paired together
+    //      (any 2 of them). All C(k,2) pairs of members actually
+    //      present in the pool are added. This replaces the old dynamic
+    //      bot-2 with an explicit list Andrea maintains.
+    //
+    // Both families are enforced as soft constraints in the generator:
+    // splits that respect them are strongly preferred, but if none is
+    // feasible (small tournament, unavoidable rounds) the generator
+    // falls back rather than failing.
     const avoidPairs: Array<[number, number]> = [];
+    // Weak-triple pairs (order matters little — small K = 3 max).
+    avoidPairs.push(...buildWeakTripleAvoidPairs(players));
     try {
       const { data: ranking } = await getRanking();
       if (ranking && ranking.length > 0) {
@@ -171,17 +179,8 @@ export default function BlitzTournament() {
           const r = p.player_id ? ranking.find(x => x.playerId === p.player_id) : null;
           return { idx, score: r?.rankingScore ?? 0 };
         }).sort((a, b) => b.score - a.score);
-        // Top-2: highest-ranked two players in the pool
         if (ranked.length >= 2 && ranked[0].score > 0 && ranked[1].score > 0) {
           avoidPairs.push([ranked[0].idx, ranked[1].idx]);
-        }
-        // Bot-2: lowest-ranked two players in the pool (symmetric to top)
-        if (ranked.length >= 4) {
-          const last = ranked[ranked.length - 1];
-          const secondLast = ranked[ranked.length - 2];
-          if (last.score > 0 && secondLast.score > 0) {
-            avoidPairs.push([last.idx, secondLast.idx]);
-          }
         }
       }
     } catch (e) {
