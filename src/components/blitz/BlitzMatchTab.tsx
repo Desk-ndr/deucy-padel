@@ -5,6 +5,7 @@ import { colors, spacing, radius, fonts, typeScale, shadows } from '@/lib/design
 import { BETTING_ENABLED } from '@/lib/feature-flags';
 import { HeroCard } from '@/components/ui/deucy';
 import BlitzTimer from './BlitzTimer';
+import { placementPoints } from '@/services/rankingService';
 
 interface Props {
   tournament: BlitzTournamentData;
@@ -178,15 +179,26 @@ export default function BlitzMatchTab({
     const gamesMap = new Map<number, number>();
     const matchesWonMap = new Map<number, number>();
     tournament.players.forEach((_, i) => { gamesMap.set(i, 0); matchesWonMap.set(i, 0); });
+    const applyMatch = (
+      teamA: number[], teamB: number[],
+      scoreA: number, scoreB: number,
+    ) => {
+      teamA.forEach(idx => gamesMap.set(idx, (gamesMap.get(idx) || 0) + scoreA));
+      teamB.forEach(idx => gamesMap.set(idx, (gamesMap.get(idx) || 0) + scoreB));
+      const aWon = scoreA > scoreB ? 1 : scoreA === scoreB ? 0.5 : 0;
+      const bWon = scoreB > scoreA ? 1 : scoreB === scoreA ? 0.5 : 0;
+      teamA.forEach(idx => matchesWonMap.set(idx, (matchesWonMap.get(idx) || 0) + aWon));
+      teamB.forEach(idx => matchesWonMap.set(idx, (matchesWonMap.get(idx) || 0) + bWon));
+    };
     for (const r of completedAll) {
       const s = tournament.schedule[r.round_index - 1];
-      if (!s || r.team_a_score == null || r.team_b_score == null) continue;
-      s.teamA.forEach(idx => gamesMap.set(idx, (gamesMap.get(idx) || 0) + r.team_a_score!));
-      s.teamB.forEach(idx => gamesMap.set(idx, (gamesMap.get(idx) || 0) + r.team_b_score!));
-      const aWon = r.team_a_score > r.team_b_score ? 1 : r.team_a_score === r.team_b_score ? 0.5 : 0;
-      const bWon = r.team_b_score > r.team_a_score ? 1 : r.team_b_score === r.team_a_score ? 0.5 : 0;
-      s.teamA.forEach(idx => matchesWonMap.set(idx, (matchesWonMap.get(idx) || 0) + aWon));
-      s.teamB.forEach(idx => matchesWonMap.set(idx, (matchesWonMap.get(idx) || 0) + bWon));
+      if (!s) continue;
+      if (r.team_a_score != null && r.team_b_score != null) {
+        applyMatch(s.teamA, s.teamB, r.team_a_score, r.team_b_score);
+      }
+      if (s.courtB && r.team_a_score_b != null && r.team_b_score_b != null) {
+        applyMatch(s.courtB.teamA, s.courtB.teamB, r.team_a_score_b, r.team_b_score_b);
+      }
     }
 
     // Sort: matchesWon desc -> gamesWon tiebreaker -> shared placement
@@ -213,7 +225,8 @@ export default function BlitzMatchTab({
     });
 
     const winner = ranked[0];
-    const POINTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
+    const N = tournament.players.length;
+    const pointsFor = (rank: number) => placementPoints(rank, N);
 
     // Confetti particles — memoized so each render in the finished branch
     // doesn't allocate a fresh 40-particle array. Recomputed only when
@@ -310,7 +323,7 @@ export default function BlitzMatchTab({
             borderRadius: radius.pill,
             border: `1px solid rgba(34,197,94,0.25)`,
           }}>
-            <span style={{ ...typeScale.mono, fontSize: 20, color: colors.primary }}>+{POINTS[1] || 0}</span>
+            <span style={{ ...typeScale.mono, fontSize: 20, color: colors.primary }}>+{pointsFor(1)}</span>
             <span style={{ ...typeScale.caption, color: colors.textSecondary, textTransform: 'none' as const, letterSpacing: 0 }}>ranking pts</span>
           </div>
         </div>
@@ -328,7 +341,7 @@ export default function BlitzMatchTab({
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
             {ranked.map((p, sortPos) => {
               const placement = placements[sortPos];
-              const pts = POINTS[placement] || 0;
+              const pts = pointsFor(placement);
               const medalColor = placement === 1 ? colors.gold : placement === 2 ? colors.silver : placement === 3 ? colors.bronze : undefined;
               return (
                 <div key={p.index} style={{

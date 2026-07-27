@@ -3,6 +3,7 @@ import { BlitzPlayer, BlitzRound, BlitzBet } from '@/services/blitzService';
 import { BlitzRoundSchedule, EUROS_PER_GAME } from '@/lib/blitz-schedule';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 import { BETTING_ENABLED } from '@/lib/feature-flags';
+import { placementPoints } from '@/services/rankingService';
 
 const BETTING_BONUS_POINTS = [8, 5, 3, 1, 0];
 
@@ -151,7 +152,8 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
   // must populate the array in order. Using .map() with `placements[rank-1]`
   // crashes with a TDZ ReferenceError when ties exist (e.g. all players 0-0
   // before any round is played) — that's what was breaking the Standings tab.
-  const PLACEMENT_PTS: Record<number, number> = { 1: 50, 2: 35, 3: 22, 4: 12, 5: 5 };
+  const N = players.length;
+  const pointsFor = (rank: number) => placementPoints(rank, N);
   const placements: number[] = [];
   for (let rank = 0; rank < sorted.length; rank++) {
     if (rank === 0) {
@@ -358,7 +360,7 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
                   textAlign: 'center',
                 }}>
                   {tab === 'games'
-                    ? `+${PLACEMENT_PTS[placements[rank]] ?? 0}`
+                    ? `+${pointsFor(placements[rank])}`
                     : `${displayValue > 0 ? '+' : ''}€${displayValue}`
                   }
                 </span>

@@ -28,7 +28,7 @@ function placementPointsTable(numPlayers: number): number[] {
   }
   return _placementCache[numPlayers] = out;
 }
-function placementPoints(rank: number, numPlayers: number): number {
+export function placementPoints(rank: number, numPlayers: number): number {
   if (rank < 1 || rank > numPlayers) return 0;
   return placementPointsTable(numPlayers)[rank - 1];
 }
