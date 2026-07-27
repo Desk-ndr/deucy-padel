@@ -25,7 +25,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { buildWeakTripleAvoidPairs } from '@/lib/pairing-constraints';
+import { buildFixedAvoidPairs } from '@/lib/pairing-constraints';
 
 export default function BlitzTournament() {
   const { id } = useParams<{ id: string }>();
@@ -150,42 +150,13 @@ export default function BlitzTournament() {
       isGuest: isGuests?.[i] === true ? true : undefined,
     }));
 
-    // Pair-constraints for team composition. Two families:
-    //
-    //   1. Top-2 anchor (dynamic, from ranking): the two highest-ranked
-    //      players in this pool are never on the same team. Prevents a
-    //      super-team from dominating the whole tournament. Only kicks
-    //      in when both players have played at least one previous event
-    //      (score > 0) — otherwise a brand-new pool would produce an
-    //      arbitrary "top" pair.
-    //
-    //   2. Weak-triple (fixed roster of 3 IDs, see pairing-constraints.ts):
-    //      the three named "weaker" regulars are never paired together
-    //      (any 2 of them). All C(k,2) pairs of members actually
-    //      present in the pool are added. This replaces the old dynamic
-    //      bot-2 with an explicit list Andrea maintains.
-    //
-    // Both families are enforced as soft constraints in the generator:
-    // splits that respect them are strongly preferred, but if none is
-    // feasible (small tournament, unavoidable rounds) the generator
-    // falls back rather than failing.
-    const avoidPairs: Array<[number, number]> = [];
-    // Weak-triple pairs (order matters little — small K = 3 max).
-    avoidPairs.push(...buildWeakTripleAvoidPairs(players));
-    try {
-      const { data: ranking } = await getRanking();
-      if (ranking && ranking.length > 0) {
-        const ranked = players.map((p, idx) => {
-          const r = p.player_id ? ranking.find(x => x.playerId === p.player_id) : null;
-          return { idx, score: r?.rankingScore ?? 0 };
-        }).sort((a, b) => b.score - a.score);
-        if (ranked.length >= 2 && ranked[0].score > 0 && ranked[1].score > 0) {
-          avoidPairs.push([ranked[0].idx, ranked[1].idx]);
-        }
-      }
-    } catch (e) {
-      console.warn('[handleStart] could not fetch ranking for pair constraints', e);
-    }
+    // Pair constraints — fixed clusters defined in src/lib/pairing-constraints.ts:
+    //   - STRONG_TRIPLE (Andrea, Rollo, Thomas)   → never paired together
+    //   - WEAK_TRIPLE   (Jose, Bruno, Karim)      → never paired together
+    // All C(k,2) pairings of cluster members actually in the pool become
+    // avoidPairs. Constraint is soft in the generator: preferred when a
+    // valid alternative split exists, falls back otherwise.
+    const avoidPairs: Array<[number, number]> = buildFixedAvoidPairs(players);
 
     const schedule = generateSchedule(names.length, config.totalRounds, avoidPairs, courts);
     const { error } = await startTournament(id, config, players, schedule, courts);
