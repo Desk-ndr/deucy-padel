@@ -80,30 +80,39 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
     for (const r of completedRounds) {
       const s = schedule[r.round_index - 1];
       if (!s) continue;
+      // Court A branches.
       const onA = s.teamA.includes(playerIndex);
       const onB = s.teamB.includes(playerIndex);
-      if (onA && r.team_a_score != null) {
-        gamesWon += r.team_a_score;
+      // Court B branches (dual-court tournaments).
+      const cB = s.courtB;
+      const onCBA = !!cB && cB.teamA.includes(playerIndex);
+      const onCBB = !!cB && cB.teamB.includes(playerIndex);
+      const pushMatchRow = (
+        mine: number[], theirs: number[],
+        myScore: number, theirScore: number,
+        courtLabel: 'A' | 'B',
+      ) => {
+        gamesWon += myScore;
         matchesPlayed += 1;
-        const won = r.team_a_score > r.team_b_score! ? 1 : r.team_a_score === r.team_b_score! ? 0.5 : 0;
+        const won = myScore > theirScore ? 1 : myScore === theirScore ? 0.5 : 0;
         matchesWon += won;
-        const earned = r.team_a_score * EUROS_PER_GAME;
+        const earned = myScore * EUROS_PER_GAME;
         gameEarnings += earned;
         const result: 'win' | 'loss' | 'draw' = won === 1 ? 'win' : won === 0.5 ? 'draw' : 'loss';
-        const myTeam = s.teamA.map(nameByIndex).join(' & ');
-        const opponent = s.teamB.map(nameByIndex).join(' & ');
-        ledger.push({ round: r.round_index, type: 'game', label: `${myTeam} vs ${opponent}`, amount: earned, detail: `${r.team_a_score} - ${r.team_b_score}`, result });
-      } else if (onB && r.team_b_score != null) {
-        gamesWon += r.team_b_score;
-        matchesPlayed += 1;
-        const won = r.team_b_score > r.team_a_score! ? 1 : r.team_b_score === r.team_a_score! ? 0.5 : 0;
-        matchesWon += won;
-        const earned = r.team_b_score * EUROS_PER_GAME;
-        gameEarnings += earned;
-        const result: 'win' | 'loss' | 'draw' = won === 1 ? 'win' : won === 0.5 ? 'draw' : 'loss';
-        const myTeam = s.teamB.map(nameByIndex).join(' & ');
-        const opponent = s.teamA.map(nameByIndex).join(' & ');
-        ledger.push({ round: r.round_index, type: 'game', label: `${myTeam} vs ${opponent}`, amount: earned, detail: `${r.team_b_score} - ${r.team_a_score}`, result });
+        const myTeam = mine.map(nameByIndex).join(' & ');
+        const opponent = theirs.map(nameByIndex).join(' & ');
+        // Prefix the label with the court letter only when the tournament is dual.
+        const prefix = cB ? `[${courtLabel}] ` : '';
+        ledger.push({ round: r.round_index, type: 'game', label: `${prefix}${myTeam} vs ${opponent}`, amount: earned, detail: `${myScore} - ${theirScore}`, result });
+      };
+      if (onA && r.team_a_score != null && r.team_b_score != null) {
+        pushMatchRow(s.teamA, s.teamB, r.team_a_score, r.team_b_score, 'A');
+      } else if (onB && r.team_a_score != null && r.team_b_score != null) {
+        pushMatchRow(s.teamB, s.teamA, r.team_b_score, r.team_a_score, 'A');
+      } else if (onCBA && cB && r.team_a_score_b != null && r.team_b_score_b != null) {
+        pushMatchRow(cB.teamA, cB.teamB, r.team_a_score_b, r.team_b_score_b, 'B');
+      } else if (onCBB && cB && r.team_a_score_b != null && r.team_b_score_b != null) {
+        pushMatchRow(cB.teamB, cB.teamA, r.team_b_score_b, r.team_a_score_b, 'B');
       }
     }
 
