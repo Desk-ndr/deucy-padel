@@ -633,13 +633,13 @@ export default function BlitzList() {
                 without having to open it first. */}
             <span style={{
               fontFamily: fonts.mono, fontSize: 12, fontWeight: 700,
-              color: colors.muted,
+              color: colors.text,
             }}>
               {finishedTournaments.length}
             </span>
             <svg
               width={14} height={14} viewBox="0 0 24 24" fill="none"
-              stroke={colors.muted} strokeWidth={3}
+              stroke={colors.text} strokeWidth={3}
               strokeLinecap="round" strokeLinejoin="round"
               style={{
                 transform: historyOpen ? 'rotate(180deg)' : 'rotate(0deg)',
