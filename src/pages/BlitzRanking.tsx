@@ -455,14 +455,24 @@ export default function BlitzRanking() {
         </div>
       )}
 
-      {/* Table Header */}
+      {/* One table: header and rows share a single bordered container, so the
+          column titles clearly belong to the values underneath instead of
+          floating above a stack of separate cards. */}
       {!loading && ranking.length > 0 && (
+      <div style={{
+        background: colors.surface,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.lg,
+        overflow: 'hidden',
+      }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '30px 1fr 46px 38px 46px 50px',
+          gridTemplateColumns: ROW_GRID,
           gap: spacing.sm,
-          padding: `0 ${spacing.lg + 1}px ${spacing.sm}px`,
+          padding: `${spacing.sm}px ${spacing.lg}px`,
           alignItems: 'center',
+          background: colors.bg,
+          borderBottom: `1px solid ${colors.border}`,
         }}>
           <span style={{ ...headerStyle, textAlign: 'center' }}>#</span>
           <span style={headerStyle}>Giocatore</span>
@@ -471,21 +481,9 @@ export default function BlitzRanking() {
           <span style={{ ...headerStyle, textAlign: 'center' }}>Win%</span>
           <span style={{ ...headerStyle, textAlign: 'center' }}>Game%</span>
         </div>
-      )}
-
-      {/* Column legend — kept to one quiet line so the table stays readable. */}
-      {!loading && ranking.length > 0 && (
-        <p style={{
-          ...typeScale.caption, color: colors.muted,
-          margin: `0 ${spacing.lg}px ${spacing.md}px`,
-          textTransform: 'none', letterSpacing: 0,
-        }}>
-          Win% = partite vinte · Game% = game vinti sul totale giocati
-        </p>
-      )}
 
       {/* Ranking Rows */}
-      {!loading && ranking.map((player, index) => {
+      {ranking.map((player, index) => {
         const isExpanded = expanded === player.playerId;
         const isFirst = index === 0;
         const posColor = index === 0 ? colors.gold : index === 1 ? colors.silver : index === 2 ? colors.bronze : colors.textSecondary;
@@ -496,19 +494,17 @@ export default function BlitzRanking() {
             key={player.playerId}
             onClick={() => setExpanded(isExpanded ? null : player.playerId)}
             style={{
-              background: isFirst ? colors.primaryMuted : (index % 2 === 0 ? colors.surface : colors.bg),
-              border: `1px solid ${isFirst ? colors.primary : colors.border}`,
-              borderRadius: radius.lg,
+              background: isFirst ? colors.primaryMuted : 'transparent',
+              borderBottom: index === ranking.length - 1 ? 'none' : `1px solid ${colors.border}`,
               padding: `${spacing.md}px ${spacing.lg}px`,
-              marginBottom: spacing.xs,
               cursor: 'pointer',
-              transition: 'border-color 0.2s',
+              transition: 'background-color 0.2s',
             }}
           >
             {/* Main row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '30px 1fr 46px 38px 46px 50px',
+              gridTemplateColumns: ROW_GRID,
               gap: spacing.sm,
               alignItems: 'center',
             }}>
@@ -726,33 +722,7 @@ export default function BlitzRanking() {
           </div>
         );
       })}
-
-      {/* Form legend */}
-      {!loading && ranking.length > 0 && (
-        <div style={{
-          marginTop: spacing.lg, padding: spacing.md,
-          background: colors.surface,
-          border: `1px solid ${colors.border}`,
-          borderRadius: radius.md,
-          display: 'flex', flexWrap: 'wrap',
-          justifyContent: 'center', gap: spacing.md,
-        }}>
-          {Object.entries(FORM_ICONS).map(([key, info]) => (
-            <span key={key} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontFamily: fonts.sans, fontSize: 13,
-              color: colors.textSecondary,
-            }}>
-              <span style={{
-                fontFamily: fonts.mono, fontWeight: 800,
-                color: info.color, minWidth: 18, textAlign: 'center',
-              }}>
-                {info.symbol}
-              </span>
-              {info.label}
-            </span>
-          ))}
-        </div>
+      </div>
       )}
 
       {/* Bottom spacer for nav */}
@@ -760,6 +730,9 @@ export default function BlitzRanking() {
     </div>
   );
 }
+
+/** Shared column template so header and rows can never drift apart. */
+const ROW_GRID = '30px 1fr 46px 38px 46px 50px';
 
 const headerStyle: React.CSSProperties = {
   fontFamily: fonts.sans,
