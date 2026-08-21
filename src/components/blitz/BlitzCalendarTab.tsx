@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   DndContext, DragEndEvent, KeyboardSensor, MouseSensor, TouchSensor,
   useSensor, useSensors, closestCenter,
@@ -19,7 +19,6 @@ interface Props {
 }
 
 export default function BlitzCalendarTab({ tournament, rounds, isCreator = false, onReorder }: Props) {
-  const [expandedRound, setExpandedRound] = useState<number | null>(null);
   const totalRounds = tournament.total_rounds;
 
   // Auto-scroll to the active round on mount, so opening the Calendar
@@ -76,210 +75,158 @@ export default function BlitzCalendarTab({ tournament, rounds, isCreator = false
     const round = rounds.find(r => r.round_index === roundNum);
     const isActive = roundNum === tournament.current_round && tournament.status === 'live';
     const isCompleted = round?.status === 'completed';
-    const isExpanded = expandedRound === roundNum || isActive;
     const isMovable = isCreator && !!onReorder && !isCompleted && roundNum > maxCompleted;
+
+    // Every round shows its whole line-up. Hiding it behind a chevron meant a
+    // nine-round tournament needed nine taps to answer "who am I with", and
+    // the collapsed header was already taking most of the height a condensed
+    // row needs anyway.
+    const courtLine = (
+      key: string,
+      label: string | null,
+      teamA: readonly number[],
+      teamB: readonly number[],
+      scoreA: number | null | undefined,
+      scoreB: number | null | undefined,
+    ) => {
+      const played = scoreA != null && scoreB != null;
+      const aWon = played && (scoreA as number) > (scoreB as number);
+      const bWon = played && (scoreB as number) > (scoreA as number);
+
+      // The score already says who won, but dimming the losing side lets the
+      // eye find it without reading the numbers.
+      const side = (lost: boolean) => ({
+        fontFamily: fonts.sans,
+        fontSize: 13,
+        fontWeight: lost ? 500 : 600,
+        color: lost ? colors.textSecondary : colors.text,
+        lineHeight: 1.35,
+        minWidth: 0,
+      });
+      const names = (team: readonly number[]) =>
+        team.map(idx => tournament.players[idx]?.name ?? '—').join(' + ');
+
+      return (
+        <div key={key} style={{
+          display: 'grid',
+          gridTemplateColumns: label ? '10px 1fr auto 1fr' : '1fr auto 1fr',
+          alignItems: 'center', gap: spacing.sm,
+        }}>
+          {label && (
+            <span style={{
+              fontFamily: fonts.sans, fontSize: 10, fontWeight: 800,
+              color: colors.muted,
+            }}>
+              {label}
+            </span>
+          )}
+          <span style={{ ...side(bWon), textAlign: 'left' }}>{names(teamA)}</span>
+          {played ? (
+            <span style={{
+              fontFamily: fonts.mono, fontSize: 13, fontWeight: 800,
+              color: colors.primary, whiteSpace: 'nowrap',
+            }}>
+              {scoreA} – {scoreB}
+            </span>
+          ) : (
+            <span style={{
+              fontFamily: fonts.sans, fontSize: 10, fontWeight: 700,
+              color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.08em',
+            }}>
+              vs
+            </span>
+          )}
+          <span style={{ ...side(aWon), textAlign: 'right' }}>{names(teamB)}</span>
+        </div>
+      );
+    };
 
     return (
       <div
         ref={isActive ? activeRef : undefined}
-        onClick={() => setExpandedRound(expandedRound === roundNum ? null : roundNum)}
         style={{
+          display: 'flex', flexDirection: 'column', gap: spacing.sm,
           backgroundColor: colors.surface,
           border: `1px solid ${isActive ? colors.primary : colors.border}`,
           borderRadius: radius.md,
           padding: spacing.md,
-          cursor: 'pointer',
           transition: 'all 0.2s',
-          opacity: isCompleted ? 0.65 : 1,
+          opacity: isCompleted ? 0.75 : 1,
           boxShadow: isActive ? `0 0 20px ${colors.primaryGlow}` : 'none',
           userSelect: 'none',
         }}
       >
-        {/* Row header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: isExpanded ? spacing.md : 0,
-          gap: spacing.sm,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, minWidth: 0 }}>
-            {/* Drag handle (host only, non-completed only) */}
-            {isMovable && dragHandle && (
-              <button
-                ref={dragHandle.setActivatorNodeRef}
-                {...dragHandle.listeners}
-                onClick={(e) => e.stopPropagation()}
-                aria-label={`Drag round ${roundNum}`}
-                title="Drag to reorder"
-                style={{
-                  width: 28, height: 28, borderRadius: radius.sm,
-                  background: 'transparent',
-                  border: `1px solid ${colors.border}`,
-                  color: colors.textSecondary,
-                  cursor: 'grab',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: 0, flexShrink: 0,
-                  touchAction: 'none', // critical for touch drag to work
-                }}
-              >
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-              </button>
-            )}
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, minWidth: 0 }}>
+          {isMovable && dragHandle && (
+            <button
+              ref={dragHandle.setActivatorNodeRef}
+              {...dragHandle.listeners}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Drag round ${roundNum}`}
+              title="Drag to reorder"
+              style={{
+                width: 28, height: 28, borderRadius: radius.sm,
+                background: 'transparent',
+                border: `1px solid ${colors.border}`,
+                color: colors.textSecondary,
+                cursor: 'grab',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 0, flexShrink: 0,
+                touchAction: 'none', // critical for touch drag to work
+              }}
+            >
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          )}
+          <span style={{
+            fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
+            color: isActive ? colors.primary : colors.text,
+          }}>
+            Round {roundNum}
+          </span>
+          {isActive && <LiveBadge size="sm" />}
+          {isCompleted && (
             <span style={{
-              fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
-              color: isActive ? colors.primary : colors.text,
+              ...typeScale.micro,
+              padding: `2px ${spacing.sm}px`,
+              borderRadius: radius.pill,
+              backgroundColor: colors.primaryMuted,
+              color: colors.primary,
             }}>
-              Round {roundNum}
+              Done
             </span>
-            {isActive && <LiveBadge size="sm" />}
-            {isCompleted && (
-              <span style={{
-                ...typeScale.micro,
-                padding: `2px ${spacing.sm}px`,
-                borderRadius: radius.pill,
-                backgroundColor: colors.primaryMuted,
-                color: colors.primary,
-              }}>
-                Done
-              </span>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-            {isCompleted && round && (
-              <div style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
-                fontFamily: fonts.mono, fontWeight: 800, fontSize: 14,
-                color: colors.primary,
-              }}>
-                <span>
-                  {s.courtB && <span style={{ fontSize: 9, opacity: 0.6, marginRight: 4, fontFamily: fonts.sans, fontWeight: 700 }}>A</span>}
-                  {round.team_a_score} - {round.team_b_score}
-                </span>
-                {s.courtB && round.team_a_score_b != null && round.team_b_score_b != null && (
-                  <span style={{ fontSize: 12, opacity: 0.9 }}>
-                    <span style={{ fontSize: 9, opacity: 0.6, marginRight: 4, fontFamily: fonts.sans, fontWeight: 700 }}>B</span>
-                    {round.team_a_score_b} - {round.team_b_score_b}
-                  </span>
-                )}
-              </div>
-            )}
-            {/* Chevron */}
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={colors.muted}
-              strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
-              style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
+          )}
         </div>
 
-        {/* Expanded content */}
-        {isExpanded && (
-          <>
-            {/* Court A label (only shown when dual) */}
-            {s.courtB && (
-              <div style={{
-                ...typeScale.micro, color: colors.muted, fontWeight: 800,
-                letterSpacing: 1, marginBottom: spacing.xs,
-              }}>
-                COURT A
-              </div>
-            )}
-            {/* Teams grid — Court A */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr auto 1fr',
-              alignItems: 'center', gap: spacing.sm,
-            }}>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.xs }}>
-                  Team A
-                </span>
-                <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
-                  {tournament.players[s.teamA[0]]?.name}
-                </p>
-                <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
-                  {tournament.players[s.teamA[1]]?.name}
-                </p>
-              </div>
-              <span style={{ ...typeScale.caption, color: colors.muted, fontWeight: 800 }}>vs</span>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.xs }}>
-                  Team B
-                </span>
-                <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
-                  {tournament.players[s.teamB[0]]?.name}
-                </p>
-                <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
-                  {tournament.players[s.teamB[1]]?.name}
-                </p>
-              </div>
-            </div>
-            {/* Teams grid — Court B */}
-            {s.courtB && (
-              <>
-                <div style={{
-                  ...typeScale.micro, color: colors.muted, fontWeight: 800,
-                  letterSpacing: 1, marginTop: spacing.md, marginBottom: spacing.xs,
-                  paddingTop: spacing.sm, borderTop: `1px solid ${colors.border}`,
-                }}>
-                  COURT B
-                </div>
-                <div style={{
-                  display: 'grid', gridTemplateColumns: '1fr auto 1fr',
-                  alignItems: 'center', gap: spacing.sm,
-                }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.xs }}>
-                      Team A
-                    </span>
-                    <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
-                      {tournament.players[s.courtB.teamA[0]]?.name}
-                    </p>
-                    <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
-                      {tournament.players[s.courtB.teamA[1]]?.name}
-                    </p>
-                  </div>
-                  <span style={{ ...typeScale.caption, color: colors.muted, fontWeight: 800 }}>vs</span>
-                  <div style={{ textAlign: 'center' }}>
-                    <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.xs }}>
-                      Team B
-                    </span>
-                    <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
-                      {tournament.players[s.courtB.teamB[0]]?.name}
-                    </p>
-                    <p style={{ ...typeScale.body, color: colors.text, fontWeight: 600, margin: 0 }}>
-                      {tournament.players[s.courtB.teamB[1]]?.name}
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
+        {/* One line per court. The letter only appears when there are two. */}
+        {courtLine('a', s.courtB ? 'A' : null, s.teamA, s.teamB, round?.team_a_score, round?.team_b_score)}
+        {s.courtB && courtLine('b', 'B', s.courtB.teamA, s.courtB.teamB, round?.team_a_score_b, round?.team_b_score_b)}
 
-            {/* Resting players */}
-            {s.rest.length > 0 && (
-              <div style={{
-                marginTop: spacing.md, paddingTop: spacing.sm,
-                borderTop: `1px solid ${colors.border}`,
-                display: 'flex', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center',
+        {/* Resting players */}
+        {s.rest.length > 0 && (
+          <div style={{
+            paddingTop: spacing.sm,
+            borderTop: `1px solid ${colors.border}`,
+            display: 'flex', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center',
+          }}>
+            <span style={{ ...typeScale.micro, color: colors.muted }}>Resting</span>
+            {s.rest.map((idx: number) => (
+              <span key={idx} style={{
+                ...typeScale.caption, color: colors.textSecondary,
+                padding: `2px ${spacing.sm}px`,
+                backgroundColor: colors.bg, borderRadius: radius.pill,
+                border: `1px solid ${colors.border}`,
               }}>
-                <span style={{ ...typeScale.micro, color: colors.muted }}>Resting</span>
-                {s.rest.map((idx: number) => (
-                  <span key={idx} style={{
-                    ...typeScale.caption, color: colors.textSecondary,
-                    padding: `2px ${spacing.sm}px`,
-                    backgroundColor: colors.bg, borderRadius: radius.pill,
-                    border: `1px solid ${colors.border}`,
-                  }}>
-                    {tournament.players[idx]?.name}
-                  </span>
-                ))}
-              </div>
-            )}
-          </>
+                {tournament.players[idx]?.name}
+              </span>
+            ))}
+          </div>
         )}
       </div>
     );
