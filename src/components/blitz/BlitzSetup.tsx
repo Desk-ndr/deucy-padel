@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getAllBlitzConfigs } from '@/lib/blitz-schedule';
 import { getAllFixedPairsConfigs } from '@/lib/fixed-pairs-schedule';
 import { suggestSnakePairs, assessPairs, PairingPlayer } from '@/lib/pairing-guide';
-import { getRanking } from '@/services/rankingService';
+import { fetchPlayerStrength, BASE_RATING } from '@/lib/player-strength';
 import { BlitzTournamentData } from '@/services/blitzService';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,7 +56,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   const [pairs, setPairs] = useState<Array<[number, number]>>([]);
   // Roster index currently armed for pairing (tap one name, then another).
   const [pendingPick, setPendingPick] = useState<number | null>(null);
-  // Global ranking scores, used purely to advise on pair balance.
+  // Doubles Elo per player id, used purely to advise on pair balance.
   const [scoreByPlayerId, setScoreByPlayerId] = useState<Record<string, number>>({});
   const [selectedConfig, setSelectedConfig] = useState<{ totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null>(null);
 
@@ -90,15 +90,17 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
     fetchPlayers();
   }, [tournament.id]);
 
-  // Ranking scores power the pairing guide. Failure is non-fatal: without
-  // scores the guide simply reports that balance can't be assessed.
+  // Doubles Elo powers the pairing guide — every match ever played,
+  // weighted by who was on court, rather than the cumulative ranking.
+  // Failure is non-fatal: without ratings the guide just reports that
+  // balance can't be assessed.
   useEffect(() => {
     let cancelled = false;
-    getRanking()
+    fetchPlayerStrength()
       .then(({ data }) => {
         if (cancelled || !data) return;
         const map: Record<string, number> = {};
-        data.forEach(r => { map[r.playerId] = r.rankingScore ?? 0; });
+        Object.entries(data).forEach(([id, s]) => { map[id] = s.rating; });
         setScoreByPlayerId(map);
       })
       .catch(() => { /* guide degrades gracefully */ });
@@ -162,7 +164,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
     index,
     name: p.name,
     playerId: p.player_id,
-    score: p.player_id ? (scoreByPlayerId[p.player_id] ?? 0) : 0,
+    score: p.player_id ? (scoreByPlayerId[p.player_id] ?? BASE_RATING) : BASE_RATING,
   }));
   const assessment = assessPairs(pairs, pairingPlayers);
   const nameOf = (i: number) => combinedRoster[i]?.name ?? '?';

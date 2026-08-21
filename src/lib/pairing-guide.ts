@@ -3,15 +3,20 @@
 // This module never decides the pairs — it only measures what the host
 // has built and offers a suggestion they can take or ignore. Every
 // function is pure so the setup screen can call it on each tap.
+//
+// Strength comes from the doubles Elo in player-strength.ts, not from the
+// ranking: the ranking is cumulative and time-decayed, which measures
+// attendance and recent form rather than level.
 
 import { STRONG_TRIPLE_PLAYER_IDS, WEAK_TRIPLE_PLAYER_IDS } from './pairing-constraints';
+import { BASE_RATING } from './player-strength';
 
 export interface PairingPlayer {
   /** Index in the tournament roster (matches schedule player indices). */
   index: number;
   name: string;
   playerId: string | null;
-  /** Global ranking score; 0 for newcomers and guests. */
+  /** Doubles Elo rating; BASE_RATING for players with no history. */
   score: number;
 }
 
@@ -20,7 +25,7 @@ export type BalanceVerdict = 'balanced' | 'slightly-off' | 'unbalanced' | 'unkno
 export interface PairInfo {
   a: number;
   b: number;
-  /** Combined ranking score of the two members. */
+  /** Average rating of the two members — the pair's level. */
   strength: number;
   /** Set when both members belong to the same fixed cluster. */
   warning: string | null;
@@ -33,16 +38,22 @@ export interface PairingAssessment {
   verdict: BalanceVerdict;
   /** Short human-readable summary for the header. */
   label: string;
-  /** Strength gap between the strongest and the weakest pair. */
+  /** Rating gap between the strongest and the weakest pair. */
   spread: number;
   /** One line per cluster violation. */
   warnings: string[];
 }
 
+// Gaps are in Elo points between pair averages. Forty points is inside
+// the noise of a fifteen-match sample; past a hundred the stronger pair
+// is expected to win comfortably.
+const BALANCED_MAX_SPREAD = 40;
+const SLIGHTLY_OFF_MAX_SPREAD = 100;
+
 /**
  * Snake seeding: strongest with weakest, second strongest with second
  * weakest, and so on. Produces the most even set of pairs achievable
- * from ranking alone, and as a side effect almost never puts two
+ * from the ratings alone, and as a side effect almost never puts two
  * cluster-mates together.
  */
 export function suggestSnakePairs(players: PairingPlayer[]): Array<[number, number]> {
@@ -71,7 +82,7 @@ function clusterWarning(
 }
 
 /**
- * Measure a set of pairs: strength per pair, overall balance, unpaired
+ * Measure a set of pairs: level per pair, overall balance, unpaired
  * players and cluster warnings. Purely advisory — nothing here blocks
  * the host from starting the tournament.
  */
@@ -87,10 +98,12 @@ export function assessPairs(
   const infos: PairInfo[] = pairs.map(([a, b]) => {
     const pa = byIndex.get(a);
     const pb = byIndex.get(b);
+    const ra = pa?.score ?? BASE_RATING;
+    const rb = pb?.score ?? BASE_RATING;
     return {
       a,
       b,
-      strength: (pa?.score ?? 0) + (pb?.score ?? 0),
+      strength: Math.round((ra + rb) / 2),
       warning: clusterWarning(pa, pb),
     };
   });
@@ -104,14 +117,12 @@ export function assessPairs(
   }
 
   const strengths = infos.map(i => i.strength);
-  const max = Math.max(...strengths);
-  const min = Math.min(...strengths);
-  const spread = max - min;
-  const avg = strengths.reduce((s, v) => s + v, 0) / strengths.length;
+  const spread = Math.max(...strengths) - Math.min(...strengths);
 
-  // Without any ranking history every pair scores 0 — say so instead of
-  // claiming the pairs are perfectly balanced.
-  if (avg <= 0) {
+  // Nobody in this roster has played a rated match yet: every rating is
+  // still the baseline, so any verdict would be meaningless.
+  const noHistory = players.every(p => p.score === BASE_RATING);
+  if (noHistory) {
     return {
       pairs: infos,
       unpaired,
@@ -122,13 +133,12 @@ export function assessPairs(
     };
   }
 
-  const relative = spread / avg;
   let verdict: BalanceVerdict;
   let label: string;
-  if (relative < 0.25) {
+  if (spread <= BALANCED_MAX_SPREAD) {
     verdict = 'balanced';
     label = 'Coppie equilibrate';
-  } else if (relative < 0.5) {
+  } else if (spread <= SLIGHTLY_OFF_MAX_SPREAD) {
     verdict = 'slightly-off';
     label = 'Coppie quasi equilibrate';
   } else {
