@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { getAllBlitzConfigs } from '@/lib/blitz-schedule';
 import { getAllFixedPairsConfigs } from '@/lib/fixed-pairs-schedule';
-import { suggestSnakePairs, assessPairs, PairingPlayer } from '@/lib/pairing-guide';
+import { balancedPairingOptions, assessPairs, PairingPlayer } from '@/lib/pairing-guide';
 import { fetchPlayerStrength, provisionalRating, BASE_RATING } from '@/lib/player-strength';
 import { BlitzTournamentData } from '@/services/blitzService';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
@@ -70,6 +70,8 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
   // Provenance of the pairs currently on screen, so the copy can say whether
   // the host is looking at a suggestion or at their own arrangement.
   const [pairSource, setPairSource] = useState<'elo' | 'manual' | null>(null);
+  // Which of the balanced alternatives is being shown.
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [selectedConfig, setSelectedConfig] = useState<{ totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number; matchesPerPair?: number } | null>(null);
 
   // Fetch registered players + apply RSVP pre-selection (one-shot).
@@ -205,9 +207,6 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
     score: (p.player_id ? scoreByPlayerId[p.player_id] : undefined) ?? unratedScore,
   }));
   const assessment = assessPairs(pairs, pairingPlayers);
-  // Suggesting only makes sense while a slot is still open. A full board has
-  // nowhere to put a new pair, so the button rests until a row is removed.
-  const canSuggest = pairs.length < Math.floor(numPlayers / 2);
   const nameOf = (i: number) => combinedRoster[i]?.name ?? '?';
 
   /** Tap-to-pair: first tap arms a player, second tap forms the pair. */
@@ -226,12 +225,6 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
     setSelectedConfig(null);
   };
 
-  const applySuggestion = () => {
-    setPairs(suggestSnakePairs(pairingPlayers));
-    setPendingPick(null);
-    setPairSource('elo');
-    setSelectedConfig(null);
-  };
 
 
   // Who is actually playing, as a stable string. Head-count alone is not
@@ -251,6 +244,34 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
   const pairingPlayersRef = useRef(pairingPlayers);
   pairingPlayersRef.current = pairingPlayers;
 
+  // Every balanced way to split this roster, best first. Recomputed only when
+  // the roster or the ratings change, never on a tap, so cycling through the
+  // alternatives is instant and always walks the same list.
+  const pairingOptions = useMemo(
+    () => balancedPairingOptions(pairingPlayersRef.current),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rosterKey, strengthLoaded, unratedScore, scoreByPlayerId],
+  );
+  const canSuggest = pairingOptions.length > 0;
+
+  /**
+   * Build the pairs from the ratings. Pressing again walks to the next
+   * balanced alternative and wraps around, so the host can look at a few
+   * arrangements before committing. Coming from hand-made pairs it starts
+   * over at the most even split rather than resuming mid-list.
+   */
+  const applySuggestion = () => {
+    if (pairingOptions.length === 0) return;
+    const next = pairSource === 'elo'
+      ? (suggestionIndex + 1) % pairingOptions.length
+      : 0;
+    setSuggestionIndex(next);
+    setPairs(pairingOptions[next].pairs);
+    setPendingPick(null);
+    setPairSource('elo');
+    setSelectedConfig(null);
+  };
+
   // Which roster has already been offered a suggestion. Pressing Clear must
   // leave the board empty — a proposal that reappears cannot be dismissed —
   // so this is keyed on the roster, not on whether pairs exist.
@@ -264,12 +285,13 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
     if (!strengthLoaded) return;      // ratings first, or the split is arbitrary
     if (pairs.length > 0) return;     // never overwrite what is on screen
     if (suggestedFor.current === rosterKey) return;
-    if (numPlayers < 4 || numPlayers % 2 !== 0) return;
+    if (pairingOptions.length === 0) return;
     suggestedFor.current = rosterKey;
-    setPairs(suggestSnakePairs(pairingPlayersRef.current));
+    setSuggestionIndex(0);
+    setPairs(pairingOptions[0].pairs);
     setPendingPick(null);
     setPairSource('elo');
-  }, [step, strengthLoaded, pairs.length, rosterKey, numPlayers]);
+  }, [step, strengthLoaded, pairs.length, rosterKey, pairingOptions]);
 
   const addGuest = () => {
     const trimmed = guestInput.trim();
@@ -866,15 +888,18 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
             }}>
               {!strengthLoaded
                 ? 'Reading Elo ratings...'
-                : !canSuggest
-                  ? (pairSource === 'elo'
-                      ? 'Suggested from Elo ratings. Remove a pair to change it.'
-                      : 'Your own pairs. Remove one to change it.')
-                  : 'Tap two names to pair them, or Suggest to use Elo ratings.'}
+                : pairSource === 'elo'
+                  ? (pairingOptions.length > 1
+                      ? `Balanced from Elo ratings, option ${suggestionIndex + 1} of ${pairingOptions.length}. Suggest again for another.`
+                      : 'Balanced from Elo ratings. Remove a pair to change it.')
+                  : pairSource === 'manual'
+                    ? 'Your own pairs. Suggest rebuilds them from Elo ratings.'
+                    : 'Tap two names to pair them, or Suggest to use Elo ratings.'}
             </p>
 
-            {/* Only offers itself when there is a free slot to fill — with a
-                full board the suggestion would have nothing to place. */}
+            {/* Rebuilds the whole board, so it stays available even when every
+                slot is filled — that is how the host reaches the next
+                balanced alternative. */}
             <button
               onClick={applySuggestion}
               disabled={!canSuggest}
