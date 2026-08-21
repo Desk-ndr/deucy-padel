@@ -28,7 +28,6 @@ export default function BlitzMatchTab({
 }: Props) {
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
-  const [showScoreInput, setShowScoreInput] = useState(false);
   const [scoreA_B, setScoreA_B] = useState('');
   const [scoreB_B, setScoreB_B] = useState('');
 
@@ -46,7 +45,6 @@ export default function BlitzMatchTab({
         status: tournament.status,
         current_round: tournament.current_round,
         playerIndex,
-        showScoreInput,
       });
     } else if (elapsed > 5000) {
       matchRenderCountRef.current = { count: 1, t0: Date.now(), warned: false };
@@ -394,12 +392,10 @@ export default function BlitzMatchTab({
   const prevRoundRef = useRef(tournament.current_round);
   useEffect(() => {
     if (prevRoundRef.current !== tournament.current_round) {
-      const wasEditing = showScoreInput;
+      const hadTyped = !!(scoreA || scoreB || scoreA_B || scoreB_B);
       prevRoundRef.current = tournament.current_round;
-      if (wasEditing) {
-        setShowScoreInput(false);
-        setScoreA('');
-        setScoreB('');
+      if (hadTyped) {
+        setScoreA(''); setScoreB(''); setScoreA_B(''); setScoreB_B('');
         toast({
           title: 'Round was just submitted',
           description: 'Another player entered the score first.',
@@ -427,32 +423,46 @@ export default function BlitzMatchTab({
       await onSubmitScore(a, b);
     }
     setScoreA(''); setScoreB(''); setScoreA_B(''); setScoreB_B('');
-    setShowScoreInput(false);
+  };
+
+  /** Every court has both numbers in, so the round can be committed. */
+  const scoresReady = !!scoreA && !!scoreB && (!isDual || (!!scoreA_B && !!scoreB_B));
+
+  /**
+   * The middle cell of a court card: two boxes to type into, or a plain VS
+   * for anyone watching who is not in this tournament.
+   *
+   * There used to be a second card below that redrew the same two teams with
+   * inputs under them — a tap to open it, the same names read twice, and the
+   * scores sitting far from the players they belonged to.
+   */
+  const scoreCell = (
+    a: string, setA: (v: string) => void,
+    b: string, setB: (v: string) => void,
+  ) => {
+    if (!canSubmit) {
+      return <span style={{ fontSize: 22, fontWeight: 900, color: colors.muted }}>VS</span>;
+    }
+    const box: React.CSSProperties = {
+      width: 40, padding: `${spacing.xs}px 0`,
+      backgroundColor: colors.bg,
+      border: `1px solid ${colors.border}`,
+      borderRadius: radius.sm,
+      color: colors.text, fontSize: 20, fontWeight: 800,
+      textAlign: 'center', fontFamily: fonts.mono, outline: 'none',
+      boxSizing: 'border-box',
+    };
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+        <input type="number" min="0" inputMode="numeric" placeholder="0"
+          value={a} onChange={e => setA(e.target.value)} style={box} />
+        <input type="number" min="0" inputMode="numeric" placeholder="0"
+          value={b} onChange={e => setB(e.target.value)} style={box} />
+      </div>
+    );
   };
 
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: `${spacing.sm}px ${spacing.xs}px`,
-    backgroundColor: colors.bg,
-    border: `1px solid ${colors.border}`,
-    borderRadius: radius.sm,
-    color: colors.text,
-    fontSize: 20, fontWeight: 800,
-    textAlign: 'center',
-    fontFamily: fonts.mono,
-    outline: 'none',
-    boxSizing: 'border-box',
-  };
-  const teamLabelStyle: React.CSSProperties = {
-    fontSize: 12, fontWeight: 700, color: colors.text,
-    textAlign: 'center', fontFamily: fonts.sans,
-    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-    lineHeight: 1.25,
-  };
-  const teamPair = (a?: string, b?: string) => `${a ?? '—'} & ${b ?? '—'}`;
-  const cA = currentSchedule;
-  const cB = currentSchedule?.courtB;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
@@ -517,7 +527,7 @@ export default function BlitzMatchTab({
               <PlayerName player={tournament.players[currentSchedule.teamA[1]]} />
             </div>
           </div>
-          <span style={{ fontSize: 22, fontWeight: 900, color: colors.muted }}>VS</span>
+          {scoreCell(scoreA, setScoreA, scoreB, setScoreB)}
           <div style={{ textAlign: 'center' }}>
             <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.sm }}>Team B</span>
             <PlayerName player={tournament.players[currentSchedule.teamB[0]]} />
@@ -546,7 +556,7 @@ export default function BlitzMatchTab({
                   <PlayerName player={tournament.players[currentSchedule.courtB.teamA[1]]} />
                 </div>
               </div>
-              <span style={{ fontSize: 22, fontWeight: 900, color: colors.muted }}>VS</span>
+              {scoreCell(scoreA_B, setScoreA_B, scoreB_B, setScoreB_B)}
               <div style={{ textAlign: 'center' }}>
                 <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.sm }}>Team B</span>
                 <PlayerName player={tournament.players[currentSchedule.courtB.teamB[0]]} />
@@ -617,68 +627,25 @@ export default function BlitzMatchTab({
         />
       )}
 
-      {/* Submit score trigger — any player in this tournament can submit */}
-      {canSubmit && !showScoreInput && (
-        <button onClick={() => setShowScoreInput(true)} style={{
-          width: '100%', padding: spacing.md,
-          backgroundColor: colors.primary, color: colors.bg,
-          border: 'none', borderRadius: radius.sm,
-          fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: fonts.sans,
-        }}>
+      {/* Confirms what is already typed in the cards above and moves on.
+          Stays out of reach until both courts have a result, so it can never
+          commit half a round. */}
+      {canSubmit && (
+        <button
+          onClick={handleSubmit}
+          disabled={!scoresReady}
+          style={{
+            width: '100%', padding: spacing.md,
+            backgroundColor: colors.primary, color: colors.bg,
+            border: 'none', borderRadius: radius.sm,
+            fontSize: 14, fontWeight: 700, fontFamily: fonts.sans,
+            cursor: scoresReady ? 'pointer' : 'default',
+            opacity: scoresReady ? 1 : 0.4,
+            transition: 'opacity 0.15s',
+          }}
+        >
           Submit Score & {tournament.current_round >= totalRounds ? 'Finish' : 'Next Round'} →
         </button>
-      )}
-
-      {/* Score input card */}
-      {canSubmit && showScoreInput && (
-        <div style={{
-          padding: spacing.lg, backgroundColor: colors.surface,
-          borderRadius: radius.md, border: `1px solid ${colors.border}`,
-          display: 'flex', flexDirection: 'column', gap: spacing.md,
-        }}>
-          <p style={{ ...typeScale.title, color: colors.text, textAlign: 'center', margin: 0 }}>Enter Final Score</p>
-
-          {isDual && (
-            <p style={{ ...typeScale.micro, color: colors.primary, textAlign: 'center', margin: 0, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Court A</p>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-end', gap: spacing.sm }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, minWidth: 0 }}>
-              <div style={teamLabelStyle}>{cA ? teamPair(tournament.players[cA.teamA[0]]?.name, tournament.players[cA.teamA[1]]?.name) : 'Team A'}</div>
-              <input type="number" min="0" placeholder="0" value={scoreA} onChange={e => setScoreA(e.target.value)} style={inputStyle} />
-            </div>
-            <span style={{ fontSize: 18, fontWeight: 700, color: colors.muted, paddingBottom: spacing.sm }}>—</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, minWidth: 0 }}>
-              <div style={teamLabelStyle}>{cA ? teamPair(tournament.players[cA.teamB[0]]?.name, tournament.players[cA.teamB[1]]?.name) : 'Team B'}</div>
-              <input type="number" min="0" placeholder="0" value={scoreB} onChange={e => setScoreB(e.target.value)} style={inputStyle} />
-            </div>
-          </div>
-          {isDual && (
-            <>
-              <p style={{ ...typeScale.micro, color: colors.primary, textAlign: 'center', margin: 0, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Court B</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-end', gap: spacing.sm }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, minWidth: 0 }}>
-                  <div style={teamLabelStyle}>{cB ? teamPair(tournament.players[cB.teamA[0]]?.name, tournament.players[cB.teamA[1]]?.name) : 'Team A'}</div>
-                  <input type="number" min="0" placeholder="0" value={scoreA_B} onChange={e => setScoreA_B(e.target.value)} style={inputStyle} />
-                </div>
-                <span style={{ fontSize: 18, fontWeight: 700, color: colors.muted, paddingBottom: spacing.sm }}>—</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, minWidth: 0 }}>
-                  <div style={teamLabelStyle}>{cB ? teamPair(tournament.players[cB.teamB[0]]?.name, tournament.players[cB.teamB[1]]?.name) : 'Team B'}</div>
-                  <input type="number" min="0" placeholder="0" value={scoreB_B} onChange={e => setScoreB_B(e.target.value)} style={inputStyle} />
-                </div>
-              </div>
-            </>
-          )}
-
-          <div style={{ display: 'flex', gap: spacing.sm }}>
-            <button onClick={() => setShowScoreInput(false)} style={{
-              flex: 1, padding: spacing.md, backgroundColor: colors.surfaceElevated, color: colors.textSecondary,
-              border: `1px solid ${colors.border}`, borderRadius: radius.sm,
-              fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: fonts.sans,
-            }}>Cancel</button>
-            <button onClick={handleSubmit} disabled={!scoreA || !scoreB || (isDual && (!scoreA_B || !scoreB_B))} style={{ flex: 1, padding: spacing.md, backgroundColor: colors.primary, color: colors.bg, border: 'none', borderRadius: radius.sm, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: fonts.sans, opacity: (scoreA && scoreB && (!isDual || (scoreA_B && scoreB_B))) ? 1 : 0.4, }}>Confirm →</button>
-          </div>
-        </div>
       )}
 
       {/* Standings, right where you land after submitting a score: between
