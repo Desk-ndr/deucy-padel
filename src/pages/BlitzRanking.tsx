@@ -180,11 +180,18 @@ export default function BlitzRanking() {
       </div>
 
       {/* Subtitle on its own row, indented to roughly sit under the title */}
-      {/* Leaderboard switch — singles vs fixed pairs. Two independent
+      {/* Leaderboard switch — iOS-style segmented control. Full content
+          width so it lines up with the table underneath. Two independent
           scores: a player appears in both, but the points never mix. */}
       <div style={{
-        display: 'flex', gap: spacing.xs,
-        margin: `${spacing.lg}px 0 ${spacing.md}px ${23 + 16}px`,
+        display: 'flex',
+        padding: 3,
+        backgroundColor: colors.surface,
+        border: `1px solid ${colors.border}`,
+        borderRadius: 12,
+        margin: `${spacing.lg}px 0 ${spacing.md}px`,
+        boxSizing: 'border-box',
+        width: '100%',
       }}>
         {([
           { key: 'rotating' as const, label: 'Singolo' },
@@ -196,15 +203,21 @@ export default function BlitzRanking() {
               key={t.key}
               onClick={() => setRankFormat(t.key)}
               style={{
-                padding: `${spacing.xs}px ${spacing.lg}px`,
-                borderRadius: radius.pill,
-                backgroundColor: isActive ? colors.primaryMuted : 'transparent',
-                border: `1px solid ${isActive ? colors.primary : colors.border}`,
-                color: isActive ? colors.primary : colors.textSecondary,
-                fontSize: 13, fontWeight: 700,
+                flex: 1,
+                minWidth: 0,
+                padding: `${spacing.sm}px 0`,
+                borderRadius: 9,
+                backgroundColor: isActive ? colors.surfaceElevated : 'transparent',
+                border: 'none',
+                color: isActive ? colors.text : colors.muted,
+                fontSize: 14,
+                fontWeight: isActive ? 700 : 600,
                 fontFamily: fonts.sans,
                 cursor: 'pointer',
-                transition: 'all 0.15s',
+                boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.45)' : 'none',
+                transition: 'background-color 0.2s, color 0.2s, box-shadow 0.2s',
+                whiteSpace: 'nowrap',
+                textAlign: 'center',
               }}
             >
               {t.label}
@@ -448,7 +461,7 @@ export default function BlitzRanking() {
           display: 'grid',
           gridTemplateColumns: '30px 1fr 46px 38px 46px 50px',
           gap: spacing.sm,
-          padding: `0 ${spacing.lg}px ${spacing.sm}px`,
+          padding: `0 ${spacing.lg + 1}px ${spacing.sm}px`,
           alignItems: 'center',
         }}>
           <span style={{ ...headerStyle, textAlign: 'center' }}>#</span>
@@ -464,7 +477,7 @@ export default function BlitzRanking() {
       {!loading && ranking.length > 0 && (
         <p style={{
           ...typeScale.caption, color: colors.muted,
-          margin: `0 0 ${spacing.sm}px ${30 + 8}px`,
+          margin: `0 ${spacing.lg}px ${spacing.md}px`,
           textTransform: 'none', letterSpacing: 0,
         }}>
           Win% = partite vinte · Game% = game vinti sul totale giocati
