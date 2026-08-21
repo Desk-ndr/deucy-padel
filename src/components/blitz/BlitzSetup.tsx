@@ -58,7 +58,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   const [pendingPick, setPendingPick] = useState<number | null>(null);
   // Doubles Elo per player id, used purely to advise on pair balance.
   const [scoreByPlayerId, setScoreByPlayerId] = useState<Record<string, number>>({});
-  const [selectedConfig, setSelectedConfig] = useState<{ totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null>(null);
+  const [selectedConfig, setSelectedConfig] = useState<{ totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number; matchesPerPair?: number } | null>(null);
 
   // Fetch registered players + apply RSVP pre-selection (one-shot).
   // When the host enters setup from an announced tournament, AnnouncedView
@@ -983,7 +983,9 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
                           {c.totalRounds} round × {mins}:{String(secs).padStart(2, '0')}
                         </span>
                         <span style={{ ...typeScale.caption, color: colors.muted, marginTop: 2, display: 'block' }}>
-                          Each player plays {c.gamesPerPlayer} rounds
+                          {format === 'fixed_pairs'
+                            ? `Each pair plays ${(c as any).matchesPerPair} matches`
+                            : `Each player plays ${c.gamesPerPlayer} rounds`}
                         </span>
                       </div>
                       {isSweet && (
