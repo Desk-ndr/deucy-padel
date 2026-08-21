@@ -285,19 +285,30 @@ export default function BlitzMatchTab({
 
     const winner = ranked[0];
 
-    // A fixed-pairs tournament is won by a pair. Naming one of the two on
-    // the celebration screen credits half the result.
-    const winnerPartnerIndex = fixedPairs.length > 0 && winner
-      ? fixedPairs.reduce<number | null>((found, [a, b]) => {
-          if (found !== null) return found;
-          if (a === winner.index) return b;
-          if (b === winner.index) return a;
-          return null;
-        }, null)
-      : null;
-    const winnerLabel = winnerPartnerIndex !== null
-      ? `${winner.name} & ${tournament.players[winnerPartnerIndex]?.name ?? '—'}`
-      : (winner?.name ?? '—');
+    // Everyone who actually finished first, not just whoever sorted to the
+    // top. A pair wins together, and either format can end level — naming one
+    // of two co-winners credits half the result. Partners are joined with an
+    // ampersand and separate winners with a comma, so two tied pairs read
+    // "Andrea & José, Bruno & Luca" rather than one four-person team.
+    const firstPlace = ranked.filter((_, i) => placements[i] === 1);
+    const winnerLabel = (() => {
+      if (firstPlace.length === 0) return '—';
+      if (fixedPairs.length === 0) {
+        return firstPlace.map(p => p.name).join(', ');
+      }
+      const won = new Set(firstPlace.map(p => p.index));
+      const groups: string[] = [];
+      const claimed = new Set<number>();
+      for (const [a, b] of fixedPairs) {
+        const members = [a, b].filter(i => won.has(i));
+        if (members.length === 0) continue;
+        members.forEach(i => claimed.add(i));
+        groups.push(members.map(i => tournament.players[i]?.name ?? '—').join(' & '));
+      }
+      // Anyone the pair list does not account for still gets named.
+      firstPlace.forEach(p => { if (!claimed.has(p.index)) groups.push(p.name); });
+      return groups.join(', ');
+    })();
     const N = tournament.players.length;
     const pointsFor = (rank: number) => placementPoints(rank, N);
 
