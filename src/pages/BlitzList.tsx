@@ -6,6 +6,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { getRanking, RankedPlayer } from '@/services/rankingService';
+import { RankingTableShell, RankingTableHeader, RankingRowCells, RankingFormatTabs, ROW_PAD_X } from '@/components/blitz/RankingTable';
 import { supabase } from '@/integrations/supabase/client';
 import { useBlitzIdentity, getGlobalPlayer } from '@/hooks/useBlitzIdentity';
 import { colors, spacing, radius, fonts, typeScale, animationCSS } from '@/lib/design-tokens';
@@ -25,6 +26,8 @@ export default function BlitzList() {
   const [locationUrl, setLocationUrl] = useState(''); // optional Google Maps link
   const [creating, setCreating] = useState(false);
   const [ranking, setRanking] = useState<RankedPlayer[]>([]);
+  // Which leaderboard the preview is showing. Mirrors the ranking page.
+  const [rankFormat, setRankFormat] = useState<'rotating' | 'fixed_pairs'>('rotating');
   const [rankingLoading, setRankingLoading] = useState(true);
   const [myRank, setMyRank] = useState<{ position: number; score: number; delta: number | null } | null>(null);
   const [myResults, setMyResults] = useState<Record<string, { placement: number; points: number }>>({});
@@ -73,7 +76,7 @@ export default function BlitzList() {
     let cancelled = false;
     const fetchRanking = async (attempt = 0) => {
       try {
-        const { data, error } = await getRanking();
+        const { data, error } = await getRanking(rankFormat);
         if (cancelled) return;
         if (error && attempt < 2) {
           setTimeout(() => fetchRanking(attempt + 1), 2000);
@@ -102,7 +105,7 @@ export default function BlitzList() {
     };
     fetchRanking();
     return () => { cancelled = true; };
-  }, []);
+  }, [rankFormat]);
 
   // Fetch my per-tournament results — re-runs when the tournaments list
   // changes so newly-finished tournaments get their result populated
@@ -286,30 +289,12 @@ export default function BlitzList() {
               </button>
             </div>
 
-            {/* Column headers — # / NAME / PTS, aligned with the rows below */}
-            <div style={{
-              display: 'flex', alignItems: 'center',
-              padding: `0 ${spacing.sm}px`,
-              marginTop: spacing.lg, marginBottom: spacing.xs,
-            }}>
-              <span style={{
-                fontFamily: fonts.mono, fontSize: 10, fontWeight: 600,
-                color: colors.textSecondary, letterSpacing: 0.5,
-                minWidth: 28,
-              }}>#</span>
-              <span style={{
-                flex: 1,
-                fontFamily: fonts.mono, fontSize: 10, fontWeight: 600,
-                color: colors.textSecondary, letterSpacing: 0.5,
-              }}>NAME</span>
-              <span style={{
-                fontFamily: fonts.mono, fontSize: 10, fontWeight: 600,
-                color: colors.textSecondary, letterSpacing: 0.5,
-              }}>PTS</span>
+            {/* Format switch — same control as the ranking page. Its clicks
+                are stopped inside the component so tapping it does not open
+                the ranking underneath. */}
+            <div style={{ marginTop: spacing.lg, marginBottom: spacing.md }}>
+              <RankingFormatTabs value={rankFormat} onChange={setRankFormat} />
             </div>
-
-            {/* Divider */}
-            <div style={{ height: 1, background: colors.border, marginBottom: spacing.sm }} />
 
             {/* Loading skeleton */}
             {rankingLoading && ranking.length === 0 && (
@@ -326,80 +311,33 @@ export default function BlitzList() {
 
             {/* Empty state */}
             {!rankingLoading && top3.length === 0 && (
-              <div style={{
-                textAlign: 'center', padding: `${spacing.xl}px 0`,
-              }}>
+              <div style={{ textAlign: 'center', padding: `${spacing.xl}px 0` }}>
                 <span style={{ fontSize: 14, color: colors.muted }}>
                   No players yet
                 </span>
               </div>
             )}
 
-            {/* Top 3 rows */}
-            {top3.map((player, i) => {
-              const posColors = [colors.gold, colors.silver, colors.bronze];
-              const isFirst = i === 0;
-              const delta = player.pointsDelta;
-              const showDelta = delta !== null && delta !== 0;
-              return (
-                <div
-                  key={player.playerId}
-                  style={{
-                    display: 'flex', alignItems: 'center',
-                    padding: `${spacing.sm + 2}px ${spacing.sm}px`,
-                    borderRadius: radius.md,
-                    marginBottom: i < 2 ? spacing.xs : 0,
-                  }}
-                >
-                  {/* Position number */}
-                  <span style={{
-                    fontFamily: fonts.mono, fontSize: isFirst ? 18 : 16,
-                    fontWeight: 900, color: posColors[i],
-                    minWidth: 28,
-                  }}>
-                    {i + 1}
-                  </span>
-
-                  {/* Name + stats */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      fontSize: isFirst ? 15 : 14,
-                      fontWeight: isFirst ? 600 : 500,
-                      color: isFirst ? colors.text : colors.textSecondary,
-                    }}>
-                      {player.displayName}
-                    </div>
-                    <div style={{
-                      fontSize: 11, color: colors.muted, marginTop: 1,
-                    }}>
-                      {player.tournamentsPlayed} played{player.winRate > 0 ? ` · ${player.winRate}% W` : ''}
-                    </div>
+            {/* Top 3 — the very same table as the ranking page, so the two can
+                never look different. Tapping a row opens the full ranking,
+                handled by the card wrapper. */}
+            {!rankingLoading && top3.length > 0 && (
+              <RankingTableShell>
+                <RankingTableHeader />
+                {top3.map((player, i) => (
+                  <div
+                    key={player.playerId}
+                    style={{
+                      background: i === 0 ? colors.primaryMuted : 'transparent',
+                      borderBottom: i === top3.length - 1 ? 'none' : `1px solid ${colors.border}`,
+                      padding: `${spacing.md}px ${ROW_PAD_X}px`,
+                    }}
+                  >
+                    <RankingRowCells player={player} index={i} showDelta />
                   </div>
-
-                  {/* Score + small delta below */}
-                  <div style={{ textAlign: 'right', minWidth: 48 }}>
-                    <div style={{
-                      fontFamily: fonts.mono,
-                      fontSize: isFirst ? 18 : 16,
-                      fontWeight: 900,
-                      color: isFirst ? colors.primary : colors.textSecondary,
-                      lineHeight: 1,
-                    }}>
-                      {player.rankingScore}
-                    </div>
-                    {showDelta && (
-                      <div style={{
-                        fontFamily: fonts.mono, fontSize: 11, fontWeight: 700,
-                        color: delta > 0 ? colors.primary : colors.destructive,
-                        marginTop: 2,
-                      }}>
-                        {delta > 0 ? '+' : ''}{delta}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                ))}
+              </RankingTableShell>
+            )}
 
             {/* My position — only if user is outside the visible top 3 */}
             {myRank && myRank.position > 3 && (

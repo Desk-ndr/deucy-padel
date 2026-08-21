@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 import { getRanking, RankedPlayer } from '@/services/rankingService';
+import { RankingTableShell, RankingTableHeader, RankingRowCells, RankingFormatTabs, ROW_PAD_X } from '@/components/blitz/RankingTable';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizePhone } from '@/lib/phone';
 
@@ -227,50 +228,10 @@ export default function BlitzRanking() {
         </svg>
       </button>
 
-      {/* Leaderboard switch — iOS-style segmented control. Full content
-          width so it lines up with the table underneath. Two independent
-          scores: a player appears in both, but the points never mix. */}
-      <div style={{
-        display: 'flex',
-        padding: 3,
-        backgroundColor: colors.surface,
-        border: `1px solid ${colors.border}`,
-        borderRadius: 12,
-        margin: `${spacing.md}px 0 ${spacing.md}px`,
-        boxSizing: 'border-box',
-        width: '100%',
-      }}>
-        {([
-          { key: 'rotating' as const, label: 'Singles' },
-          { key: 'fixed_pairs' as const, label: 'Pairs' },
-        ]).map(t => {
-          const isActive = rankFormat === t.key;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setRankFormat(t.key)}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                padding: `${spacing.sm}px 0`,
-                borderRadius: 9,
-                backgroundColor: isActive ? colors.surfaceElevated : 'transparent',
-                border: 'none',
-                color: isActive ? colors.text : colors.muted,
-                fontSize: 14,
-                fontWeight: isActive ? 700 : 600,
-                fontFamily: fonts.sans,
-                cursor: 'pointer',
-                boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.45)' : 'none',
-                transition: 'background-color 0.2s, color 0.2s, box-shadow 0.2s',
-                whiteSpace: 'nowrap',
-                textAlign: 'center',
-              }}
-            >
-              {t.label}
-            </button>
-          );
-        })}
+      {/* Leaderboard switch — two independent scores: a player appears in
+          both, but the points never mix. */}
+      <div style={{ margin: `${spacing.md}px 0 ${spacing.md}px` }}>
+        <RankingFormatTabs value={rankFormat} onChange={setRankFormat} />
       </div>
 
       {/* Manage Players Panel */}
@@ -474,31 +435,8 @@ export default function BlitzRanking() {
           column titles clearly belong to the values underneath instead of
           floating above a stack of separate cards. */}
       {!loading && ranking.length > 0 && (
-      <div style={{
-        background: colors.surface,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.lg,
-        overflowX: 'auto',
-        overflowY: 'hidden',
-        WebkitOverflowScrolling: 'touch',
-      }}>
-      <div style={{ minWidth: TABLE_MIN_WIDTH }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: ROW_GRID,
-          gap: ROW_GAP,
-          padding: `${spacing.sm}px ${ROW_PAD_X}px`,
-          alignItems: 'center',
-          background: colors.bg,
-          borderBottom: `1px solid ${colors.border}`,
-        }}>
-          <span style={{ ...headerStyle, textAlign: 'center' }}>#</span>
-          <span style={headerStyle}>Player</span>
-          <span style={{ ...headerStyle, textAlign: 'right' }}>Pts</span>
-          <span style={{ ...headerStyle, textAlign: 'center' }}>Played</span>
-          <span style={{ ...headerStyle, textAlign: 'center' }}>Win%</span>
-          <span style={{ ...headerStyle, textAlign: 'center' }}>Game%</span>
-        </div>
+      <RankingTableShell>
+        <RankingTableHeader />
 
       {/* Ranking Rows */}
       {ranking.map((player, index) => {
@@ -519,82 +457,7 @@ export default function BlitzRanking() {
               transition: 'background-color 0.2s',
             }}
           >
-            {/* Main row */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: ROW_GRID,
-              gap: ROW_GAP,
-              alignItems: 'center',
-            }}>
-              {/* Position */}
-              <div style={{
-                width: 24, height: 24, borderRadius: '50%',
-                justifySelf: 'center',
-                background: isFirst ? colors.primary : 'transparent',
-                border: isFirst ? 'none' : `1.5px solid ${posColor}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: fonts.mono, fontSize: 14, fontWeight: 700,
-                color: isFirst ? '#000' : posColor,
-              }}>
-                {index + 1}
-              </div>
-
-              {/* Name + tournaments count */}
-              <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                <p style={{
-                  fontFamily: fonts.sans, fontSize: typeScale.body.fontSize, fontWeight: 600,
-                  color: colors.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                  minWidth: 0,
-                  display: 'flex', alignItems: 'center', gap: spacing.xs,
-                }}>
-                  {player.displayName}
-                  {player.isCrownHolder && <svg width={14} height={14} viewBox="0 0 24 24" fill={colors.accent} stroke="none" style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 2 }}><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z" /></svg>}
-                </p>
-                <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.muted, margin: 0, marginTop: 1 }}>
-                  {player.tournamentsPlayed}T
-                </p>
-              </div>
-
-              {/* Points — hero stat */}
-              <div style={{ textAlign: 'right' }}>
-                <span style={{
-                  fontFamily: fonts.mono, fontSize: 18, fontWeight: 900,
-                  color: isFirst ? colors.primary : colors.text,
-                }}>
-                  {player.rankingScore}
-                </span>
-              </div>
-
-              {/* Matches played */}
-              <div style={{ textAlign: 'center' }}>
-                <span style={{
-                  fontFamily: fonts.mono, fontSize: 14, fontWeight: 500,
-                  color: colors.text,
-                }}>
-                  {player.matchesPlayed || '—'}
-                </span>
-              </div>
-
-              {/* Win rate */}
-              <div style={{ textAlign: 'center' }}>
-                <span style={{
-                  fontFamily: fonts.mono, fontSize: 14, fontWeight: 500,
-                  color: colors.text,
-                }}>
-                  {player.matchesPlayed ? `${player.winRate}%` : '—'}
-                </span>
-              </div>
-
-              {/* Game rate */}
-              <div style={{ textAlign: 'center' }}>
-                <span style={{
-                  fontFamily: fonts.mono, fontSize: 14, fontWeight: 500,
-                  color: colors.text,
-                }}>
-                  {player.matchesPlayed ? `${player.gameRate}%` : '—'}
-                </span>
-              </div>
-            </div>
+            <RankingRowCells player={player} index={index} />
 
             {/* Expanded detail */}
             {isExpanded && (
@@ -742,8 +605,7 @@ export default function BlitzRanking() {
           </div>
         );
       })}
-      </div>
-      </div>
+      </RankingTableShell>
       )}
 
       {/* Bottom spacer for nav */}
@@ -751,29 +613,3 @@ export default function BlitzRanking() {
     </div>
   );
 }
-
-/** Shared column template so header and rows can never drift apart. */
-// Column template shared by the header and every row so they can never
-// drift apart. Widths are chosen so each header label fits inside its own
-// track at the header font size — a label wider than its column would spill
-// over the neighbouring one and break the alignment.
-const ROW_GRID = '26px minmax(104px, 1fr) 42px 48px 46px 52px';
-const ROW_GAP = spacing.xs;
-const ROW_PAD_X = spacing.md;
-// Below this the columns would start squeezing names and numbers, so the
-// table stops shrinking and scrolls sideways instead. Header and rows sit
-// in the same scrolling box, so they always move together and stay aligned.
-const TABLE_MIN_WIDTH = 26 + 104 + 42 + 48 + 46 + 52 + (ROW_GAP * 5) + (ROW_PAD_X * 2);
-
-const headerStyle: React.CSSProperties = {
-  fontFamily: fonts.sans,
-  fontSize: 10,
-  fontWeight: 700,
-  color: colors.muted,
-  textTransform: 'uppercase' as const,
-  letterSpacing: '0.02em',
-  // Never let a label widen its track or bleed into the next column.
-  minWidth: 0,
-  overflow: 'hidden',
-  whiteSpace: 'nowrap' as const,
-};
