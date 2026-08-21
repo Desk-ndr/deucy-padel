@@ -16,6 +16,9 @@ const FORM_ICONS: Record<string, { symbol: string; color: string; label: string 
 export default function BlitzRanking() {
   const navigate = useNavigate();
   const [ranking, setRanking] = useState<RankedPlayer[]>([]);
+  // Which leaderboard is on screen. The two are scored independently and
+  // never merged — see getRanking().
+  const [rankFormat, setRankFormat] = useState<'rotating' | 'fixed_pairs'>('rotating');
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showManage, setShowManage] = useState(false);
@@ -98,11 +101,16 @@ export default function BlitzRanking() {
   };
 
   useEffect(() => {
-    getRanking().then(({ data }) => {
+    let cancelled = false;
+    setLoading(true);
+    setExpanded(null);
+    getRanking(rankFormat).then(({ data }) => {
+      if (cancelled) return;
       setRanking(data);
       setLoading(false);
     });
-  }, []);
+    return () => { cancelled = true; };
+  }, [rankFormat]);
 
 
   return (
@@ -172,6 +180,39 @@ export default function BlitzRanking() {
       </div>
 
       {/* Subtitle on its own row, indented to roughly sit under the title */}
+      {/* Leaderboard switch — singles vs fixed pairs. Two independent
+          scores: a player appears in both, but the points never mix. */}
+      <div style={{
+        display: 'flex', gap: spacing.xs,
+        margin: `${spacing.lg}px 0 ${spacing.md}px ${23 + 16}px`,
+      }}>
+        {([
+          { key: 'rotating' as const, label: 'Singolo' },
+          { key: 'fixed_pairs' as const, label: 'Coppie' },
+        ]).map(t => {
+          const isActive = rankFormat === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setRankFormat(t.key)}
+              style={{
+                padding: `${spacing.xs}px ${spacing.lg}px`,
+                borderRadius: radius.pill,
+                backgroundColor: isActive ? colors.primaryMuted : 'transparent',
+                border: `1px solid ${isActive ? colors.primary : colors.border}`,
+                color: isActive ? colors.primary : colors.textSecondary,
+                fontSize: 13, fontWeight: 700,
+                fontFamily: fonts.sans,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Decay explainer badge — tap to open How it works.
           Subtitle-height, aligns under the H1 like the old caption did.
           Copy is deliberately short: full details live in HowItWorks. */}
@@ -562,7 +603,7 @@ export default function BlitzRanking() {
                 )}
 
                 <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, margin: 0, marginBottom: spacing.sm }}>
-                  Tournaments scoring (last 2 months):
+                  {rankFormat === 'fixed_pairs' ? 'Tornei a coppie che contano:' : 'Tournaments scoring (last 2 months):'}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                   {player.bestResults.length === 0 && (
@@ -590,11 +631,22 @@ export default function BlitzRanking() {
                           {br.weightedPoints}
                         </span>
                         <span style={{
-                          flex: 1, fontFamily: fonts.sans, fontSize: 14,
+                          flex: 1, minWidth: 0,
+                          fontFamily: fonts.sans, fontSize: 14,
                           color: colors.text, fontWeight: 500,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}>
                           {br.tournamentName}
+                          {br.partnerName && (
+                            <span style={{
+                              display: 'block',
+                              fontSize: 11, fontWeight: 500,
+                              color: colors.muted,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                              con {br.partnerName}
+                            </span>
+                          )}
                         </span>
                         {/* Decay indicator — shown only when weight < 1 */}
                         {decayed && (

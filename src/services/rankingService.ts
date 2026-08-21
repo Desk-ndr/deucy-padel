@@ -75,6 +75,8 @@ export interface BestResult {
   date: string;         // ISO from ranking_entries.created_at
   tournamentName: string;
   tournamentId: string;
+  /** Teammate for that event; only set for fixed-pairs tournaments. */
+  partnerName?: string;
 }
 
 // Head-to-head rivalry tracking. For each player we surface their record
@@ -200,6 +202,45 @@ export async function finalizeRanking(
     }
   });
 
+  // 3b. Fixed pairs rank by PAIR, not by player.
+  //
+  // Both members of a pair always post identical stats, so the per-player
+  // ranking above would place them 1,1,3,3,... and the runner-up pair
+  // would collect third-place points. Re-derive the placement from the
+  // pair standings instead: pair rank 1..P maps straight onto the points
+  // table, so with 8 players the winners take 50 each, the runners-up 32,
+  // and so on.
+  const fixedPairs = tournament.format === 'fixed_pairs' ? tournament.pairs : null;
+  if (fixedPairs && fixedPairs.length > 0) {
+    const pairIdx = fixedPairs.map((_, i) => i);
+    const statOf = (i: number) => {
+      const anchor = fixedPairs[i][0];
+      return { m: matchesWon[anchor] ?? 0, g: gamesWon[anchor] ?? 0 };
+    };
+    const sortedPairs = [...pairIdx].sort((a, b) => {
+      const sa = statOf(a);
+      const sb = statOf(b);
+      if (sb.m !== sa.m) return sb.m - sa.m;
+      return sb.g - sa.g;
+    });
+    const pairRank: number[] = new Array(fixedPairs.length);
+    sortedPairs.forEach((pi, sortPos) => {
+      if (sortPos === 0) {
+        pairRank[pi] = 1;
+        return;
+      }
+      const prev = sortedPairs[sortPos - 1];
+      const cur = statOf(pi);
+      const prevStat = statOf(prev);
+      pairRank[pi] = cur.m === prevStat.m && cur.g === prevStat.g
+        ? pairRank[prev]
+        : sortPos + 1;
+    });
+    fixedPairs.forEach((members, pi) => {
+      members.forEach(playerIdx => { gamePlacement[playerIdx] = pairRank[pi]; });
+    });
+  }
+
   // 4. Sort by betProfit → betting placement
   // Track which players actually placed bets
   const playerHasBets: boolean[] = tournament.players.map(() => false);
@@ -239,6 +280,7 @@ export async function finalizeRanking(
     total_points: number;
     games_won: number;
     games_played: number;
+    format: 'rotating' | 'fixed_pairs';
   }> = [];
 
   for (let i = 0; i < tournament.players.length; i++) {
@@ -268,6 +310,7 @@ export async function finalizeRanking(
       total_points: placementPts + bettingBon,
       games_won: gamesWon[i],
       games_played: completedRounds.filter(r => { const s = tournament.schedule[r.round_index - 1]; if (!s) return false; const inA = s.teamA.includes(i) || s.teamB.includes(i); const inB = s.courtB && (s.courtB.teamA.includes(i) || s.courtB.teamB.includes(i)); return inA || !!inB; }).length,
+      format: tournament.format === 'fixed_pairs' ? 'fixed_pairs' : 'rotating',
     });
   }
 
@@ -312,7 +355,17 @@ export async function finalizeRanking(
 
 // ── Get global ranking (two-month weighted decay + H2H rivalry) ──
 
-export async function getRanking(): Promise<{ data: RankedPlayer[]; error: string | null }> {
+/**
+ * Global leaderboard for one tournament format.
+ *
+ * The two formats are scored independently and never merged: a player's
+ * singles score comes only from rotating tournaments and their pairs
+ * score only from fixed-pairs ones. Defaults to 'rotating' so every
+ * existing call site keeps returning the singles ranking.
+ */
+export async function getRanking(
+  format: 'rotating' | 'fixed_pairs' = 'rotating',
+): Promise<{ data: RankedPlayer[]; error: string | null }> {
   // Fetch all players
   const { data: players, error: playersError } = await supabase
     .from('players')
@@ -321,28 +374,47 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
 
   // Fetch ALL ranking entries — we need full history for H2H even though
   // ranking math only counts the last 2 months. Volume is small.
-  const { data: allEntries, error: entriesError } = await supabase
+  const { data: rawEntries, error: entriesError } = await supabase
     .from('ranking_entries')
     .select('*')
     .order('created_at', { ascending: false });
   if (entriesError) return { data: [], error: entriesError.message };
 
+  // Keep only the requested format. Rows written before the column
+  // existed have no value and are treated as rotating.
+  const allEntries = (rawEntries || []).filter(
+    (e: any) => (e.format === 'fixed_pairs' ? 'fixed_pairs' : 'rotating') === format,
+  );
+
   // Fetch tournament names once for the bestResults enrichment.
-  const allTournamentIds = [...new Set((allEntries || []).map(e => e.tournament_id))];
+  const allTournamentIds = [...new Set(allEntries.map(e => e.tournament_id))];
   const tournamentNamesMap: Record<string, string> = {};
+  // tournamentId → playerId → partner display name (fixed-pairs only).
+  const partnerMap: Record<string, Record<string, string>> = {};
   if (allTournamentIds.length > 0) {
     const { data: tNamesRows } = await supabase
       .from('blitz_tournaments')
-      .select('id, name')
+      .select('id, name, format, pairs, players')
       .in('id', allTournamentIds);
     for (const t of (tNamesRows || [])) {
       tournamentNamesMap[t.id] = t.name;
+      if (t.format !== 'fixed_pairs' || !Array.isArray(t.pairs)) continue;
+      const roster = (t.players as any[]) || [];
+      const perTournament: Record<string, string> = {};
+      for (const pair of t.pairs as Array<[number, number]>) {
+        const [a, b] = pair;
+        const pa = roster[a];
+        const pb = roster[b];
+        if (pa?.player_id && pb?.name) perTournament[pa.player_id] = pb.name;
+        if (pb?.player_id && pa?.name) perTournament[pb.player_id] = pa.name;
+      }
+      partnerMap[t.id] = perTournament;
     }
   }
 
   // Group entries by player (sorted: most recent first)
   const playerEntries: Record<string, RankingEntry[]> = {};
-  for (const entry of (allEntries || [])) {
+  for (const entry of allEntries) {
     const pid = entry.player_id;
     if (!playerEntries[pid]) playerEntries[pid] = [];
     playerEntries[pid].push({
@@ -420,6 +492,7 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
       date: x.entry.createdAt,
       tournamentId: x.entry.tournamentId,
       tournamentName: tournamentNamesMap[x.entry.tournamentId] || 'Tournament',
+      partnerName: partnerMap[x.entry.tournamentId]?.[player.id],
     }));
 
     return {
@@ -450,7 +523,7 @@ export async function getRanking(): Promise<{ data: RankedPlayer[]; error: strin
 
   // ── Dynamic W% calculation from actual round data ──
   // Get all tournament IDs referenced in ranking entries
-  const tournamentIds = [...new Set((allEntries || []).map(e => e.tournament_id))];
+  const tournamentIds = [...new Set(allEntries.map(e => e.tournament_id))];
   
   if (tournamentIds.length > 0) {
     // Fetch all tournaments and their rounds
