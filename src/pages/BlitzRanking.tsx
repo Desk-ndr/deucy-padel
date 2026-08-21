@@ -180,6 +180,38 @@ export default function BlitzRanking() {
       </div>
 
       {/* Subtitle on its own row, indented to roughly sit under the title */}
+      {/* Decay explainer badge — tap to open How it works.
+          Subtitle-height, aligns under the H1 like the old caption did.
+          Copy is deliberately short: full details live in HowItWorks. */}
+      <button
+        onClick={() => navigate('/blitz/how-it-works')}
+        aria-label="How the ranking decays"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          background: 'rgba(117,212,230,0.08)',
+          border: '1px solid rgba(117,212,230,0.25)',
+          borderRadius: 999,
+          padding: '5px 12px 5px 10px',
+          margin: `${spacing.md}px 0 0`,
+          fontFamily: fonts.sans, fontSize: 12, fontWeight: 600,
+          color: '#75d4e6',
+          cursor: 'pointer',
+          lineHeight: 1.3,
+          transition: 'background 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(117,212,230,0.14)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(117,212,230,0.08)'}
+      >
+        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <polyline points="12 7 12 12 15 15" />
+        </svg>
+        <span>Full value 21d → fades → out at 90d</span>
+        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
+
       {/* Leaderboard switch — iOS-style segmented control. Full content
           width so it lines up with the table underneath. Two independent
           scores: a player appears in both, but the points never mix. */}
@@ -189,7 +221,7 @@ export default function BlitzRanking() {
         backgroundColor: colors.surface,
         border: `1px solid ${colors.border}`,
         borderRadius: 12,
-        margin: `${spacing.lg}px 0 ${spacing.md}px`,
+        margin: `${spacing.md}px 0 ${spacing.md}px`,
         boxSizing: 'border-box',
         width: '100%',
       }}>
@@ -225,38 +257,6 @@ export default function BlitzRanking() {
           );
         })}
       </div>
-
-      {/* Decay explainer badge — tap to open How it works.
-          Subtitle-height, aligns under the H1 like the old caption did.
-          Copy is deliberately short: full details live in HowItWorks. */}
-      <button
-        onClick={() => navigate('/blitz/how-it-works')}
-        aria-label="How the ranking decays"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          background: 'rgba(117,212,230,0.08)',
-          border: '1px solid rgba(117,212,230,0.25)',
-          borderRadius: 999,
-          padding: '5px 12px 5px 10px',
-          margin: `-1px 0 ${spacing.xl}px ${23 + 16}px`,
-          fontFamily: fonts.sans, fontSize: 12, fontWeight: 600,
-          color: '#75d4e6',
-          cursor: 'pointer',
-          lineHeight: 1.3,
-          transition: 'background 0.15s',
-        }}
-        onMouseEnter={e => e.currentTarget.style.background = 'rgba(117,212,230,0.14)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'rgba(117,212,230,0.08)'}
-      >
-        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="9" />
-          <polyline points="12 7 12 12 15 15" />
-        </svg>
-        <span>Full value 21d → fades → out at 90d</span>
-        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      </button>
 
       {/* Manage Players Panel */}
       {showManage && (
@@ -554,7 +554,7 @@ export default function BlitzRanking() {
               <div style={{ textAlign: 'center' }}>
                 <span style={{
                   fontFamily: fonts.mono, fontSize: 14, fontWeight: 500,
-                  color: colors.textSecondary,
+                  color: colors.text,
                 }}>
                   {player.matchesPlayed || '—'}
                 </span>
@@ -564,7 +564,7 @@ export default function BlitzRanking() {
               <div style={{ textAlign: 'center' }}>
                 <span style={{
                   fontFamily: fonts.mono, fontSize: 14, fontWeight: 500,
-                  color: colors.muted,
+                  color: colors.text,
                 }}>
                   {player.matchesPlayed ? `${player.winRate}%` : '—'}
                 </span>
@@ -574,7 +574,7 @@ export default function BlitzRanking() {
               <div style={{ textAlign: 'center' }}>
                 <span style={{
                   fontFamily: fonts.mono, fontSize: 14, fontWeight: 500,
-                  color: colors.muted,
+                  color: colors.text,
                 }}>
                   {player.matchesPlayed ? `${player.gameRate}%` : '—'}
                 </span>
