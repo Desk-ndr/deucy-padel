@@ -757,7 +757,7 @@ export default function BlitzList() {
             {/* How many are inside, so the row is worth opening or skipping
                 without having to open it first. */}
             <span style={{
-              fontFamily: fonts.mono, fontSize: 12, fontWeight: 700,
+              fontFamily: fonts.mono, fontSize: 14, fontWeight: 700,
               color: colors.text,
             }}>
               {olderFinished.length}
