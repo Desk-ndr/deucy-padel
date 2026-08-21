@@ -17,7 +17,6 @@ import { DeucyBottomNav, type DeucyTab } from '@/components/ui/deucy';
 import BlitzSetup from '@/components/blitz/BlitzSetup';
 import BlitzMatchTab from '@/components/blitz/BlitzMatchTab';
 import BlitzCalendarTab from '@/components/blitz/BlitzCalendarTab';
-import BlitzLeaderboard from '@/components/blitz/BlitzLeaderboard';
 import BlitzBettingCard from '@/components/blitz/BlitzBettingCard';
 import { BETTING_ENABLED } from '@/lib/feature-flags';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -742,13 +741,6 @@ export default function BlitzTournament() {
                 </div>
               )}
             </>
-          )}
-          {activeTab === 'leaderboard' && (
-            <BlitzLeaderboard
-              players={sortedPlayers} rounds={rounds} bets={bets}
-              schedule={tournament.schedule}
-              myPlayerIndex={playerIndex}
-            />
           )}
           {activeTab === 'calendar' && (
             <BlitzCalendarTab

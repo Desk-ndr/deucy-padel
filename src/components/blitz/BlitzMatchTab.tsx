@@ -140,6 +140,33 @@ export default function BlitzMatchTab({
   // Score correction lives in the Schedule tab now: it already lists every
   // round in order, so the number and the fix for it sit on the same line.
 
+  /**
+   * Heading for the standings table, in both the live tab and the finished
+   * screen. The pulse is honest while a tournament is running: the table is
+   * recomputed the moment a score is submitted. Built here rather than with
+   * LiveBadge, which forces its label green, uppercase and small — this one
+   * is a heading.
+   */
+  const standingsHeading = (live: boolean) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      {live && (
+        <span style={{
+          width: 7, height: 7, borderRadius: '50%',
+          backgroundColor: colors.primary,
+          boxShadow: '0 0 8px rgba(34,197,94,0.6)',
+          animation: 'livePulse 2s ease-in-out infinite',
+          flexShrink: 0,
+        }} />
+      )}
+      <span style={{
+        fontFamily: fonts.sans, fontSize: 14, fontWeight: 700,
+        color: colors.text,
+      }}>
+        {live ? 'Live standings' : 'Final standings'}
+      </span>
+    </div>
+  );
+
 /* ── Finished state ─────────────────────────────────────────── */
   if (tournament.status === 'finished') {
     // Calculate matches won (0.5 for draws) + games won per player
@@ -362,6 +389,20 @@ export default function BlitzMatchTab({
               </span>
             )}
           </div>
+        </div>
+
+        {/* The table survives the end of the tournament. The summary above
+            says who won and what everyone earned; this says how they got
+            there, and each row still opens into its own match ledger. */}
+        <div style={{
+          position: 'relative', zIndex: 1,
+          display: 'flex', flexDirection: 'column', gap: spacing.md,
+        }}>
+          {standingsHeading(false)}
+          <BlitzLeaderboard
+            players={sortedPlayers} rounds={rounds} bets={bets}
+            schedule={tournament.schedule} myPlayerIndex={playerIndex}
+          />
         </div>
 
       </div>
@@ -663,25 +704,7 @@ export default function BlitzMatchTab({
           borderTop: `1px solid ${colors.border}`,
           display: 'flex', flexDirection: 'column', gap: spacing.md,
         }}>
-          {/* The table is recomputed the moment a score is submitted, so the
-              pulse is honest: it marks numbers that are still moving. Built
-              here rather than with LiveBadge, which forces its label green,
-              uppercase and small — this one is a heading. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{
-              width: 7, height: 7, borderRadius: '50%',
-              backgroundColor: colors.primary,
-              boxShadow: '0 0 8px rgba(34,197,94,0.6)',
-              animation: 'livePulse 2s ease-in-out infinite',
-              flexShrink: 0,
-            }} />
-            <span style={{
-              fontFamily: fonts.sans, fontSize: 14, fontWeight: 700,
-              color: colors.text,
-            }}>
-              Live standings
-            </span>
-          </div>
+          {standingsHeading(true)}
           <BlitzLeaderboard
             players={sortedPlayers} rounds={rounds} bets={bets}
             schedule={tournament.schedule} myPlayerIndex={playerIndex}

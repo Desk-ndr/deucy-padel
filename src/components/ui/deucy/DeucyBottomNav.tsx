@@ -1,6 +1,6 @@
 import { colors, spacing, fonts } from '@/lib/design-tokens';
 
-export type DeucyTab = 'home' | 'match' | 'leaderboard' | 'calendar';
+export type DeucyTab = 'home' | 'match' | 'calendar';
 
 interface DeucyBottomNavProps {
   activeTab: DeucyTab;
@@ -11,8 +11,9 @@ interface DeucyBottomNavProps {
 
 const tabs: { id: DeucyTab; label: string }[] = [
   { id: 'home', label: 'Home' },
-  { id: 'match', label: 'Match' },
-  { id: 'leaderboard', label: 'Standings' },
+  // "Play" rather than "Match": the tab holds the round you are playing, the
+  // clock, the score entry and the live table — not a single match.
+  { id: 'match', label: 'Play' },
   { id: 'calendar', label: 'Schedule' },
 ];
 
@@ -34,16 +35,6 @@ function TabIcon({ tabId, active }: { tabId: DeucyTab; active: boolean }) {
         <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
           <path d="M12 6v6l4 2" />
-        </svg>
-      );
-    case 'leaderboard':
-      return (
-        <svg width={24} height={24} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-          <path d="M4 22h16" />
-          <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22h10c0-2-.85-3.25-2.03-3.79A1.07 1.07 0 0 1 14 17v-2.34" />
-          <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
         </svg>
       );
     case 'calendar':
