@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getAllBlitzConfigs } from '@/lib/blitz-schedule';
 import { getAllFixedPairsConfigs } from '@/lib/fixed-pairs-schedule';
 import { suggestSnakePairs, assessPairs, PairingPlayer } from '@/lib/pairing-guide';
-import { fetchPlayerStrength, BASE_RATING } from '@/lib/player-strength';
+import { fetchPlayerStrength, provisionalRating, BASE_RATING } from '@/lib/player-strength';
 import { BlitzTournamentData } from '@/services/blitzService';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,6 +64,9 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
   // The ratings arrive asynchronously. Until they do, every player looks
   // identical, so the pairing screen must not propose anything yet.
   const [strengthLoaded, setStrengthLoaded] = useState(false);
+  // Level assumed for anyone with no rated match: guests, and registered
+  // players who have not finished a tournament yet.
+  const [unratedScore, setUnratedScore] = useState(BASE_RATING);
   // Provenance of the pairs currently on screen, so the copy can say whether
   // the host is looking at a suggestion or at their own arrangement.
   const [pairSource, setPairSource] = useState<'elo' | 'manual' | null>(null);
@@ -111,6 +114,7 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
         const map: Record<string, number> = {};
         Object.entries(data).forEach(([id, s]) => { map[id] = s.rating; });
         setScoreByPlayerId(map);
+        setUnratedScore(provisionalRating(data));
       })
       .catch(() => { /* guide degrades gracefully */ })
       .finally(() => { if (!cancelled) setStrengthLoaded(true); });
@@ -198,7 +202,7 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
     index,
     name: p.name,
     playerId: p.player_id,
-    score: p.player_id ? (scoreByPlayerId[p.player_id] ?? BASE_RATING) : BASE_RATING,
+    score: (p.player_id ? scoreByPlayerId[p.player_id] : undefined) ?? unratedScore,
   }));
   const assessment = assessPairs(pairs, pairingPlayers);
   // Suggesting only makes sense while a slot is still open. A full board has

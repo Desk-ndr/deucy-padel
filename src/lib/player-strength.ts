@@ -83,6 +83,38 @@ export function computeDoublesElo(matches: EloMatch[]): Record<string, PlayerStr
 }
 
 /**
+ * Margin below the weakest rated player used to seed someone unproven.
+ * Small on purpose: its only job is to break the tie downwards, not to claim
+ * the newcomer is meaningfully worse than the players we have measured.
+ */
+export const UNRATED_MARGIN = 10;
+
+/**
+ * How strong to consider a player with no rated match yet.
+ *
+ * BASE_RATING places a newcomer in the middle of the field, which reads as
+ * "average" when the truth is "unknown" — and in a group that already knows
+ * who its weaker players are, average is a claim rather than a neutral
+ * default. The pairing suggestion would then treat the newcomer as mid-table
+ * and hand their partner a harder match than the numbers promise.
+ *
+ * Seeding just under the lowest rated player is the conservative reading:
+ * unproven until their own results say otherwise, which at K=24 takes two or
+ * three tournaments. Guests are treated the same way, for the same reason.
+ *
+ * With nobody rated at all this returns BASE_RATING, so a roster of complete
+ * newcomers still comes out flat and the guide reports that balance cannot
+ * be judged.
+ */
+export function provisionalRating(strength: Record<string, PlayerStrength>): number {
+  const rated = Object.values(strength)
+    .filter(st => st.matchesPlayed > 0)
+    .map(st => st.rating);
+  if (rated.length === 0) return BASE_RATING;
+  return Math.min(...rated) - UNRATED_MARGIN;
+}
+
+/**
  * Pull every completed match from finished tournaments and derive the
  * strength table. Read-only: nothing here writes to the database or
  * touches ranking_entries.

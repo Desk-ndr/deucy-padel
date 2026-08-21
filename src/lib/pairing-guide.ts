@@ -16,7 +16,7 @@ export interface PairingPlayer {
   index: number;
   name: string;
   playerId: string | null;
-  /** Doubles Elo rating; BASE_RATING for players with no history. */
+  /** Doubles Elo rating; a provisional value for players with no history. */
   score: number;
 }
 
