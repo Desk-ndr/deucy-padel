@@ -397,9 +397,27 @@ export async function submitScore(
   }
 
   // 2. Calculate new balances — only for the players of the court we
-  // just submitted. Dual-court balance updates happen incrementally per
-  // court so the other court can settle later without race conditions.
-  const updatedPlayers = [...tournament.players];
+  // just submitted, so the other court can settle later.
+  //
+  // The starting balances MUST be read fresh from the database rather than
+  // taken from the tournament object the caller handed in. In dual-court
+  // mode the screen submits court A and court B back to back, and React
+  // state has not been refreshed in between: basing the second write on the
+  // caller's snapshot would silently discard the games just credited for
+  // the first court. The same read also protects against another device
+  // having submitted the other court a moment earlier.
+  const { data: freshRow, error: freshErr } = await supabase
+    .from('blitz_tournaments').select('players').eq('id', id).maybeSingle();
+  if (freshErr) return { error: freshErr.message };
+  const basePlayers: BlitzPlayer[] = Array.isArray(freshRow?.players)
+    ? (freshRow!.players as any[]).map((pl: any) => ({
+        name: pl.name,
+        balance: pl.balance ?? pl.score ?? 0,
+        player_id: pl.player_id ?? null,
+        isGuest: pl.isGuest ?? false,
+      }))
+    : [...tournament.players];
+  const updatedPlayers = [...basePlayers];
   if (schedule) {
     const teamA = court === 'B' && schedule.courtB ? schedule.courtB.teamA : schedule.teamA;
     const teamB = court === 'B' && schedule.courtB ? schedule.courtB.teamB : schedule.teamB;
