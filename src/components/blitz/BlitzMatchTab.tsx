@@ -5,6 +5,7 @@ import { colors, spacing, radius, fonts, typeScale, shadows } from '@/lib/design
 import { BETTING_ENABLED } from '@/lib/feature-flags';
 import { HeroCard } from '@/components/ui/deucy';
 import BlitzTimer from './BlitzTimer';
+import BlitzLeaderboard from './BlitzLeaderboard';
 import { placementPoints } from '@/services/rankingService';
 
 interface Props {
@@ -677,6 +678,29 @@ export default function BlitzMatchTab({
             }}>Cancel</button>
             <button onClick={handleSubmit} disabled={!scoreA || !scoreB || (isDual && (!scoreA_B || !scoreB_B))} style={{ flex: 1, padding: spacing.md, backgroundColor: colors.primary, color: colors.bg, border: 'none', borderRadius: radius.sm, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: fonts.sans, opacity: (scoreA && scoreB && (!isDual || (scoreA_B && scoreB_B))) ? 1 : 0.4, }}>Confirm →</button>
           </div>
+        </div>
+      )}
+
+      {/* Standings, right where you land after submitting a score: between
+          rounds the question is always "where am I now", and this saves the
+          trip to the tab. It is the same component the Standings tab uses,
+          read-only, so the two cannot drift apart — and the tab still earns
+          its place once the tournament is over, when this branch is replaced
+          by the final result screen.
+
+          Hidden until a round has actually been played, since before that
+          every row reads the same starting balance. */}
+      {rounds.some(r => r.status === 'completed') && (
+        <div style={{
+          paddingTop: spacing.lg,
+          borderTop: `1px solid ${colors.border}`,
+          display: 'flex', flexDirection: 'column', gap: spacing.md,
+        }}>
+          <span style={{ ...typeScale.micro, color: colors.muted }}>Standings</span>
+          <BlitzLeaderboard
+            players={sortedPlayers} rounds={rounds} bets={bets}
+            schedule={tournament.schedule} myPlayerIndex={playerIndex}
+          />
         </div>
       )}
 
