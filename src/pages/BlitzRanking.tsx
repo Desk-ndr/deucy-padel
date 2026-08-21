@@ -514,6 +514,7 @@ export default function BlitzRanking() {
               {/* Position */}
               <div style={{
                 width: 24, height: 24, borderRadius: '50%',
+                justifySelf: 'center',
                 background: isFirst ? colors.primary : 'transparent',
                 border: isFirst ? 'none' : `1.5px solid ${posColor}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
