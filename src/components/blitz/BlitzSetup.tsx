@@ -201,6 +201,9 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
     score: p.player_id ? (scoreByPlayerId[p.player_id] ?? BASE_RATING) : BASE_RATING,
   }));
   const assessment = assessPairs(pairs, pairingPlayers);
+  // Suggesting only makes sense while a slot is still open. A full board has
+  // nowhere to put a new pair, so the button rests until a row is removed.
+  const canSuggest = pairs.length < Math.floor(numPlayers / 2);
   const nameOf = (i: number) => combinedRoster[i]?.name ?? '?';
 
   /** Tap-to-pair: first tap arms a player, second tap forms the pair. */
@@ -226,12 +229,6 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
     setSelectedConfig(null);
   };
 
-  const clearPairs = () => {
-    setPairs([]);
-    setPendingPick(null);
-    setPairSource(null);
-    setSelectedConfig(null);
-  };
 
   // Who is actually playing, as a stable string. Head-count alone is not
   // enough: swapping one player for another keeps the count but changes what
@@ -830,10 +827,12 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
             {pairs.length} of {Math.floor(numPlayers / 2)} pairs set.
           </p>
 
-          {/* Balance verdict, where the pairs came from, and the controls
-              that let the host override whatever the ratings proposed. */}
+          {/* Balance verdict, where the pairs came from, and the one control
+              that rebuilds them. Removing pairs is done on the rows
+              themselves, so this card carries no Clear button. */}
           <div style={{
-            display: 'flex', flexDirection: 'column', gap: spacing.sm,
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            gap: spacing.sm,
             padding: spacing.md,
             backgroundColor: colors.bg,
             border: `1px solid ${
@@ -844,68 +843,50 @@ export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: P
             borderRadius: radius.md,
             marginBottom: spacing.lg,
           }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: spacing.sm, flexWrap: 'wrap',
+            <span style={{
+              fontSize: 13, fontWeight: 700, textAlign: 'center',
+              color: assessment.verdict === 'unbalanced' ? colors.accent
+                : assessment.verdict === 'balanced' ? colors.primary
+                : colors.textSecondary,
+              fontFamily: fonts.sans,
             }}>
-              <span style={{
-                fontSize: 13, fontWeight: 700,
-                color: assessment.verdict === 'unbalanced' ? colors.accent
-                  : assessment.verdict === 'balanced' ? colors.primary
-                  : colors.textSecondary,
-                fontFamily: fonts.sans,
-              }}>
-                {assessment.label || 'Pair everyone to see the balance'}
-              </span>
-              <div style={{ display: 'flex', gap: spacing.xs }}>
-                <button
-                  onClick={applySuggestion}
-                  style={{
-                    padding: `${spacing.xs}px ${spacing.md}px`,
-                    borderRadius: radius.sm,
-                    backgroundColor: colors.primaryMuted,
-                    border: `1px solid ${colors.primary}`,
-                    color: colors.primary,
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                    fontFamily: fonts.sans, whiteSpace: 'nowrap',
-                  }}
-                >
-                  {pairSource === 'elo' ? 'Re-suggest' : 'Suggest'}
-                </button>
-                {pairs.length > 0 && (
-                  <button
-                    onClick={clearPairs}
-                    style={{
-                      padding: `${spacing.xs}px ${spacing.md}px`,
-                      borderRadius: radius.sm,
-                      backgroundColor: 'transparent',
-                      border: `1px solid ${colors.border}`,
-                      color: colors.textSecondary,
-                      fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                      fontFamily: fonts.sans, whiteSpace: 'nowrap',
-                    }}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>
+              {assessment.label || 'Pair everyone to see the balance'}
+            </span>
 
             {/* Say plainly where these pairs come from, and that nothing is
                 locked in. Without this the host cannot tell a suggestion from
                 their own arrangement. */}
             <p style={{
-              fontSize: 12, fontWeight: 500, lineHeight: 1.45,
-              fontFamily: fonts.sans, color: colors.muted, margin: 0,
+              fontSize: 12, fontWeight: 500, lineHeight: 1.45, textAlign: 'center',
+              fontFamily: fonts.sans, color: colors.text, margin: 0,
             }}>
               {!strengthLoaded
                 ? 'Reading Elo ratings...'
-                : pairSource === 'elo'
-                  ? 'Suggested from Elo ratings. Remove a pair to change it.'
-                  : pairSource === 'manual'
-                    ? 'Your own pairs. Suggest rebuilds them from Elo ratings.'
-                    : 'Tap two names to pair them, or Suggest to use Elo ratings.'}
+                : !canSuggest
+                  ? (pairSource === 'elo'
+                      ? 'Suggested from Elo ratings. Remove a pair to change it.'
+                      : 'Your own pairs. Remove one to change it.')
+                  : 'Tap two names to pair them, or Suggest to use Elo ratings.'}
             </p>
+
+            {/* Only offers itself when there is a free slot to fill — with a
+                full board the suggestion would have nothing to place. */}
+            <button
+              onClick={applySuggestion}
+              disabled={!canSuggest}
+              style={{
+                padding: `${spacing.xs}px ${spacing.lg}px`,
+                borderRadius: radius.sm,
+                backgroundColor: canSuggest ? colors.primaryMuted : 'transparent',
+                border: `1px solid ${canSuggest ? colors.primary : colors.border}`,
+                color: canSuggest ? colors.primary : colors.muted,
+                fontSize: 12, fontWeight: 700,
+                cursor: canSuggest ? 'pointer' : 'default',
+                fontFamily: fonts.sans, whiteSpace: 'nowrap',
+              }}
+            >
+              Suggest
+            </button>
           </div>
 
           {/* Cluster warnings — advisory only, never blocking */}
