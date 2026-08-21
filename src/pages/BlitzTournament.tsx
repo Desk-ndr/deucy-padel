@@ -315,6 +315,10 @@ export default function BlitzTournament() {
   // (the tournament is still being created, mistakes are common, no
   // ranking data to lose). Only exposed in the Setup view header.
   const [quickDeleteOpen, setQuickDeleteOpen] = useState(false);
+  // The setup wizard reports whether it is on its first step, so the
+  // page-level Back can step backwards through the flow rather than
+  // dropping the host back on the tournament list mid-creation.
+  const [setupOnFirstStep, setSetupOnFirstStep] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
   // Inline rename state — tap the title to edit, Enter/blur to save,
@@ -520,7 +524,13 @@ export default function BlitzTournament() {
             marginBottom: spacing.lg,
           }}>
             <button
-              onClick={() => fromAnnounced ? setSetupActive(false) : navigate('/blitz')}
+              onClick={() => {
+                // Past the first step, Back means "one step back" — the
+                // wizard pushed a history entry for each step it advanced.
+                if (!setupOnFirstStep) { window.history.back(); return; }
+                if (fromAnnounced) { setSetupActive(false); return; }
+                navigate('/blitz');
+              }}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: spacing.xs,
@@ -532,7 +542,7 @@ export default function BlitzTournament() {
               <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6" />
               </svg>
-              {fromAnnounced ? 'Back to Save the Date' : 'Back'}
+              {!setupOnFirstStep ? 'Back' : fromAnnounced ? 'Back to Save the Date' : 'Back'}
             </button>
 
             {/* Quick delete — only for direct-setup tournaments (no Save
@@ -563,7 +573,7 @@ export default function BlitzTournament() {
             )}
           </div>
           {canSetup ? (
-            <BlitzSetup tournament={tournament} onStart={handleStart} />
+            <BlitzSetup tournament={tournament} onStart={handleStart} onFirstStepChange={setSetupOnFirstStep} />
           ) : (
             <div style={{ textAlign: 'center', paddingTop: 80 }}>
               <span style={{ fontSize: 36, fontWeight: 900, color: colors.primary, display: 'block', marginBottom: spacing.md }}>

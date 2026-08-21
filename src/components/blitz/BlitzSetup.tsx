@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getAllBlitzConfigs } from '@/lib/blitz-schedule';
 import { getAllFixedPairsConfigs } from '@/lib/fixed-pairs-schedule';
 import { suggestSnakePairs, assessPairs, PairingPlayer } from '@/lib/pairing-guide';
@@ -24,6 +24,9 @@ interface Props {
     format: 'rotating' | 'fixed_pairs',
     pairs: Array<[number, number]> | null,
   ) => Promise<void>;
+  /** Told whether the wizard is on its first step, so the page-level Back
+   *  button can step backwards instead of leaving the flow. */
+  onFirstStepChange?: (isFirst: boolean) => void;
 }
 
 type Step = 'players' | 'time' | 'pairs' | 'config' | 'confirm';
@@ -33,7 +36,7 @@ type Step = 'players' | 'time' | 'pairs' | 'config' | 'confirm';
 const ROTATING_STEPS: Step[] = ['players', 'time', 'config', 'confirm'];
 const FIXED_PAIRS_STEPS: Step[] = ['players', 'time', 'pairs', 'config', 'confirm'];
 
-export default function BlitzSetup({ tournament, onStart }: Props) {
+export default function BlitzSetup({ tournament, onStart, onFirstStepChange }: Props) {
   const [step, setStep] = useState<Step>('players');
   const [registeredPlayers, setRegisteredPlayers] = useState<RegisteredPlayer[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -58,6 +61,12 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   const [pendingPick, setPendingPick] = useState<number | null>(null);
   // Doubles Elo per player id, used purely to advise on pair balance.
   const [scoreByPlayerId, setScoreByPlayerId] = useState<Record<string, number>>({});
+  // The ratings arrive asynchronously. Until they do, every player looks
+  // identical, so the pairing screen must not propose anything yet.
+  const [strengthLoaded, setStrengthLoaded] = useState(false);
+  // Provenance of the pairs currently on screen, so the copy can say whether
+  // the host is looking at a suggestion or at their own arrangement.
+  const [pairSource, setPairSource] = useState<'elo' | 'manual' | null>(null);
   const [selectedConfig, setSelectedConfig] = useState<{ totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number; matchesPerPair?: number } | null>(null);
 
   // Fetch registered players + apply RSVP pre-selection (one-shot).
@@ -103,7 +112,8 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
         Object.entries(data).forEach(([id, s]) => { map[id] = s.rating; });
         setScoreByPlayerId(map);
       })
-      .catch(() => { /* guide degrades gracefully */ });
+      .catch(() => { /* guide degrades gracefully */ })
+      .finally(() => { if (!cancelled) setStrengthLoaded(true); });
     return () => { cancelled = true; };
   }, []);
 
@@ -120,17 +130,11 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   const rosterIsEven = numPlayers % 2 === 0;
   const canUseFixedPairs = numPlayers >= 4 && rosterIsEven;
 
-  // Any roster change invalidates existing pairs (indices shift).
-  useEffect(() => {
-    setPairs([]);
-    setPendingPick(null);
-  }, [numPlayers]);
-
   // Leaving fixed-pairs mode drops the pairs; entering it clears any
   // rotating config that was already picked.
   useEffect(() => {
     setSelectedConfig(null);
-    if (format === 'rotating') { setPairs([]); setPendingPick(null); }
+    if (format === 'rotating') { setPairs([]); setPendingPick(null); setPairSource(null); }
   }, [format]);
 
   const configs = format === 'fixed_pairs'
@@ -139,6 +143,36 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
 
   const steps = format === 'fixed_pairs' ? FIXED_PAIRS_STEPS : ROTATING_STEPS;
   const currentStepIndex = Math.max(0, steps.indexOf(step));
+
+  // Each forward step pushes a history entry, so the phone's back gesture
+  // (and the browser's back button) walks back through the wizard instead
+  // of abandoning it and returning to the tournament list. Going back is
+  // always expressed as history.back(), so the stack and the visible step
+  // can never disagree.
+  const stepsRef = useRef(steps);
+  stepsRef.current = steps;
+
+  const goToStep = (next: Step) => {
+    setStep(next);
+    window.history.pushState({ deucySetupStep: next }, '');
+  };
+  const goBackStep = () => window.history.back();
+
+  useEffect(() => {
+    const onPop = () => {
+      setStep(prev => {
+        const seq = stepsRef.current;
+        const i = seq.indexOf(prev);
+        return i > 0 ? seq[i - 1] : prev;
+      });
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  useEffect(() => {
+    onFirstStepChange?.(currentStepIndex === 0);
+  }, [currentStepIndex, onFirstStepChange]);
 
   const togglePlayer = (id: string) => {
     const next = new Set(selectedIds);
@@ -175,25 +209,66 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
     if (pendingPick === index) { setPendingPick(null); return; }
     setPairs(prev => [...prev, [pendingPick, index] as [number, number]]);
     setPendingPick(null);
+    setPairSource('manual');
     setSelectedConfig(null);
   };
 
   const removePair = (i: number) => {
     setPairs(prev => prev.filter((_, idx) => idx !== i));
+    setPairSource('manual');
     setSelectedConfig(null);
   };
 
   const applySuggestion = () => {
     setPairs(suggestSnakePairs(pairingPlayers));
     setPendingPick(null);
+    setPairSource('elo');
     setSelectedConfig(null);
   };
 
   const clearPairs = () => {
     setPairs([]);
     setPendingPick(null);
+    setPairSource(null);
     setSelectedConfig(null);
   };
+
+  // Who is actually playing, as a stable string. Head-count alone is not
+  // enough: swapping one player for another keeps the count but changes what
+  // every roster index means, which would silently rename the pairs on screen.
+  const rosterKey = combinedRoster.map(pl => pl.player_id ?? `guest:${pl.name}`).join('|');
+
+  // Any change to the roster throws the pairs away.
+  useEffect(() => {
+    setPairs([]);
+    setPendingPick(null);
+    setPairSource(null);
+  }, [rosterKey]);
+
+  // The suggestion is computed from the live roster, which is rebuilt on every
+  // render, so it is read through a ref rather than listed as a dependency.
+  const pairingPlayersRef = useRef(pairingPlayers);
+  pairingPlayersRef.current = pairingPlayers;
+
+  // Which roster has already been offered a suggestion. Pressing Clear must
+  // leave the board empty — a proposal that reappears cannot be dismissed —
+  // so this is keyed on the roster, not on whether pairs exist.
+  const suggestedFor = useRef<string | null>(null);
+
+  // Open the pairing screen with the Elo-balanced pairs already made. The host
+  // sees a working starting point instead of eight loose names, and every pair
+  // remains editable.
+  useEffect(() => {
+    if (step !== 'pairs') return;
+    if (!strengthLoaded) return;      // ratings first, or the split is arbitrary
+    if (pairs.length > 0) return;     // never overwrite what is on screen
+    if (suggestedFor.current === rosterKey) return;
+    if (numPlayers < 4 || numPlayers % 2 !== 0) return;
+    suggestedFor.current = rosterKey;
+    setPairs(suggestSnakePairs(pairingPlayersRef.current));
+    setPendingPick(null);
+    setPairSource('elo');
+  }, [step, strengthLoaded, pairs.length, rosterKey, numPlayers]);
 
   const addGuest = () => {
     const trimmed = guestInput.trim();
@@ -452,7 +527,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
           </div>
 
           <button
-            onClick={() => setStep('time')}
+            onClick={() => goToStep('time')}
             disabled={numPlayers < 5}
             style={buttonStyle(true, numPlayers < 5)}
           >
@@ -727,11 +802,11 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
           </div>
 
           <div style={{ display: 'flex', gap: spacing.sm }}>
-            <button onClick={() => setStep('players')} style={buttonStyle(false)}>
+            <button onClick={goBackStep} style={buttonStyle(false)}>
               ← Back
             </button>
             <button
-              onClick={() => { setSelectedConfig(null); setStep(format === 'fixed_pairs' ? 'pairs' : 'config'); }}
+              onClick={() => { setSelectedConfig(null); goToStep(format === 'fixed_pairs' ? 'pairs' : 'config'); }}
               style={buttonStyle(true)}
             >
               Next →
@@ -752,13 +827,13 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             Build the pairs
           </p>
           <p style={{ ...typeScale.caption, color: colors.muted, textAlign: 'center', marginBottom: spacing.lg }}>
-            Tap two names to pair them. {pairs.length} of {Math.floor(numPlayers / 2)} pairs set.
+            {pairs.length} of {Math.floor(numPlayers / 2)} pairs set.
           </p>
 
-          {/* Balance verdict + suggestion controls */}
+          {/* Balance verdict, where the pairs came from, and the controls
+              that let the host override whatever the ratings proposed. */}
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: spacing.sm, flexWrap: 'wrap',
+            display: 'flex', flexDirection: 'column', gap: spacing.sm,
             padding: spacing.md,
             backgroundColor: colors.bg,
             border: `1px solid ${
@@ -769,47 +844,68 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             borderRadius: radius.md,
             marginBottom: spacing.lg,
           }}>
-            <span style={{
-              fontSize: 13, fontWeight: 700,
-              color: assessment.verdict === 'unbalanced' ? colors.accent
-                : assessment.verdict === 'balanced' ? colors.primary
-                : colors.textSecondary,
-              fontFamily: fonts.sans,
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: spacing.sm, flexWrap: 'wrap',
             }}>
-              {assessment.label || 'Pair everyone to see the balance'}
-            </span>
-            <div style={{ display: 'flex', gap: spacing.xs }}>
-              <button
-                onClick={applySuggestion}
-                style={{
-                  padding: `${spacing.xs}px ${spacing.md}px`,
-                  borderRadius: radius.sm,
-                  backgroundColor: colors.primaryMuted,
-                  border: `1px solid ${colors.primary}`,
-                  color: colors.primary,
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: fonts.sans, whiteSpace: 'nowrap',
-                }}
-              >
-                Suggest
-              </button>
-              {pairs.length > 0 && (
+              <span style={{
+                fontSize: 13, fontWeight: 700,
+                color: assessment.verdict === 'unbalanced' ? colors.accent
+                  : assessment.verdict === 'balanced' ? colors.primary
+                  : colors.textSecondary,
+                fontFamily: fonts.sans,
+              }}>
+                {assessment.label || 'Pair everyone to see the balance'}
+              </span>
+              <div style={{ display: 'flex', gap: spacing.xs }}>
                 <button
-                  onClick={clearPairs}
+                  onClick={applySuggestion}
                   style={{
                     padding: `${spacing.xs}px ${spacing.md}px`,
                     borderRadius: radius.sm,
-                    backgroundColor: 'transparent',
-                    border: `1px solid ${colors.border}`,
-                    color: colors.textSecondary,
+                    backgroundColor: colors.primaryMuted,
+                    border: `1px solid ${colors.primary}`,
+                    color: colors.primary,
                     fontSize: 12, fontWeight: 700, cursor: 'pointer',
                     fontFamily: fonts.sans, whiteSpace: 'nowrap',
                   }}
                 >
-                  Clear
+                  {pairSource === 'elo' ? 'Re-suggest' : 'Suggest'}
                 </button>
-              )}
+                {pairs.length > 0 && (
+                  <button
+                    onClick={clearPairs}
+                    style={{
+                      padding: `${spacing.xs}px ${spacing.md}px`,
+                      borderRadius: radius.sm,
+                      backgroundColor: 'transparent',
+                      border: `1px solid ${colors.border}`,
+                      color: colors.textSecondary,
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      fontFamily: fonts.sans, whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Say plainly where these pairs come from, and that nothing is
+                locked in. Without this the host cannot tell a suggestion from
+                their own arrangement. */}
+            <p style={{
+              fontSize: 12, fontWeight: 500, lineHeight: 1.45,
+              fontFamily: fonts.sans, color: colors.muted, margin: 0,
+            }}>
+              {!strengthLoaded
+                ? 'Reading Elo ratings...'
+                : pairSource === 'elo'
+                  ? 'Suggested from Elo ratings. Remove a pair to change it.'
+                  : pairSource === 'manual'
+                    ? 'Your own pairs. Suggest rebuilds them from Elo ratings.'
+                    : 'Tap two names to pair them, or Suggest to use Elo ratings.'}
+            </p>
           </div>
 
           {/* Cluster warnings — advisory only, never blocking */}
@@ -922,11 +1018,11 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
           )}
 
           <div style={{ display: 'flex', gap: spacing.sm }}>
-            <button onClick={() => setStep('time')} style={buttonStyle(false)}>
+            <button onClick={goBackStep} style={buttonStyle(false)}>
               ← Back
             </button>
             <button
-              onClick={() => { setSelectedConfig(null); setStep('config'); }}
+              onClick={() => { setSelectedConfig(null); goToStep('config'); }}
               disabled={assessment.unpaired.length > 0 || pairs.length < 2}
               style={buttonStyle(true, assessment.unpaired.length > 0 || pairs.length < 2)}
             >
@@ -1005,11 +1101,11 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
           )}
 
           <div style={{ display: 'flex', gap: spacing.sm }}>
-            <button onClick={() => setStep(format === 'fixed_pairs' ? 'pairs' : 'time')} style={buttonStyle(false)}>
+            <button onClick={goBackStep} style={buttonStyle(false)}>
               ← Back
             </button>
             <button
-              onClick={() => setStep('confirm')}
+              onClick={() => goToStep('confirm')}
               disabled={!selectedConfig}
               style={buttonStyle(true, !selectedConfig)}
             >
@@ -1096,7 +1192,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
           )}
 
           <div style={{ display: 'flex', gap: spacing.sm }}>
-            <button onClick={() => setStep('config')} style={buttonStyle(false)}>
+            <button onClick={goBackStep} style={buttonStyle(false)}>
               ← Back
             </button>
             <button
