@@ -235,18 +235,6 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
         </>
       )}
 
-      {/* Podium — top 3 */}
-      {sorted.length >= 3 && (
-        <div style={{
-          display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
-          gap: spacing.xl, paddingTop: spacing.sm,
-        }}>
-          <PodiumSlot player={sorted[1]} rank={1} color={tab === 'games' ? medalColors[1] : colors.accent} tab={tab} />
-          <PodiumSlot player={sorted[0]} rank={0} color={tab === 'games' ? medalColors[0] : colors.accent} tab={tab} tall />
-          <PodiumSlot player={sorted[2]} rank={2} color={tab === 'games' ? medalColors[2] : colors.accent} tab={tab} />
-        </div>
-      )}
-
       {/* Full table */}
       <div style={{
         backgroundColor: colors.surface,
@@ -464,58 +452,6 @@ export default function BlitzLeaderboard({ players, rounds, bets, schedule, crow
           );
         })}
       </div>
-    </div>
-  );
-}
-
-/* ── Podium slot sub-component ────────────────────────────────── */
-
-function PodiumSlot({ player, rank, color, tall, tab }: {
-  player: { name: string; gamesWon: number; matchesWon: number; matchesPlayed: number; gameEarnings: number; betProfit: number };
-  rank: number;
-  color: string;
-  tall?: boolean;
-  tab: Tab;
-}) {
-  const label = tab === 'games'
-    ? `${player.matchesWon % 1 === 0 ? player.matchesWon : player.matchesWon.toFixed(1)} W`
-    : `${player.betProfit >= 0 ? '+' : ''}€${player.betProfit}`;
-
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      gap: spacing.xs, marginBottom: tall ? 0 : spacing.lg,
-    }}>
-      <div style={{
-        width: tall ? 56 : 48, height: tall ? 56 : 48,
-        borderRadius: '50%',
-        border: `3px solid ${color}`,
-        backgroundColor: colors.surfaceElevated,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: tall ? 22 : 18, fontWeight: 900,
-        color, fontFamily: fonts.sans,
-        boxShadow: `0 0 20px ${color}40`,
-      }}>
-        {player.name.charAt(0).toUpperCase()}
-      </div>
-      <span style={{
-        ...typeScale.caption, color: colors.text,
-        maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        textAlign: 'center',
-      }}>
-        {player.name}
-      </span>
-      {(player as any).isGuest && (
-        <span style={{
-          fontSize: 9, fontWeight: 700, color: colors.accent,
-          textTransform: 'uppercase', letterSpacing: '0.05em',
-          padding: '1px 5px', background: 'rgba(245,158,11,0.12)',
-          borderRadius: 4, marginTop: 2,
-        }}>guest</span>
-      )}
-      <span style={{ fontFamily: fonts.mono, fontWeight: 800, fontSize: 14, color }}>
-        {label}
-      </span>
     </div>
   );
 }
