@@ -595,7 +595,6 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: spacing.sm }}>
           {/* Format selector — rotating americana vs fixed pairs. */}
           <div style={{
             padding: spacing.md,
@@ -649,8 +648,8 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             </div>
             <p style={{ ...typeScale.caption, color: colors.muted, marginTop: spacing.sm, marginBottom: 0 }}>
               {format === 'fixed_pairs'
-                ? 'Partners stay together all tournament, pairs play a round robin.'
-                : 'Partners change every round.'}
+                ? 'Same partner all tournament.'
+                : 'New partner every round.'}
             </p>
             {!canUseFixedPairs && (
               <p style={{ ...typeScale.caption, color: colors.muted, marginTop: spacing.xs, marginBottom: 0 }}>
@@ -725,7 +724,8 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             )}
           </div>
 
-          <button onClick={() => setStep('players')} style={buttonStyle(false)}>
+          <div style={{ display: 'flex', gap: spacing.sm }}>
+            <button onClick={() => setStep('players')} style={buttonStyle(false)}>
               ← Back
             </button>
             <button
