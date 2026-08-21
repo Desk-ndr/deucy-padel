@@ -107,9 +107,9 @@ export interface RankedPlayer {
   consecutiveWins: number;
   lastTournamentPoints: number | null; // points from latest tournament
   pointsDelta: number | null;          // change vs previous ranking score
-  winRate: number;                     // % of matches won across all tournaments
-  matchesPlayed: number;               // total matches played, all formats
-  gameRate: number;                    // % of games won across all matches
+  winRate: number;                     // % of matches won, this format only
+  matchesPlayed: number;               // matches played, this format only
+  gameRate: number;                    // % of games won, this format only
   form: 'hot' | 'up' | 'down' | 'stable' | 'new'; // trend from last 3 tournaments
   rivalry: Rivalry | null;             // H2H vs the player adjacent in ranking
 }
@@ -527,15 +527,18 @@ export async function getRanking(
 
   // ── Match statistics from actual round data ──
   //
-  // Deliberately computed over EVERY finished tournament rather than only
-  // the ones feeding the current leaderboard: these numbers describe how a
-  // player actually performs on court, so they read the same in both the
-  // singles and the pairs tab. Court B is included — leaving it out used
-  // to hide roughly half the matches of a dual-court event.
+  // Scoped to the format being displayed. The two leaderboards are separate
+  // competitions, so a player's record in the pairs tab must describe their
+  // pairs tournaments and nothing else — mixing in rotating events would
+  // report matches the pairs standings never scored, and the same figures
+  // would appear under both tabs.
+  //
+  // Court B is included: leaving it out used to hide roughly half the
+  // matches of a dual-court event.
   {
     const { data: tournaments } = await supabase
       .from('blitz_tournaments')
-      .select('id, players, schedule')
+      .select('id, players, schedule, format')
       .eq('status', 'finished');
 
     const { data: allRounds } = await supabase
@@ -553,6 +556,10 @@ export async function getRanking(
     };
 
     for (const t of (tournaments || [])) {
+      // Rows written before the format column exists are rotating events.
+      const tFormat = (t as any).format === 'fixed_pairs' ? 'fixed_pairs' : 'rotating';
+      if (tFormat !== format) continue;
+
       const tRounds = (allRounds || []).filter(r => r.tournament_id === t.id);
       const tPlayers: Array<{ name: string; player_id?: string; isGuest?: boolean }> = (t.players as any) || [];
 
@@ -599,7 +606,14 @@ export async function getRanking(
 
     for (const p of ranked) {
       const st = matchStats[p.playerId];
-      if (!st || st.played === 0) continue;
+      // No match in this format leaves the row at zero rather than carrying
+      // over whatever the other leaderboard would have shown.
+      if (!st || st.played === 0) {
+        p.winRate = 0;
+        p.matchesPlayed = 0;
+        p.gameRate = 0;
+        continue;
+      }
       p.winRate = Math.round((st.won / st.played) * 100);
       p.matchesPlayed = st.played;
       const totalGames = st.gf + st.ga;
