@@ -31,6 +31,14 @@ export interface BlitzTournamentData {
   id: string; name: string; status: string; players: BlitzPlayer[];
   current_round: number; total_rounds: number; round_duration_seconds: number;
   court_count: number; schedule: BlitzRoundSchedule[];
+  // Tournament mode. 'rotating' is the original americana where partners
+  // change every round; 'fixed_pairs' locks players into pairs for the
+  // whole event and runs a round robin between those pairs.
+  // Legacy rows have no value in the DB — parseTournament defaults them
+  // to 'rotating' so every existing tournament keeps behaving as before.
+  format: 'rotating' | 'fixed_pairs';
+  // Player-index tuples, only set when format === 'fixed_pairs'.
+  pairs: Array<[number, number]> | null;
   timer_started_at: string | null;
   timer_paused_remaining: number | null; created_by: string | null;
   finished_at: string | null;
@@ -55,6 +63,8 @@ export const EDIT_WINDOW_MS = 10 * 60 * 1000;
 function parseTournament(raw: any): BlitzTournamentData {
   return {
     ...raw,
+    format: raw.format === 'fixed_pairs' ? 'fixed_pairs' : 'rotating',
+    pairs: Array.isArray(raw.pairs) ? raw.pairs : null,
     players: (raw.players as any[] || []).map((p: any) => ({
       name: p.name, balance: p.balance ?? p.score ?? 0,
       // preserve player_id when present (used for identity matching)
@@ -289,6 +299,8 @@ export async function startTournament(
   players: BlitzPlayer[],
   schedule: BlitzRoundSchedule[],
   courts: 1 | 2 = 1,
+  format: 'rotating' | 'fixed_pairs' = 'rotating',
+  pairs: Array<[number, number]> | null = null,
 ) {
   // Insert rounds FIRST, then flip the tournament to 'live'. Reversed
   // order vs the obvious one: this way, if the rounds insert fails
@@ -313,6 +325,8 @@ export async function startTournament(
     total_rounds: config.totalRounds, round_duration_seconds: config.roundDurationSeconds,
     schedule: schedule as any,
     court_count: courts,
+    format,
+    pairs: (format === 'fixed_pairs' ? pairs : null) as any,
   } as any).eq('id', id);
   return { error: tErr?.message ?? null };
 }
