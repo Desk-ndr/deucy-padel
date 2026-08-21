@@ -624,21 +624,21 @@ export default function BlitzList() {
             }}
           >
             <span style={{
-              ...typeScale.micro, color: colors.muted, fontSize: 11,
-              textTransform: 'uppercase', letterSpacing: '0.08em',
+              fontFamily: fonts.sans, fontSize: 14, fontWeight: 700,
+              color: colors.text,
             }}>
-              History
+              Past tournaments
             </span>
             {/* How many are inside, so the row is worth opening or skipping
                 without having to open it first. */}
             <span style={{
-              fontFamily: fonts.mono, fontSize: 11, fontWeight: 700,
+              fontFamily: fonts.mono, fontSize: 12, fontWeight: 700,
               color: colors.muted,
             }}>
               {finishedTournaments.length}
             </span>
             <svg
-              width={12} height={12} viewBox="0 0 24 24" fill="none"
+              width={14} height={14} viewBox="0 0 24 24" fill="none"
               stroke={colors.muted} strokeWidth={3}
               strokeLinecap="round" strokeLinejoin="round"
               style={{
