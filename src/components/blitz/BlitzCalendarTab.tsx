@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DndContext, DragEndEvent, KeyboardSensor, MouseSensor, TouchSensor,
   useSensor, useSensors, closestCenter,
@@ -16,9 +16,53 @@ interface Props {
   rounds: BlitzRound[];
   isCreator?: boolean;
   onReorder?: (fromIndex: number, toIndex: number) => Promise<void>;
+  /** Whether the viewer may still correct a score. */
+  canEdit?: boolean;
+  onEditScore?: (
+    roundId: string, roundIndex: number, scoreA: number, scoreB: number, court?: 'A' | 'B',
+  ) => Promise<void>;
 }
 
-export default function BlitzCalendarTab({ tournament, rounds, isCreator = false, onReorder }: Props) {
+export default function BlitzCalendarTab({
+  tournament, rounds, isCreator = false, onReorder, canEdit = false, onEditScore,
+}: Props) {
+  // Score correction lives here now. The schedule is the one chronological
+  // view of every round, so the number and the fix for it belong on the same
+  // line — it used to mean finding the round again in a separate list.
+  const [editing, setEditing] = useState<{ roundId: string; court: 'A' | 'B' } | null>(null);
+  const [editA, setEditA] = useState('');
+  const [editB, setEditB] = useState('');
+
+  const beginEdit = (roundId: string, court: 'A' | 'B', a: number, b: number) => {
+    setEditing({ roundId, court });
+    setEditA(String(a));
+    setEditB(String(b));
+  };
+
+  const confirmEdit = async (roundId: string, roundNum: number, court: 'A' | 'B') => {
+    const a = parseInt(editA, 10);
+    const b = parseInt(editB, 10);
+    if (!onEditScore || isNaN(a) || isNaN(b) || a < 0 || b < 0) return;
+    await onEditScore(roundId, roundNum, a, b, court);
+    setEditing(null);
+  };
+
+  const editInputStyle = {
+    width: 36, padding: '2px 0',
+    backgroundColor: colors.bg,
+    border: `1px solid ${colors.primary}`,
+    borderRadius: radius.sm,
+    color: colors.text, fontSize: 14, fontWeight: 800,
+    textAlign: 'center' as const, fontFamily: fonts.mono, outline: 'none',
+    boxSizing: 'border-box' as const,
+  };
+
+  const editActionStyle = {
+    background: 'none', border: 'none', cursor: 'pointer',
+    padding: `2px ${spacing.sm}px`,
+    fontFamily: fonts.sans, fontSize: 12, fontWeight: 700,
+  };
+
   const totalRounds = tournament.total_rounds;
 
   // Auto-scroll to the active round on mount, so opening the Calendar
@@ -82,7 +126,7 @@ export default function BlitzCalendarTab({ tournament, rounds, isCreator = false
     // the collapsed header was already taking most of the height a condensed
     // row needs anyway.
     const courtLine = (
-      key: string,
+      court: 'A' | 'B',
       label: string | null,
       teamA: readonly number[],
       teamB: readonly number[],
@@ -92,6 +136,8 @@ export default function BlitzCalendarTab({ tournament, rounds, isCreator = false
       const played = scoreA != null && scoreB != null;
       const aWon = played && (scoreA as number) > (scoreB as number);
       const bWon = played && (scoreB as number) > (scoreA as number);
+      const editable = played && canEdit && !!onEditScore && !!round;
+      const isEditing = !!round && editing?.roundId === round.id && editing.court === court;
 
       // The score already says who won, but dimming the losing side lets the
       // eye find it without reading the numbers.
@@ -107,36 +153,73 @@ export default function BlitzCalendarTab({ tournament, rounds, isCreator = false
         team.map(idx => tournament.players[idx]?.name ?? '—').join(' + ');
 
       return (
-        <div key={key} style={{
-          display: 'grid',
-          gridTemplateColumns: label ? '10px 1fr auto 1fr' : '1fr auto 1fr',
-          alignItems: 'center', gap: spacing.sm,
-        }}>
-          {label && (
-            <span style={{
-              fontFamily: fonts.sans, fontSize: 10, fontWeight: 800,
-              color: colors.muted,
-            }}>
-              {label}
-            </span>
+        <div key={court} style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: label ? '10px 1fr auto 1fr' : '1fr auto 1fr',
+            alignItems: 'center', gap: spacing.sm,
+          }}>
+            {label && (
+              <span style={{
+                fontFamily: fonts.sans, fontSize: 10, fontWeight: 800,
+                color: colors.muted,
+              }}>
+                {label}
+              </span>
+            )}
+            <span style={{ ...side(bWon), textAlign: 'left' }}>{names(teamA)}</span>
+
+            {isEditing ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input type="number" min="0" value={editA}
+                  onChange={e => setEditA(e.target.value)} style={editInputStyle} />
+                <span style={{ color: colors.muted, fontWeight: 700 }}>–</span>
+                <input type="number" min="0" value={editB}
+                  onChange={e => setEditB(e.target.value)} style={editInputStyle} />
+              </div>
+            ) : played ? (
+              // A score that can still be corrected gets a frame, so the tap
+              // target is visible without adding a pencil to every row.
+              <button
+                onClick={() => editable && beginEdit(round!.id, court, scoreA as number, scoreB as number)}
+                disabled={!editable}
+                title={editable ? 'Tap to correct' : undefined}
+                style={{
+                  fontFamily: fonts.mono, fontSize: 13, fontWeight: 800,
+                  color: colors.primary, whiteSpace: 'nowrap',
+                  background: 'transparent',
+                  border: `1px solid ${editable ? colors.border : 'transparent'}`,
+                  borderRadius: radius.sm,
+                  padding: editable ? '2px 6px' : 0,
+                  cursor: editable ? 'pointer' : 'default',
+                }}
+              >
+                {scoreA} – {scoreB}
+              </button>
+            ) : (
+              <span style={{
+                fontFamily: fonts.sans, fontSize: 10, fontWeight: 700,
+                color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}>
+                vs
+              </span>
+            )}
+
+            <span style={{ ...side(aWon), textAlign: 'right' }}>{names(teamB)}</span>
+          </div>
+
+          {isEditing && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: spacing.xs }}>
+              <button onClick={() => setEditing(null)}
+                style={{ ...editActionStyle, color: colors.textSecondary }}>
+                Cancel
+              </button>
+              <button onClick={() => confirmEdit(round!.id, roundNum, court)}
+                style={{ ...editActionStyle, color: colors.primary }}>
+                Save
+              </button>
+            </div>
           )}
-          <span style={{ ...side(bWon), textAlign: 'left' }}>{names(teamA)}</span>
-          {played ? (
-            <span style={{
-              fontFamily: fonts.mono, fontSize: 13, fontWeight: 800,
-              color: colors.primary, whiteSpace: 'nowrap',
-            }}>
-              {scoreA} – {scoreB}
-            </span>
-          ) : (
-            <span style={{
-              fontFamily: fonts.sans, fontSize: 10, fontWeight: 700,
-              color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.08em',
-            }}>
-              vs
-            </span>
-          )}
-          <span style={{ ...side(aWon), textAlign: 'right' }}>{names(teamB)}</span>
         </div>
       );
     };
@@ -205,8 +288,8 @@ export default function BlitzCalendarTab({ tournament, rounds, isCreator = false
         </div>
 
         {/* One line per court. The letter only appears when there are two. */}
-        {courtLine('a', s.courtB ? 'A' : null, s.teamA, s.teamB, round?.team_a_score, round?.team_b_score)}
-        {s.courtB && courtLine('b', 'B', s.courtB.teamA, s.courtB.teamB, round?.team_a_score_b, round?.team_b_score_b)}
+        {courtLine('A', s.courtB ? 'A' : null, s.teamA, s.teamB, round?.team_a_score, round?.team_b_score)}
+        {s.courtB && courtLine('B', 'B', s.courtB.teamA, s.courtB.teamB, round?.team_a_score_b, round?.team_b_score_b)}
 
         {/* Resting players */}
         {s.rest.length > 0 && (

@@ -8,7 +8,7 @@ import {
   startTournament, startTimer, pauseTimer, resetTimer,
   submitScore, placeBet, cancelBet, editScore, reorderRound, deleteTournament, renameTournament,
   beginSetup, updateAnnouncement, BlitzPlayer,
-  getRsvps, setRsvp, clearRsvp, subscribeRsvps, BlitzRsvp,
+  getRsvps, setRsvp, clearRsvp, subscribeRsvps, BlitzRsvp, EDIT_WINDOW_MS,
 } from '@/services/blitzService';
 import { generateSchedule } from '@/lib/blitz-schedule';
 import { finalizeRanking, getRanking } from '@/services/rankingService';
@@ -624,6 +624,15 @@ export default function BlitzTournament() {
 
   const playerBalance = playerIndex !== null ? tournament.players[playerIndex]?.balance ?? 0 : 0;
 
+  // Scores stay correctable while the tournament is live and for a short
+  // window after it finishes. The backend enforces the same rule; this only
+  // hides an affordance that would fail.
+  const finishedAtMs = tournament.finished_at ? new Date(tournament.finished_at).getTime() : null;
+  const editWindowOpen = tournament.status !== 'finished'
+    || finishedAtMs === null
+    || Date.now() < finishedAtMs + EDIT_WINDOW_MS;
+  const canEditScores = canSubmit && editWindowOpen;
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.bg, paddingBottom: 80 }}>
       <style>{animationCSS}</style>
@@ -714,7 +723,7 @@ export default function BlitzTournament() {
                 playerIndex={playerIndex} bets={bets}
                 timerProps={timerProps} onStartTimer={handleStartTimer}
                 onPauseTimer={handlePauseTimer} onResetTimer={handleResetTimer}
-                onSubmitScore={handleSubmitScore} onEditScore={handleEditScore} onBetClick={() => {}}
+                onSubmitScore={handleSubmitScore} onBetClick={() => {}}
               />
               {/* Betting card for resting players — gated behind
                   BETTING_ENABLED feature flag (paused 2026-06-01). */}
@@ -746,6 +755,8 @@ export default function BlitzTournament() {
               tournament={tournament} rounds={rounds}
               isCreator={isPoolHost}
               onReorder={handleReorder}
+              canEdit={canEditScores}
+              onEditScore={handleEditScore}
             />
           )}
           </ErrorBoundary>
