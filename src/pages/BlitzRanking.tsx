@@ -463,8 +463,11 @@ export default function BlitzRanking() {
         background: colors.surface,
         border: `1px solid ${colors.border}`,
         borderRadius: radius.lg,
-        overflow: 'hidden',
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        WebkitOverflowScrolling: 'touch',
       }}>
+      <div style={{ minWidth: TABLE_MIN_WIDTH }}>
         <div style={{
           display: 'grid',
           gridTemplateColumns: ROW_GRID,
@@ -525,6 +528,7 @@ export default function BlitzRanking() {
                 <p style={{
                   fontFamily: fonts.sans, fontSize: typeScale.body.fontSize, fontWeight: 600,
                   color: colors.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  minWidth: 0,
                   display: 'flex', alignItems: 'center', gap: spacing.xs,
                 }}>
                   {player.displayName}
@@ -723,6 +727,7 @@ export default function BlitzRanking() {
         );
       })}
       </div>
+      </div>
       )}
 
       {/* Bottom spacer for nav */}
@@ -736,9 +741,13 @@ export default function BlitzRanking() {
 // drift apart. Widths are chosen so each header label fits inside its own
 // track at the header font size — a label wider than its column would spill
 // over the neighbouring one and break the alignment.
-const ROW_GRID = '26px 1fr 34px 42px 38px 44px';
+const ROW_GRID = '26px minmax(104px, 1fr) 42px 48px 46px 52px';
 const ROW_GAP = spacing.xs;
 const ROW_PAD_X = spacing.md;
+// Below this the columns would start squeezing names and numbers, so the
+// table stops shrinking and scrolls sideways instead. Header and rows sit
+// in the same scrolling box, so they always move together and stay aligned.
+const TABLE_MIN_WIDTH = 26 + 104 + 42 + 48 + 46 + 52 + (ROW_GAP * 5) + (ROW_PAD_X * 2);
 
 const headerStyle: React.CSSProperties = {
   fontFamily: fonts.sans,
