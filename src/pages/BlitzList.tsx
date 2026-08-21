@@ -213,7 +213,7 @@ export default function BlitzList() {
    * One finished-tournament card. Shared by the latest event, which stays
    * visible under the ranking, and by the archive collapsed beneath it.
    */
-  const renderFinishedCard = (t: BlitzTournamentData) => {
+  const renderFinishedCard = (t: BlitzTournamentData, latest = false) => {
     const result = myResults[t.id];
     const winnerName = winners[t.id];
     const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
@@ -222,36 +222,62 @@ export default function BlitzList() {
         key={t.id}
         onClick={() => navigate(`/blitz/${t.id}`)}
         style={{
-          background: colors.surface,
-          border: `1px solid ${colors.border}`,
+          // The latest result is the one the page is for, so it sits a shade
+          // above the archive rather than looking like another row of it.
+          background: latest ? colors.surfaceElevated : colors.surface,
+          border: `1px solid ${latest ? 'rgba(250,250,250,0.10)' : colors.border}`,
           borderRadius: radius.md,
           padding: `${spacing.md}px`,
           marginBottom: spacing.sm,
           cursor: 'pointer',
         }}
       >
-        {/* Date sits at the top-left, on its own row */}
-        {dateStr && (
-          <span style={{
-            display: 'block', fontSize: 11, color: colors.muted,
-            textTransform: 'uppercase', letterSpacing: '0.06em',
-            fontWeight: 600, marginBottom: spacing.xs,
+        {/* Eyebrow row. The label says what this card is, the date says when
+            it happened — two different jobs, so two different weights. The
+            date was set in the darkest grey in the palette and all but
+            disappeared against the card; it moves up to the readable one. */}
+        {(latest || dateStr) && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            marginBottom: spacing.xs,
           }}>
-            {dateStr}
-          </span>
+            {latest && (
+              <span style={{
+                fontFamily: fonts.sans, fontSize: 11, fontWeight: 700,
+                color: colors.primary,
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+              }}>
+                Last tournament
+              </span>
+            )}
+            {latest && dateStr && (
+              <span style={{ fontSize: 11, color: colors.muted }}>·</span>
+            )}
+            {dateStr && (
+              <span style={{
+                fontFamily: fonts.sans, fontSize: 11, fontWeight: 600,
+                color: colors.textSecondary,
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+              }}>
+                {dateStr}
+              </span>
+            )}
+          </div>
         )}
         {/* Title + sub-line on the left, placement + pill on the right,
             vertically centered as a pair */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
+            {/* Was set in secondary grey at the same weight as everything
+                else, which left the card with no top line. */}
             <span style={{
-              display: 'block', fontSize: 15, fontWeight: 600, color: colors.textSecondary,
+              display: 'block', fontSize: 16, fontWeight: 700, color: colors.text,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {t.name}
             </span>
             <span style={{
-              display: 'block', fontSize: 12, color: colors.muted, marginTop: 2,
+              display: 'block', fontSize: 12, color: colors.textSecondary, marginTop: 3,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {t.players.length} players{t.format === 'fixed_pairs' ? ' · Pairs' : ''}
@@ -262,7 +288,7 @@ export default function BlitzList() {
             {/* My result — highlighted, or "Did not play" pill if I wasn't in the pool */}
             {result ? (
               <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: 12, color: colors.textSecondary, fontWeight: 600 }}>
+                <span style={{ fontSize: 13, color: colors.text, fontWeight: 700 }}>
                   {result.placement}{ordinalSuffix(result.placement)}
                 </span>
                 <div style={{ marginTop: 4 }}>
@@ -289,7 +315,7 @@ export default function BlitzList() {
                 borderRadius: radius.pill,
                 fontFamily: fonts.sans,
                 fontSize: 11, fontWeight: 600,
-                color: colors.muted,
+                color: colors.textSecondary,
                 whiteSpace: 'nowrap',
               }}>
                 Did not play
@@ -706,7 +732,7 @@ export default function BlitzList() {
           );
         })}
 
-        {latestFinished && renderFinishedCard(latestFinished)}
+        {latestFinished && renderFinishedCard(latestFinished, true)}
 
         {/* ── History section ── */}
         {olderFinished.length > 0 && (
@@ -749,7 +775,7 @@ export default function BlitzList() {
             </svg>
           </button>
         )}
-        {historyOpen && olderFinished.map(renderFinishedCard)}
+        {historyOpen && olderFinished.map(t => renderFinishedCard(t))}
 
         {/* ── Empty state ── */}
         {tournaments.length === 0 && (
