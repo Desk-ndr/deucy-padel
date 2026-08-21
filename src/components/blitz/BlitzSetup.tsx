@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { getAllBlitzConfigs } from '@/lib/blitz-schedule';
+import { getAllFixedPairsConfigs } from '@/lib/fixed-pairs-schedule';
+import { suggestSnakePairs, assessPairs, PairingPlayer } from '@/lib/pairing-guide';
+import { getRanking } from '@/services/rankingService';
 import { BlitzTournamentData } from '@/services/blitzService';
 import { colors, spacing, radius, fonts, typeScale } from '@/lib/design-tokens';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,12 +15,23 @@ interface RegisteredPlayer {
 
 interface Props {
   tournament: BlitzTournamentData;
-  onStart: (config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number }, playerNames: string[], playerIds: Array<string | null>, isGuests: boolean[], courts: 1 | 2) => Promise<void>;
+  onStart: (
+    config: { totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number },
+    playerNames: string[],
+    playerIds: Array<string | null>,
+    isGuests: boolean[],
+    courts: 1 | 2,
+    format: 'rotating' | 'fixed_pairs',
+    pairs: Array<[number, number]> | null,
+  ) => Promise<void>;
 }
 
-type Step = 'players' | 'time' | 'config' | 'confirm';
+type Step = 'players' | 'time' | 'pairs' | 'config' | 'confirm';
 
-const STEP_INDEX: Record<Step, number> = { players: 0, time: 1, config: 2, confirm: 3 };
+// The 'pairs' step only exists in fixed-pairs mode, so the progress bar
+// length and the current index are derived from the active format.
+const ROTATING_STEPS: Step[] = ['players', 'time', 'config', 'confirm'];
+const FIXED_PAIRS_STEPS: Step[] = ['players', 'time', 'pairs', 'config', 'confirm'];
 
 export default function BlitzSetup({ tournament, onStart }: Props) {
   const [step, setStep] = useState<Step>('players');
@@ -36,6 +50,14 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
   // before splitting the rest across rounds.
   const [pauseSeconds, setPauseSeconds] = useState(150); // default 2:30
   const [courts, setCourts] = useState<1 | 2>(1);
+  // Tournament mode. 'rotating' keeps the original behaviour; 'fixed_pairs'
+  // locks players into pairs that stay together for the whole event.
+  const [format, setFormat] = useState<'rotating' | 'fixed_pairs'>('rotating');
+  const [pairs, setPairs] = useState<Array<[number, number]>>([]);
+  // Roster index currently armed for pairing (tap one name, then another).
+  const [pendingPick, setPendingPick] = useState<number | null>(null);
+  // Global ranking scores, used purely to advise on pair balance.
+  const [scoreByPlayerId, setScoreByPlayerId] = useState<Record<string, number>>({});
   const [selectedConfig, setSelectedConfig] = useState<{ totalRounds: number; gamesPerPlayer: number; roundDurationSeconds: number } | null>(null);
 
   // Fetch registered players + apply RSVP pre-selection (one-shot).
@@ -68,6 +90,21 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
     fetchPlayers();
   }, [tournament.id]);
 
+  // Ranking scores power the pairing guide. Failure is non-fatal: without
+  // scores the guide simply reports that balance can't be assessed.
+  useEffect(() => {
+    let cancelled = false;
+    getRanking()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const map: Record<string, number> = {};
+        data.forEach(r => { map[r.playerId] = r.rankingScore ?? 0; });
+        setScoreByPlayerId(map);
+      })
+      .catch(() => { /* guide degrades gracefully */ });
+    return () => { cancelled = true; };
+  }, []);
+
   const numPlayers = selectedIds.size + guestNames.length;
   // If the roster drops below 8 (guest removed or player unchecked), fall
   // back to single court — dual court needs 8 active per round.
@@ -77,8 +114,29 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
       setSelectedConfig(null);
     }
   }, [numPlayers, courts]);
-  const configs = numPlayers >= 5 ? getAllBlitzConfigs(numPlayers, totalMinutes, pauseSeconds, courts) : [];
-  const currentStepIndex = STEP_INDEX[step];
+  // Fixed pairs needs an even roster of at least 4; rotating needs 5+.
+  const rosterIsEven = numPlayers % 2 === 0;
+  const canUseFixedPairs = numPlayers >= 4 && rosterIsEven;
+
+  // Any roster change invalidates existing pairs (indices shift).
+  useEffect(() => {
+    setPairs([]);
+    setPendingPick(null);
+  }, [numPlayers]);
+
+  // Leaving fixed-pairs mode drops the pairs; entering it clears any
+  // rotating config that was already picked.
+  useEffect(() => {
+    setSelectedConfig(null);
+    if (format === 'rotating') { setPairs([]); setPendingPick(null); }
+  }, [format]);
+
+  const configs = format === 'fixed_pairs'
+    ? (pairs.length >= 2 ? getAllFixedPairsConfigs(pairs.length, totalMinutes, pauseSeconds, courts) : [])
+    : (numPlayers >= 5 ? getAllBlitzConfigs(numPlayers, totalMinutes, pauseSeconds, courts) : []);
+
+  const steps = format === 'fixed_pairs' ? FIXED_PAIRS_STEPS : ROTATING_STEPS;
+  const currentStepIndex = Math.max(0, steps.indexOf(step));
 
   const togglePlayer = (id: string) => {
     const next = new Set(selectedIds);
@@ -96,6 +154,44 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
     ...selectedPlayers.map(p => ({ name: p.display_name, player_id: p.id as string | null, isGuest: false })),
     ...guestNames.map(n => ({ name: n, player_id: null, isGuest: true })),
   ];
+
+  // ── Fixed-pairs helpers ────────────────────────────────────────
+  // Roster entries enriched with ranking score, in roster order — the
+  // indices here are the same ones the schedule will use.
+  const pairingPlayers: PairingPlayer[] = combinedRoster.map((p, index) => ({
+    index,
+    name: p.name,
+    playerId: p.player_id,
+    score: p.player_id ? (scoreByPlayerId[p.player_id] ?? 0) : 0,
+  }));
+  const assessment = assessPairs(pairs, pairingPlayers);
+  const nameOf = (i: number) => combinedRoster[i]?.name ?? '?';
+
+  /** Tap-to-pair: first tap arms a player, second tap forms the pair. */
+  const handlePairTap = (index: number) => {
+    if (pendingPick === null) { setPendingPick(index); return; }
+    if (pendingPick === index) { setPendingPick(null); return; }
+    setPairs(prev => [...prev, [pendingPick, index] as [number, number]]);
+    setPendingPick(null);
+    setSelectedConfig(null);
+  };
+
+  const removePair = (i: number) => {
+    setPairs(prev => prev.filter((_, idx) => idx !== i));
+    setSelectedConfig(null);
+  };
+
+  const applySuggestion = () => {
+    setPairs(suggestSnakePairs(pairingPlayers));
+    setPendingPick(null);
+    setSelectedConfig(null);
+  };
+
+  const clearPairs = () => {
+    setPairs([]);
+    setPendingPick(null);
+    setSelectedConfig(null);
+  };
 
   const addGuest = () => {
     const trimmed = guestInput.trim();
@@ -150,7 +246,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
         display: 'flex', gap: 3, marginBottom: spacing.xxl,
         padding: `0 ${spacing.xxl}px`,
       }}>
-        {[0, 1, 2, 3].map(i => (
+        {steps.map((_, i) => (
           <div key={i} style={{
             flex: 1, height: 3, borderRadius: 2,
             backgroundColor: i <= currentStepIndex ? colors.primary : colors.border,
@@ -500,7 +596,70 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
           </div>
 
           <div style={{ display: 'flex', gap: spacing.sm }}>
-                      {/* Courts selector — 1 or 2 parallel courts. Dual court requires
+          {/* Format selector — rotating americana vs fixed pairs. */}
+          <div style={{
+            padding: spacing.md,
+            backgroundColor: colors.bg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+            marginBottom: spacing.lg,
+            boxSizing: 'border-box',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.sm }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: colors.muted,
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}>
+                Format
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: spacing.xs, width: '100%' }}>
+              {([
+                { key: 'rotating' as const, label: 'Rotating', disabled: false },
+                { key: 'fixed_pairs' as const, label: 'Fixed pairs', disabled: !canUseFixedPairs },
+              ]).map(opt => {
+                const isActive = format === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => { if (!opt.disabled) setFormat(opt.key); }}
+                    disabled={opt.disabled}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      boxSizing: 'border-box',
+                      padding: `${spacing.sm}px 0`,
+                      borderRadius: radius.sm,
+                      backgroundColor: isActive ? colors.primaryMuted : colors.surface,
+                      border: `1px solid ${isActive ? colors.primary : colors.border}`,
+                      color: opt.disabled ? colors.muted : isActive ? colors.primary : colors.textSecondary,
+                      fontSize: 14, fontWeight: 700,
+                      fontFamily: fonts.sans,
+                      cursor: opt.disabled ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.15s',
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                      opacity: opt.disabled ? 0.5 : 1,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p style={{ ...typeScale.caption, color: colors.muted, marginTop: spacing.sm, marginBottom: 0 }}>
+              {format === 'fixed_pairs'
+                ? 'Partners stay together all tournament, pairs play a round robin.'
+                : 'Partners change every round.'}
+            </p>
+            {!canUseFixedPairs && (
+              <p style={{ ...typeScale.caption, color: colors.muted, marginTop: spacing.xs, marginBottom: 0 }}>
+                Fixed pairs needs an even roster of at least 4.
+              </p>
+            )}
+          </div>
+
+          {/* Courts selector — 1 or 2 parallel courts. Dual court requires
               at least 8 players (2 matches x 4 players simultaneous). */}
           <div style={{
             padding: spacing.md,
@@ -569,7 +728,206 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
           <button onClick={() => setStep('players')} style={buttonStyle(false)}>
               ← Back
             </button>
-            <button onClick={() => { setSelectedConfig(null); setStep('config'); }} style={buttonStyle(true)}>
+            <button
+              onClick={() => { setSelectedConfig(null); setStep(format === 'fixed_pairs' ? 'pairs' : 'config'); }}
+              style={buttonStyle(true)}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Build the pairs (fixed-pairs mode only) */}
+      {step === 'pairs' && (
+        <div style={{
+          padding: spacing.lg,
+          backgroundColor: colors.surface,
+          borderRadius: radius.md,
+          border: `1px solid ${colors.border}`,
+        }}>
+          <p style={{ ...typeScale.title, color: colors.text, textAlign: 'center', marginBottom: spacing.xs }}>
+            Build the pairs
+          </p>
+          <p style={{ ...typeScale.caption, color: colors.muted, textAlign: 'center', marginBottom: spacing.lg }}>
+            Tap two names to pair them. {pairs.length} of {Math.floor(numPlayers / 2)} pairs set.
+          </p>
+
+          {/* Balance verdict + suggestion controls */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: spacing.sm, flexWrap: 'wrap',
+            padding: spacing.md,
+            backgroundColor: colors.bg,
+            border: `1px solid ${
+              assessment.verdict === 'unbalanced' ? colors.accent
+              : assessment.verdict === 'balanced' ? colors.primary
+              : colors.border
+            }`,
+            borderRadius: radius.md,
+            marginBottom: spacing.lg,
+          }}>
+            <span style={{
+              fontSize: 13, fontWeight: 700,
+              color: assessment.verdict === 'unbalanced' ? colors.accent
+                : assessment.verdict === 'balanced' ? colors.primary
+                : colors.textSecondary,
+              fontFamily: fonts.sans,
+            }}>
+              {assessment.label || 'Pair everyone to see the balance'}
+            </span>
+            <div style={{ display: 'flex', gap: spacing.xs }}>
+              <button
+                onClick={applySuggestion}
+                style={{
+                  padding: `${spacing.xs}px ${spacing.md}px`,
+                  borderRadius: radius.sm,
+                  backgroundColor: colors.primaryMuted,
+                  border: `1px solid ${colors.primary}`,
+                  color: colors.primary,
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: fonts.sans, whiteSpace: 'nowrap',
+                }}
+              >
+                Suggest
+              </button>
+              {pairs.length > 0 && (
+                <button
+                  onClick={clearPairs}
+                  style={{
+                    padding: `${spacing.xs}px ${spacing.md}px`,
+                    borderRadius: radius.sm,
+                    backgroundColor: 'transparent',
+                    border: `1px solid ${colors.border}`,
+                    color: colors.textSecondary,
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    fontFamily: fonts.sans, whiteSpace: 'nowrap',
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Cluster warnings — advisory only, never blocking */}
+          {assessment.warnings.length > 0 && (
+            <div style={{ marginBottom: spacing.lg }}>
+              {assessment.warnings.map((w, i) => (
+                <p key={i} style={{
+                  ...typeScale.caption, color: colors.accent,
+                  margin: 0, marginBottom: spacing.xs,
+                }}>
+                  {w}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {/* Players still to pair */}
+          {assessment.unpaired.length > 0 && (
+            <>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: colors.muted,
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}>
+                To pair
+              </span>
+              <div style={{
+                display: 'flex', flexWrap: 'wrap', gap: spacing.sm,
+                marginTop: spacing.sm, marginBottom: spacing.lg,
+              }}>
+                {assessment.unpaired.map(idx => {
+                  const armed = pendingPick === idx;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => handlePairTap(idx)}
+                      style={{
+                        padding: `${spacing.sm}px ${spacing.md}px`,
+                        borderRadius: radius.pill,
+                        backgroundColor: armed ? colors.primary : colors.surfaceElevated,
+                        border: `1px solid ${armed ? colors.primary : colors.border}`,
+                        color: armed ? colors.bg : colors.text,
+                        fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                        fontFamily: fonts.sans,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {nameOf(idx)}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Pairs already formed */}
+          {pairs.length > 0 && (
+            <>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: colors.muted,
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}>
+                Pairs
+              </span>
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: spacing.sm,
+                marginTop: spacing.sm, marginBottom: spacing.xl,
+              }}>
+                {assessment.pairs.map((info, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: spacing.sm,
+                    padding: `${spacing.sm}px ${spacing.md}px`,
+                    backgroundColor: colors.surfaceElevated,
+                    borderRadius: radius.sm,
+                    border: `1px solid ${info.warning ? colors.accent : 'transparent'}`,
+                  }}>
+                    <span style={{
+                      ...typeScale.mono, fontSize: 12, color: colors.muted, minWidth: 24,
+                    }}>
+                      {i + 1}
+                    </span>
+                    <span style={{
+                      flex: 1, fontSize: 14, fontWeight: 600, color: colors.text,
+                      fontFamily: fonts.sans, minWidth: 0,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {nameOf(info.a)} &amp; {nameOf(info.b)}
+                    </span>
+                    <span style={{
+                      fontFamily: fonts.mono, fontSize: 12, fontWeight: 700,
+                      color: colors.textSecondary, whiteSpace: 'nowrap',
+                    }}>
+                      {info.strength}
+                    </span>
+                    <button
+                      onClick={() => removePair(i)}
+                      aria-label="Remove pair"
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        padding: spacing.xs, color: colors.muted, display: 'flex', flexShrink: 0,
+                      }}
+                    >
+                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div style={{ display: 'flex', gap: spacing.sm }}>
+            <button onClick={() => setStep('time')} style={buttonStyle(false)}>
+              ← Back
+            </button>
+            <button
+              onClick={() => { setSelectedConfig(null); setStep('config'); }}
+              disabled={assessment.unpaired.length > 0 || pairs.length < 2}
+              style={buttonStyle(true, assessment.unpaired.length > 0 || pairs.length < 2)}
+            >
               Next →
             </button>
           </div>
@@ -643,7 +1001,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
           )}
 
           <div style={{ display: 'flex', gap: spacing.sm }}>
-            <button onClick={() => setStep('time')} style={buttonStyle(false)}>
+            <button onClick={() => setStep(format === 'fixed_pairs' ? 'pairs' : 'time')} style={buttonStyle(false)}>
               ← Back
             </button>
             <button
@@ -669,10 +1027,36 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
             Ready to start?
           </p>
           <p style={{ ...typeScale.caption, color: colors.muted, textAlign: 'center', marginBottom: spacing.xl }}>
-            {numPlayers} players · {selectedConfig.totalRounds} rounds · {Math.floor(selectedConfig.roundDurationSeconds / 60)} min each
+            {format === 'fixed_pairs' ? `${pairs.length} pairs` : `${numPlayers} players`} · {selectedConfig.totalRounds} rounds · {Math.floor(selectedConfig.roundDurationSeconds / 60)} min each
           </p>
 
-          {/* Player list preview */}
+          {/* Pair preview replaces the flat roster in fixed-pairs mode */}
+          {format === 'fixed_pairs' && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: spacing.sm,
+              marginBottom: spacing.xl,
+            }}>
+              {pairs.map(([a, b], i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: spacing.sm,
+                  padding: `${spacing.sm}px ${spacing.md}px`,
+                  backgroundColor: colors.primaryMuted,
+                  borderRadius: radius.sm,
+                  border: `1px solid ${colors.primary}`,
+                }}>
+                  <span style={{ ...typeScale.mono, fontSize: 12, color: colors.primary, minWidth: 24 }}>
+                    {i + 1}
+                  </span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: colors.text, fontFamily: fonts.sans }}>
+                    {nameOf(a)} &amp; {nameOf(b)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Player list preview (rotating mode) */}
+          {format === 'rotating' && (
           <div style={{
             display: 'flex', flexWrap: 'wrap', gap: spacing.sm,
             justifyContent: 'center', marginBottom: spacing.xl,
@@ -705,6 +1089,7 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
               </div>
             ))}
           </div>
+          )}
 
           <div style={{ display: 'flex', gap: spacing.sm }}>
             <button onClick={() => setStep('config')} style={buttonStyle(false)}>
@@ -716,7 +1101,9 @@ export default function BlitzSetup({ tournament, onStart }: Props) {
                 combinedRoster.map(p => p.name),
                 combinedRoster.map(p => p.player_id),
                 combinedRoster.map(p => p.isGuest),
-                courts
+                courts,
+                format,
+                format === 'fixed_pairs' ? pairs : null
               )}
               style={buttonStyle(true)}
             >

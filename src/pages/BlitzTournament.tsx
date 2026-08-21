@@ -26,6 +26,19 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { buildFixedAvoidPairs } from '@/lib/pairing-constraints';
+import { generateFixedPairsSchedule, roundsForFixedPairs } from '@/lib/fixed-pairs-schedule';
+
+/**
+ * The setup screen picks a config by total rounds; the schedule builder
+ * needs the matching cycle count. Recover it by asking the same helper
+ * that produced the options in the first place.
+ */
+function cyclesForRounds(numPairs: number, courts: number, totalRounds: number): number {
+  for (let cycles = 1; cycles <= 6; cycles++) {
+    if (roundsForFixedPairs(numPairs, courts, cycles) === totalRounds) return cycles;
+  }
+  return 1;
+}
 
 export default function BlitzTournament() {
   const { id } = useParams<{ id: string }>();
@@ -138,6 +151,8 @@ export default function BlitzTournament() {
     playerIds?: Array<string | null>,
     isGuests?: boolean[],
     courts: 1 | 2 = 1,
+    format: 'rotating' | 'fixed_pairs' = 'rotating',
+    pairs: Array<[number, number]> | null = null,
   ) => {
     if (!id) return;
     // Guest players: ad-hoc names with player_id=null and isGuest=true.
@@ -156,10 +171,15 @@ export default function BlitzTournament() {
     // All C(k,2) pairings of cluster members actually in the pool become
     // avoidPairs. Constraint is soft in the generator: preferred when a
     // valid alternative split exists, falls back otherwise.
-    const avoidPairs: Array<[number, number]> = buildFixedAvoidPairs(players);
+    const avoidPairs: Array<[number, number]> = format === 'fixed_pairs' ? [] : buildFixedAvoidPairs(players);
 
-    const schedule = generateSchedule(names.length, config.totalRounds, avoidPairs, courts);
-    const { error } = await startTournament(id, config, players, schedule, courts);
+    // Fixed-pairs tournaments ignore avoidPairs entirely: the host already
+    // chose who plays with whom on the pairing screen, so the generator
+    // only has to build the round robin between those pairs.
+    const schedule = format === 'fixed_pairs' && pairs
+      ? generateFixedPairsSchedule(pairs, courts, cyclesForRounds(pairs.length, courts, config.totalRounds), names.length)
+      : generateSchedule(names.length, config.totalRounds, avoidPairs, courts);
+    const { error } = await startTournament(id, config, players, schedule, courts, format, pairs);
     if (error) toast({ title: 'Error starting', description: error, variant: 'destructive' });
     else {
       toast({ title: 'Tournament started!' });
