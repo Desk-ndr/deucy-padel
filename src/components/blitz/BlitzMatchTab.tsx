@@ -246,7 +246,58 @@ export default function BlitzMatchTab({
       }
     });
 
+    // ── Fixed pairs place by PAIR, not by player ──
+    //
+    // Both members of a pair post identical stats, so the per-player ranking
+    // above spaces them 1, 1, 3, 3, 5… and hands the runners-up third-place
+    // points. finalizeRanking already re-derives the placement from the pair
+    // standings before writing ranking_entries; this screen did not, so it
+    // announced numbers the database never awarded — with eight players the
+    // runners-up read +20 here and were credited +32 in the ranking.
+    //
+    // Same rule as the service: rank the pairs 1..P on matches then games,
+    // share the rank on an exact tie, and give both members that rank.
+    const fixedPairs = tournament.format === 'fixed_pairs' ? (tournament.pairs ?? []) : [];
+    if (fixedPairs.length > 0) {
+      const statOf = (pi: number) => {
+        const anchor = fixedPairs[pi][0];
+        return { m: matchesWonMap.get(anchor) || 0, g: gamesMap.get(anchor) || 0 };
+      };
+      const order = fixedPairs.map((_, i) => i).sort((a, b) => {
+        const sa = statOf(a); const sb = statOf(b);
+        return sb.m !== sa.m ? sb.m - sa.m : sb.g - sa.g;
+      });
+      const pairRank: number[] = new Array(fixedPairs.length);
+      order.forEach((pi, sortPos) => {
+        if (sortPos === 0) { pairRank[pi] = 1; return; }
+        const prev = order[sortPos - 1];
+        const cur = statOf(pi); const prevStat = statOf(prev);
+        pairRank[pi] = cur.m === prevStat.m && cur.g === prevStat.g
+          ? pairRank[prev]
+          : sortPos + 1;
+      });
+      const rankByPlayer = new Map<number, number>();
+      fixedPairs.forEach((members, pi) => {
+        members.forEach(idx => rankByPlayer.set(idx, pairRank[pi]));
+      });
+      ranked.forEach((p, i) => { placements[i] = rankByPlayer.get(p.index) ?? placements[i]; });
+    }
+
     const winner = ranked[0];
+
+    // A fixed-pairs tournament is won by a pair. Naming one of the two on
+    // the celebration screen credits half the result.
+    const winnerPartnerIndex = fixedPairs.length > 0 && winner
+      ? fixedPairs.reduce<number | null>((found, [a, b]) => {
+          if (found !== null) return found;
+          if (a === winner.index) return b;
+          if (b === winner.index) return a;
+          return null;
+        }, null)
+      : null;
+    const winnerLabel = winnerPartnerIndex !== null
+      ? `${winner.name} & ${tournament.players[winnerPartnerIndex]?.name ?? '—'}`
+      : (winner?.name ?? '—');
     const N = tournament.players.length;
     const pointsFor = (rank: number) => placementPoints(rank, N);
 
@@ -327,7 +378,7 @@ export default function BlitzMatchTab({
               color: colors.primary, letterSpacing: '-0.02em',
               display: 'block',
             }}>
-              {winner?.name ?? '—'}
+              {winnerLabel}
             </span>
             {winner && (
               <span style={{ ...typeScale.body, color: colors.textSecondary, marginTop: spacing.xs, display: 'block' }}>
@@ -407,8 +458,14 @@ export default function BlitzMatchTab({
             borderTop: `1px solid ${colors.border}`,
             display: 'flex', justifyContent: 'center', gap: spacing.md, flexWrap: 'wrap',
           }}>
+            {/* Derived, not typed out: the scale moves with the roster, and
+                the fixed string matched no size at all — six players award
+                40 for first, ten award 60. */}
             <span style={{ ...typeScale.micro, color: colors.muted, fontSize: 14 }}>
-              Placement: 50 / 35 / 22 / 12 / 5
+              Placement: {[1, 2, 3, 4, 5]
+                .filter(rank => rank <= N)
+                .map(rank => pointsFor(rank))
+                .join(' / ')}
             </span>
             {BETTING_ENABLED && (
               <span style={{ ...typeScale.micro, color: colors.accent, fontSize: 14 }}>

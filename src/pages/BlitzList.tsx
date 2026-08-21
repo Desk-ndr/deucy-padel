@@ -136,9 +136,15 @@ export default function BlitzList() {
       });
   }, [tournaments]);
 
-  // Fetch the winner (placement=1) for every finished tournament. We
-  // join players to get the display name in a single round trip. This
-  // powers the "… · won by Bruno" line on the History cards.
+  // Fetch everyone who placed first in each finished tournament and join
+  // players for the display name in a single round trip. This powers the
+  // "… · won by Bruno" line on the cards.
+  //
+  // First place is not always one person: a fixed-pairs tournament is won by
+  // a pair, and either format can end in a tie. Names are grouped before
+  // being joined — partners with "&", separate winners with a comma — so two
+  // tied pairs read "Andrea & José, Bruno & Luca" instead of collapsing into
+  // one four-person team.
   useEffect(() => {
     const finishedIds = tournaments.filter(t => t.status === 'finished').map(t => t.id);
     if (finishedIds.length === 0) {
@@ -147,14 +153,49 @@ export default function BlitzList() {
     }
     supabase
       .from('ranking_entries')
-      .select('tournament_id, players(display_name)')
+      .select('tournament_id, player_id, players(display_name)')
       .eq('placement', 1)
       .in('tournament_id', finishedIds)
       .then(({ data }) => {
-        const map: Record<string, string> = {};
+        const byTournament: Record<string, Array<{ id: string; name: string }>> = {};
         for (const e of (data || [])) {
           const name = (e.players as any)?.display_name as string | undefined;
-          if (name) map[(e as any).tournament_id] = name;
+          const pid = (e as any).player_id as string | undefined;
+          if (!name || !pid) continue;
+          (byTournament[(e as any).tournament_id] ||= []).push({ id: pid, name });
+        }
+
+        const map: Record<string, string> = {};
+        for (const [id, winnersOf] of Object.entries(byTournament)) {
+          const t = tournaments.find(x => x.id === id);
+          const pairs = t?.format === 'fixed_pairs' ? t.pairs : null;
+
+          if (!pairs || pairs.length === 0) {
+            // Sorted so the line reads the same on every load.
+            map[id] = winnersOf.map(w => w.name).sort((a, b) => a.localeCompare(b)).join(', ');
+            continue;
+          }
+
+          // Roster index → winner, so the pairs can be rebuilt in the order
+          // the host set them rather than alphabetically.
+          const byIndex = new Map<number, string>();
+          t!.players.forEach((pl, i) => {
+            const w = winnersOf.find(x => x.id === pl.player_id);
+            if (w) byIndex.set(i, w.name);
+          });
+
+          const groups: string[] = [];
+          const claimed = new Set<number>();
+          for (const [a, b] of pairs) {
+            const names = [a, b].filter(i => byIndex.has(i));
+            if (names.length === 0) continue;
+            names.forEach(i => claimed.add(i));
+            groups.push(names.map(i => byIndex.get(i)!).join(' & '));
+          }
+          // Anyone the pair list does not account for still gets named.
+          for (const [i, name] of byIndex) if (!claimed.has(i)) groups.push(name);
+
+          map[id] = groups.join(', ');
         }
         setWinners(map);
       });
