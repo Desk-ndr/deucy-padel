@@ -216,9 +216,8 @@ export default function BlitzTournament() {
 
     const isLast = tournament.current_round >= tournament.total_rounds;
     if (isLast && !waiting) {
-      // Stay on the Match tab — that's where the celebration screen
-      // lives (confetti, trophy, ranking points). User can still switch
-      // to Standings via the bottom nav if they want the table view.
+      // Stay on the Play tab: the celebration screen lives there, and the
+      // final table now sits under it.
       const rankResult = await finalizeRanking(tournament, rounds, bets);
       if (rankResult?.error) console.warn('Ranking finalization:', rankResult.error);
       toast({ title: 'Tournament complete!' });

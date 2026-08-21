@@ -140,6 +140,33 @@ export default function BlitzMatchTab({
   // Score correction lives in the Schedule tab now: it already lists every
   // round in order, so the number and the fix for it sit on the same line.
 
+  // These three hooks must stay above the early returns further down.
+  // Hooks run on every render, and the finished branch returns before
+  // reaching this point: down there, the component called three fewer
+  // hooks the moment a tournament finished, which React rejects with
+  // "Rendered fewer hooks than expected".
+  const { toast } = useToast();
+
+  // ── Watch for round advance mid-edit ─────────────────────────
+  // If current_round changes while we have the score form open, it means
+  // another player beat us to it. Close the form, clear the inputs, and
+  // toast the user so they don't wonder what happened.
+  const prevRoundRef = useRef(tournament.current_round);
+  useEffect(() => {
+    if (prevRoundRef.current !== tournament.current_round) {
+      const hadTyped = !!(scoreA || scoreB || scoreA_B || scoreB_B);
+      prevRoundRef.current = tournament.current_round;
+      if (hadTyped) {
+        setScoreA(''); setScoreB(''); setScoreA_B(''); setScoreB_B('');
+        toast({
+          title: 'Round was just submitted',
+          description: 'Another player entered the score first.',
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournament.current_round]);
+
   /**
    * Heading for the standings table, in both the live tab and the finished
    * screen. The pulse is honest while a tournament is running: the table is
@@ -423,28 +450,6 @@ export default function BlitzMatchTab({
       </div>
     );
   }
-
-  const { toast } = useToast();
-
-  // ── Watch for round advance mid-edit ─────────────────────────
-  // If current_round changes while we have the score form open, it means
-  // another player beat us to it. Close the form, clear the inputs, and
-  // toast the user so they don't wonder what happened.
-  const prevRoundRef = useRef(tournament.current_round);
-  useEffect(() => {
-    if (prevRoundRef.current !== tournament.current_round) {
-      const hadTyped = !!(scoreA || scoreB || scoreA_B || scoreB_B);
-      prevRoundRef.current = tournament.current_round;
-      if (hadTyped) {
-        setScoreA(''); setScoreB(''); setScoreA_B(''); setScoreB_B('');
-        toast({
-          title: 'Round was just submitted',
-          description: 'Another player entered the score first.',
-        });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournament.current_round]);
 
   // amResting + canSubmit are hoisted at the top of the component so
   // they remain in scope for the finished-branch render too. See above.
