@@ -468,8 +468,8 @@ export default function BlitzRanking() {
         <div style={{
           display: 'grid',
           gridTemplateColumns: ROW_GRID,
-          gap: spacing.sm,
-          padding: `${spacing.sm}px ${spacing.lg}px`,
+          gap: ROW_GAP,
+          padding: `${spacing.sm}px ${ROW_PAD_X}px`,
           alignItems: 'center',
           background: colors.bg,
           borderBottom: `1px solid ${colors.border}`,
@@ -496,7 +496,7 @@ export default function BlitzRanking() {
             style={{
               background: isFirst ? colors.primaryMuted : 'transparent',
               borderBottom: index === ranking.length - 1 ? 'none' : `1px solid ${colors.border}`,
-              padding: `${spacing.md}px ${spacing.lg}px`,
+              padding: `${spacing.md}px ${ROW_PAD_X}px`,
               cursor: 'pointer',
               transition: 'background-color 0.2s',
             }}
@@ -505,12 +505,12 @@ export default function BlitzRanking() {
             <div style={{
               display: 'grid',
               gridTemplateColumns: ROW_GRID,
-              gap: spacing.sm,
+              gap: ROW_GAP,
               alignItems: 'center',
             }}>
               {/* Position */}
               <div style={{
-                width: 25, height: 25, borderRadius: '50%',
+                width: 24, height: 24, borderRadius: '50%',
                 background: isFirst ? colors.primary : 'transparent',
                 border: isFirst ? 'none' : `1.5px solid ${posColor}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -732,13 +732,23 @@ export default function BlitzRanking() {
 }
 
 /** Shared column template so header and rows can never drift apart. */
-const ROW_GRID = '30px 1fr 46px 38px 46px 50px';
+// Column template shared by the header and every row so they can never
+// drift apart. Widths are chosen so each header label fits inside its own
+// track at the header font size — a label wider than its column would spill
+// over the neighbouring one and break the alignment.
+const ROW_GRID = '26px 1fr 34px 42px 38px 44px';
+const ROW_GAP = spacing.xs;
+const ROW_PAD_X = spacing.md;
 
 const headerStyle: React.CSSProperties = {
   fontFamily: fonts.sans,
-  fontSize: 14,
-  fontWeight: 600,
+  fontSize: 10,
+  fontWeight: 700,
   color: colors.muted,
   textTransform: 'uppercase' as const,
-  letterSpacing: '0.05em',
+  letterSpacing: '0.02em',
+  // Never let a label widen its track or bleed into the next column.
+  minWidth: 0,
+  overflow: 'hidden',
+  whiteSpace: 'nowrap' as const,
 };
