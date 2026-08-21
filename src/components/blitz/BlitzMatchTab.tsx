@@ -696,7 +696,25 @@ export default function BlitzMatchTab({
           borderTop: `1px solid ${colors.border}`,
           display: 'flex', flexDirection: 'column', gap: spacing.md,
         }}>
-          <span style={{ ...typeScale.micro, color: colors.muted }}>Standings</span>
+          {/* The table is recomputed the moment a score is submitted, so the
+              pulse is honest: it marks numbers that are still moving. Built
+              here rather than with LiveBadge, which forces its label green,
+              uppercase and small — this one is a heading. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              backgroundColor: colors.primary,
+              boxShadow: '0 0 8px rgba(34,197,94,0.6)',
+              animation: 'livePulse 2s ease-in-out infinite',
+              flexShrink: 0,
+            }} />
+            <span style={{
+              fontFamily: fonts.sans, fontSize: 14, fontWeight: 700,
+              color: colors.text,
+            }}>
+              Live standings
+            </span>
+          </div>
           <BlitzLeaderboard
             players={sortedPlayers} rounds={rounds} bets={bets}
             schedule={tournament.schedule} myPlayerIndex={playerIndex}
