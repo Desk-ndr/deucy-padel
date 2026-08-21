@@ -498,6 +498,15 @@ export default function BlitzMatchTab({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+      {/* Round clock. First in the flow and sticky, so it stays in the corner
+          while the rest of the tab scrolls under it. */}
+      <BlitzTimer
+        secondsLeft={timerProps.secondsLeft} isRunning={timerProps.isRunning}
+        isPaused={timerProps.isPaused} isExpired={timerProps.isExpired}
+        durationSeconds={tournament.round_duration_seconds}
+        onStart={onStartTimer} onPause={onPauseTimer} onReset={onResetTimer}
+      />
+
       {/* Round counter */}
       <div style={{ textAlign: 'center' }}>
         <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.xs }}>
@@ -622,14 +631,6 @@ export default function BlitzMatchTab({
           </span>
         </div>
       ) : null}
-
-      {/* Timer */}
-      <BlitzTimer
-        secondsLeft={timerProps.secondsLeft} isRunning={timerProps.isRunning}
-        isPaused={timerProps.isPaused} isExpired={timerProps.isExpired}
-        durationSeconds={tournament.round_duration_seconds}
-        onStart={onStartTimer} onPause={onPauseTimer} onReset={onResetTimer}
-      />
 
       {/* Live predictions on this round — gated behind BETTING_ENABLED
           (paused 2026-06-01, betting feature temporarily off). */}
