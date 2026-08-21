@@ -28,6 +28,17 @@ export default function BlitzList() {
   const [ranking, setRanking] = useState<RankedPlayer[]>([]);
   // Which leaderboard the preview is showing. Mirrors the ranking page.
   const [rankFormat, setRankFormat] = useState<'rotating' | 'fixed_pairs'>('rotating');
+
+  // Finished tournaments sit behind a toggle so the home page stays short —
+  // they are archive, not something to scroll past on every visit. The choice
+  // is remembered, otherwise opening a tournament and coming back would
+  // collapse the list again every single time.
+  const [historyOpen, setHistoryOpen] = useState(() => {
+    try { return localStorage.getItem('deucy-history-open') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('deucy-history-open', historyOpen ? '1' : '0'); } catch { /* private mode */ }
+  }, [historyOpen]);
   const [rankingLoading, setRankingLoading] = useState(true);
   const [myRank, setMyRank] = useState<{ position: number; score: number; delta: number | null } | null>(null);
   const [myResults, setMyResults] = useState<Record<string, { placement: number; points: number }>>({});
@@ -600,19 +611,46 @@ export default function BlitzList() {
 
         {/* ── History section ── */}
         {finishedTournaments.length > 0 && (
-          <div style={{
-            marginTop: (liveTournaments.length > 0 || upcomingTournaments.length > 0) ? spacing.lg : 0,
-            marginBottom: spacing.sm,
-          }}>
+          <button
+            onClick={() => setHistoryOpen(o => !o)}
+            aria-expanded={historyOpen}
+            style={{
+              display: 'flex', alignItems: 'center', gap: spacing.sm,
+              width: '100%', textAlign: 'left',
+              marginTop: (liveTournaments.length > 0 || upcomingTournaments.length > 0) ? spacing.lg : 0,
+              marginBottom: historyOpen ? spacing.sm : 0,
+              padding: `${spacing.xs}px 0`,
+              background: 'none', border: 'none', cursor: 'pointer',
+            }}
+          >
             <span style={{
               ...typeScale.micro, color: colors.muted, fontSize: 11,
               textTransform: 'uppercase', letterSpacing: '0.08em',
             }}>
               History
             </span>
-          </div>
+            {/* How many are inside, so the row is worth opening or skipping
+                without having to open it first. */}
+            <span style={{
+              fontFamily: fonts.mono, fontSize: 11, fontWeight: 700,
+              color: colors.muted,
+            }}>
+              {finishedTournaments.length}
+            </span>
+            <svg
+              width={12} height={12} viewBox="0 0 24 24" fill="none"
+              stroke={colors.muted} strokeWidth={3}
+              strokeLinecap="round" strokeLinejoin="round"
+              style={{
+                transform: historyOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.18s ease',
+              }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
         )}
-        {finishedTournaments.map(t => {
+        {historyOpen && finishedTournaments.map(t => {
           const result = myResults[t.id];
           const winnerName = winners[t.id];
           const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
