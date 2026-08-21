@@ -204,6 +204,103 @@ export default function BlitzList() {
   const liveTournaments = tournaments.filter(t => t.status === 'live');
   const upcomingTournaments = tournaments.filter(t => t.status === 'setup');
   const finishedTournaments = tournaments.filter(t => t.status === 'finished');
+  // The most recent result stays in the open: right after playing, that is
+  // the one people come back to look at. Everything older is archive.
+  const latestFinished = finishedTournaments[0];
+  const olderFinished = finishedTournaments.slice(1);
+
+  /**
+   * One finished-tournament card. Shared by the latest event, which stays
+   * visible under the ranking, and by the archive collapsed beneath it.
+   */
+  const renderFinishedCard = (t: BlitzTournamentData) => {
+    const result = myResults[t.id];
+    const winnerName = winners[t.id];
+    const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    return (
+      <div
+        key={t.id}
+        onClick={() => navigate(`/blitz/${t.id}`)}
+        style={{
+          background: colors.surface,
+          border: `1px solid ${colors.border}`,
+          borderRadius: radius.md,
+          padding: `${spacing.md}px`,
+          marginBottom: spacing.sm,
+          cursor: 'pointer',
+        }}
+      >
+        {/* Date sits at the top-left, on its own row */}
+        {dateStr && (
+          <span style={{
+            display: 'block', fontSize: 11, color: colors.muted,
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+            fontWeight: 600, marginBottom: spacing.xs,
+          }}>
+            {dateStr}
+          </span>
+        )}
+        {/* Title + sub-line on the left, placement + pill on the right,
+            vertically centered as a pair */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{
+              display: 'block', fontSize: 15, fontWeight: 600, color: colors.textSecondary,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {t.name}
+            </span>
+            <span style={{
+              display: 'block', fontSize: 12, color: colors.muted, marginTop: 2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {t.players.length} players{t.format === 'fixed_pairs' ? ' · Pairs' : ''}
+              {winnerName ? ` · won by ${winnerName}` : ''}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+            {/* My result — highlighted, or "Did not play" pill if I wasn't in the pool */}
+            {result ? (
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: 12, color: colors.textSecondary, fontWeight: 600 }}>
+                  {result.placement}{ordinalSuffix(result.placement)}
+                </span>
+                <div style={{ marginTop: 4 }}>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '2px 8px',
+                    background: result.points > 0 ? colors.primaryMuted : 'transparent',
+                    border: result.points > 0 ? `1px solid rgba(34,197,94,0.25)` : '1px solid transparent',
+                    borderRadius: radius.pill,
+                    fontFamily: fonts.mono,
+                    fontSize: 12, fontWeight: 800,
+                    color: result.points > 0 ? colors.primary : colors.muted,
+                  }}>
+                    {result.points > 0 ? `+${result.points} pts` : '0 pts'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <span style={{
+                display: 'inline-block',
+                padding: '4px 10px',
+                background: 'transparent',
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.pill,
+                fontFamily: fonts.sans,
+                fontSize: 11, fontWeight: 600,
+                color: colors.muted,
+                whiteSpace: 'nowrap',
+              }}>
+                Did not play
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const top3 = ranking.slice(0, 3);
 
   const ordinalSuffix = (n: number) => {
@@ -609,15 +706,17 @@ export default function BlitzList() {
           );
         })}
 
+        {latestFinished && renderFinishedCard(latestFinished)}
+
         {/* ── History section ── */}
-        {finishedTournaments.length > 0 && (
+        {olderFinished.length > 0 && (
           <button
             onClick={() => setHistoryOpen(o => !o)}
             aria-expanded={historyOpen}
             style={{
               display: 'flex', alignItems: 'center', gap: spacing.sm,
               width: '100%', textAlign: 'left',
-              marginTop: (liveTournaments.length > 0 || upcomingTournaments.length > 0) ? spacing.lg : 0,
+              marginTop: (latestFinished || liveTournaments.length > 0 || upcomingTournaments.length > 0) ? spacing.lg : 0,
               marginBottom: historyOpen ? spacing.sm : 0,
               padding: `${spacing.xs}px 0`,
               background: 'none', border: 'none', cursor: 'pointer',
@@ -635,7 +734,7 @@ export default function BlitzList() {
               fontFamily: fonts.mono, fontSize: 12, fontWeight: 700,
               color: colors.text,
             }}>
-              {finishedTournaments.length}
+              {olderFinished.length}
             </span>
             <svg
               width={14} height={14} viewBox="0 0 24 24" fill="none"
@@ -650,93 +749,7 @@ export default function BlitzList() {
             </svg>
           </button>
         )}
-        {historyOpen && finishedTournaments.map(t => {
-          const result = myResults[t.id];
-          const winnerName = winners[t.id];
-          const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-          return (
-            <div
-              key={t.id}
-              onClick={() => navigate(`/blitz/${t.id}`)}
-              style={{
-                background: colors.surface,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.md,
-                padding: `${spacing.md}px`,
-                marginBottom: spacing.sm,
-                cursor: 'pointer',
-              }}
-            >
-              {/* Date sits at the top-left, on its own row */}
-              {dateStr && (
-                <span style={{
-                  display: 'block', fontSize: 11, color: colors.muted,
-                  textTransform: 'uppercase', letterSpacing: '0.06em',
-                  fontWeight: 600, marginBottom: spacing.xs,
-                }}>
-                  {dateStr}
-                </span>
-              )}
-              {/* Title + sub-line on the left, placement + pill on the right,
-                  vertically centered as a pair */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{
-                    display: 'block', fontSize: 15, fontWeight: 600, color: colors.textSecondary,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    {t.name}
-                  </span>
-                  <span style={{
-                    display: 'block', fontSize: 12, color: colors.muted, marginTop: 2,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    {t.players.length} players{t.format === 'fixed_pairs' ? ' · Pairs' : ''}
-                    {winnerName ? ` · won by ${winnerName}` : ''}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                  {/* My result — highlighted, or "Did not play" pill if I wasn't in the pool */}
-                  {result ? (
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontSize: 12, color: colors.textSecondary, fontWeight: 600 }}>
-                        {result.placement}{ordinalSuffix(result.placement)}
-                      </span>
-                      <div style={{ marginTop: 4 }}>
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '2px 8px',
-                          background: result.points > 0 ? colors.primaryMuted : 'transparent',
-                          border: result.points > 0 ? `1px solid rgba(34,197,94,0.25)` : '1px solid transparent',
-                          borderRadius: radius.pill,
-                          fontFamily: fonts.mono,
-                          fontSize: 12, fontWeight: 800,
-                          color: result.points > 0 ? colors.primary : colors.muted,
-                        }}>
-                          {result.points > 0 ? `+${result.points} pts` : '0 pts'}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '4px 10px',
-                      background: 'transparent',
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: radius.pill,
-                      fontFamily: fonts.sans,
-                      fontSize: 11, fontWeight: 600,
-                      color: colors.muted,
-                      whiteSpace: 'nowrap',
-                    }}>
-                      Did not play
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {historyOpen && olderFinished.map(renderFinishedCard)}
 
         {/* ── Empty state ── */}
         {tournaments.length === 0 && (
