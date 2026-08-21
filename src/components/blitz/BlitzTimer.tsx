@@ -24,6 +24,9 @@ function clock(total: number): string {
  * you want to know whether the round is nearly over. A small pill that stays
  * put costs a corner and answers the question at any scroll position.
  *
+ * Rendered inside the sticky status row of the match tab, opposite the round
+ * counter.
+ *
  * The ring also carried the remaining fraction, so that is kept as a hairline
  * across the bottom of the pill rather than dropped.
  */
@@ -49,10 +52,10 @@ export default function BlitzTimer({
 
   return (
     <div style={{
-      position: 'sticky',
-      top: spacing.sm,
-      zIndex: 40,
-      alignSelf: 'flex-end',
+      // Relative only so the progress hairline can anchor to it. The status
+      // row above owns the sticky behaviour, so the round counter and the
+      // clock travel together.
+      position: 'relative',
       display: 'flex', alignItems: 'center', gap: spacing.xs,
       padding: '5px 10px 5px 5px',
       borderRadius: radius.pill,

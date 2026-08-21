@@ -498,29 +498,45 @@ export default function BlitzMatchTab({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
-      {/* Round clock. First in the flow and sticky, so it stays in the corner
-          while the rest of the tab scrolls under it. */}
-      <BlitzTimer
-        secondsLeft={timerProps.secondsLeft} isRunning={timerProps.isRunning}
-        isPaused={timerProps.isPaused} isExpired={timerProps.isExpired}
-        durationSeconds={tournament.round_duration_seconds}
-        onStart={onStartTimer} onPause={onPauseTimer} onReset={onResetTimer}
-      />
+      {/* Status row: which round, and how long is left. Both answer "where
+          are we", so they share one line and one sticky position instead of
+          taking two stacked blocks at the top of the tab.
 
-      {/* Round counter */}
-      <div style={{ textAlign: 'center' }}>
-        <span style={{ ...typeScale.micro, color: colors.muted, display: 'block', marginBottom: spacing.xs }}>
-          Round
-        </span>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: spacing.xs }}>
+          The background bleeds past the column padding, otherwise content
+          scrolling underneath would show through the side gutters. */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 40,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: spacing.md,
+        marginLeft: -spacing.lg, marginRight: -spacing.lg,
+        paddingLeft: spacing.lg, paddingRight: spacing.lg,
+        paddingTop: spacing.sm, paddingBottom: spacing.sm,
+        backgroundColor: colors.bg,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: spacing.xs }}>
           <span style={{
-            fontSize: 36, fontWeight: 900, fontFamily: fonts.mono,
+            ...typeScale.micro, color: colors.muted, fontSize: 11,
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+          }}>
+            Round
+          </span>
+          <span style={{
+            fontSize: 22, fontWeight: 900, fontFamily: fonts.mono,
             color: colors.primary, letterSpacing: '-0.03em',
           }}>
             {tournament.current_round}
           </span>
-          <span style={{ ...typeScale.body, color: colors.muted }}>/ {totalRounds}</span>
+          <span style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.muted }}>
+            /{totalRounds}
+          </span>
         </div>
+
+        <BlitzTimer
+          secondsLeft={timerProps.secondsLeft} isRunning={timerProps.isRunning}
+          isPaused={timerProps.isPaused} isExpired={timerProps.isExpired}
+          durationSeconds={tournament.round_duration_seconds}
+          onStart={onStartTimer} onPause={onPauseTimer} onReset={onResetTimer}
+        />
       </div>
 
       {/* Teams card — court A */}
