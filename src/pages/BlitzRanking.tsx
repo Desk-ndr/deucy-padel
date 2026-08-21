@@ -115,30 +115,45 @@ export default function BlitzRanking() {
 
   return (
     <div style={{ minHeight: '100vh', background: colors.bg, padding: `${spacing.xl}px ${spacing.lg}px` }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: 0 }}>
+      {/* Header — the title is positioned absolutely so it sits on the true
+          centre of the bar, independent of how wide the controls on either
+          side happen to be. */}
+      <div style={{
+        position: 'relative',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: spacing.md, marginBottom: 0, minHeight: 36,
+      }}>
         <button
           onClick={() => navigate('/blitz')}
-          aria-label="Back"
           style={{
             background: 'none', border: 'none', color: colors.text,
-            fontSize: 20, lineHeight: 1, cursor: 'pointer',
-            padding: 0, width: 23, height: 23, flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 14, fontWeight: 600, lineHeight: 1, cursor: 'pointer',
+            padding: 0, flexShrink: 0, fontFamily: fonts.sans,
+            display: 'flex', alignItems: 'center',
+            position: 'relative', zIndex: 1,
           }}
         >
-          ←
+          Back
         </button>
         <h1 style={{
-          flex: 1, minWidth: 0,
+          position: 'absolute',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          maxWidth: '58%',
           fontFamily: fonts.sans, fontSize: 18, fontWeight: 700,
           color: colors.text, margin: 0, lineHeight: 1.1,
           textTransform: 'uppercase',
           letterSpacing: '0.04em',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          textAlign: 'center',
+          pointerEvents: 'none',
         }}>
           Deucy Ranking
         </h1>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: spacing.sm,
+          flexShrink: 0, position: 'relative', zIndex: 1,
+        }}>
         <button
           onClick={() => navigate('/blitz/how-it-works')}
           aria-label="How it works"
@@ -177,12 +192,12 @@ export default function BlitzRanking() {
             <line x1="23" y1="11" x2="17" y2="11" />
           </svg>
         </button>
+        </div>
       </div>
 
-      {/* Subtitle on its own row, indented to roughly sit under the title */}
-      {/* Decay explainer badge — tap to open How it works.
-          Subtitle-height, aligns under the H1 like the old caption did.
-          Copy is deliberately short: full details live in HowItWorks. */}
+      {/* Decay explainer badge — tap to open How it works. Opens the page
+          under the title, above the tabs. Copy is deliberately short: the
+          full details live in HowItWorks. */}
       <button
         onClick={() => navigate('/blitz/how-it-works')}
         aria-label="How the ranking decays"
