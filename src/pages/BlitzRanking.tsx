@@ -446,18 +446,29 @@ export default function BlitzRanking() {
       {!loading && ranking.length > 0 && (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '32px 1fr 56px 44px 44px 28px',
+          gridTemplateColumns: '30px 1fr 46px 38px 46px 50px',
           gap: spacing.sm,
           padding: `0 ${spacing.lg}px ${spacing.sm}px`,
           alignItems: 'center',
         }}>
           <span style={{ ...headerStyle, textAlign: 'center' }}>#</span>
-          <span style={headerStyle}>Player</span>
-          <span style={{ ...headerStyle, textAlign: 'right' }}>Pts</span>
-          <span style={{ ...headerStyle, textAlign: 'center' }}>+/-</span>
-          <span style={{ ...headerStyle, textAlign: 'center' }}>W%</span>
-          <span style={{ ...headerStyle, textAlign: 'center' }}>Form</span>
+          <span style={headerStyle}>Giocatore</span>
+          <span style={{ ...headerStyle, textAlign: 'right' }}>Punti</span>
+          <span style={{ ...headerStyle, textAlign: 'center' }}>Part.</span>
+          <span style={{ ...headerStyle, textAlign: 'center' }}>Win%</span>
+          <span style={{ ...headerStyle, textAlign: 'center' }}>Game%</span>
         </div>
+      )}
+
+      {/* Column legend — kept to one quiet line so the table stays readable. */}
+      {!loading && ranking.length > 0 && (
+        <p style={{
+          ...typeScale.caption, color: colors.muted,
+          margin: `0 0 ${spacing.sm}px ${30 + 8}px`,
+          textTransform: 'none', letterSpacing: 0,
+        }}>
+          Win% = partite vinte · Game% = game vinti sul totale giocati
+        </p>
       )}
 
       {/* Ranking Rows */}
@@ -484,7 +495,7 @@ export default function BlitzRanking() {
             {/* Main row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '32px 1fr 56px 44px 44px 28px',
+              gridTemplateColumns: '30px 1fr 46px 38px 46px 50px',
               gap: spacing.sm,
               alignItems: 'center',
             }}>
@@ -525,37 +536,33 @@ export default function BlitzRanking() {
                 </span>
               </div>
 
-              {/* Delta */}
+              {/* Matches played */}
               <div style={{ textAlign: 'center' }}>
-                {player.pointsDelta !== null && player.pointsDelta !== 0 ? (
-                  <span style={{
-                    fontFamily: fonts.mono, fontSize: 14, fontWeight: 700,
-                    color: player.pointsDelta > 0 ? colors.primary : colors.destructive,
-                  }}>
-                    {player.pointsDelta > 0 ? '+' : ''}{player.pointsDelta}
-                  </span>
-                ) : (
-                  <span style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.muted }}>—</span>
-                )}
+                <span style={{
+                  fontFamily: fonts.mono, fontSize: 14, fontWeight: 500,
+                  color: colors.textSecondary,
+                }}>
+                  {player.matchesPlayed || '—'}
+                </span>
               </div>
 
-              {/* Win Rate — secondary */}
+              {/* Win rate */}
               <div style={{ textAlign: 'center' }}>
                 <span style={{
                   fontFamily: fonts.mono, fontSize: 14, fontWeight: 500,
                   color: colors.muted,
                 }}>
-                  {player.winRate}%
+                  {player.matchesPlayed ? `${player.winRate}%` : '—'}
                 </span>
               </div>
 
-              {/* Form */}
-              <div style={{ textAlign: 'center' }} title={formInfo.label}>
+              {/* Game rate */}
+              <div style={{ textAlign: 'center' }}>
                 <span style={{
-                  fontFamily: fonts.mono, fontSize: 14, fontWeight: 800,
-                  color: formInfo.color,
+                  fontFamily: fonts.mono, fontSize: 14, fontWeight: 500,
+                  color: colors.muted,
                 }}>
-                  {formInfo.symbol}
+                  {player.matchesPlayed ? `${player.gameRate}%` : '—'}
                 </span>
               </div>
             </div>
@@ -563,6 +570,37 @@ export default function BlitzRanking() {
             {/* Expanded detail */}
             {isExpanded && (
               <div style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTop: `1px solid ${colors.border}` }}>
+                {/* Last-tournament delta and form — moved here from the row so
+                    the table keeps to the five columns that matter at a glance. */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: spacing.lg,
+                  marginBottom: spacing.md,
+                }}>
+                  <div>
+                    <span style={{ fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+                      Ultimo torneo
+                    </span>
+                    <div style={{
+                      fontFamily: fonts.mono, fontSize: 14, fontWeight: 700,
+                      color: player.pointsDelta && player.pointsDelta > 0 ? colors.primary
+                        : player.pointsDelta && player.pointsDelta < 0 ? colors.destructive
+                        : colors.muted,
+                    }}>
+                      {player.pointsDelta !== null && player.pointsDelta !== 0
+                        ? `${player.pointsDelta > 0 ? '+' : ''}${player.pointsDelta}`
+                        : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+                      Forma
+                    </span>
+                    <div style={{ fontFamily: fonts.mono, fontSize: 14, fontWeight: 800, color: formInfo.color }}>
+                      {formInfo.symbol} <span style={{ fontFamily: fonts.sans, fontSize: 12, fontWeight: 600, color: colors.textSecondary }}>{formInfo.label}</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Rivalry block (H2H vs adjacent player) */}
                 {player.rivalry && (
                   <div style={{
