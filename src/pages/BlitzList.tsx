@@ -280,7 +280,7 @@ export default function BlitzList() {
               display: 'block', fontSize: 12, color: colors.textSecondary, marginTop: 3,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
-              {t.players.length} players{t.format === 'fixed_pairs' ? ' · Pairs' : ''}
+              {t.players.length} players · {t.format === 'fixed_pairs' ? 'Pairs' : 'Singles'}
               {winnerName ? ` · won by ${winnerName}` : ''}
             </span>
           </div>
@@ -651,7 +651,7 @@ export default function BlitzList() {
                   {t.name}
                 </span>
                 <span style={{ fontSize: 12, color: colors.muted }}>
-                  {t.players.length} players{t.format === 'fixed_pairs' ? ' · Pairs' : ''} · R{t.current_round}/{t.total_rounds}
+                  {t.players.length} players · {t.format === 'fixed_pairs' ? 'Pairs' : 'Singles'} · R{t.current_round}/{t.total_rounds}
                 </span>
               </div>
               <div style={{
