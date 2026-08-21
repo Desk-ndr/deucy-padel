@@ -194,8 +194,8 @@ export default function BlitzRanking() {
         width: '100%',
       }}>
         {([
-          { key: 'rotating' as const, label: 'Singolo' },
-          { key: 'fixed_pairs' as const, label: 'Coppie' },
+          { key: 'rotating' as const, label: 'Singles' },
+          { key: 'fixed_pairs' as const, label: 'Pairs' },
         ]).map(t => {
           const isActive = rankFormat === t.key;
           return (
@@ -475,9 +475,9 @@ export default function BlitzRanking() {
           borderBottom: `1px solid ${colors.border}`,
         }}>
           <span style={{ ...headerStyle, textAlign: 'center' }}>#</span>
-          <span style={headerStyle}>Giocatore</span>
-          <span style={{ ...headerStyle, textAlign: 'right' }}>Punti</span>
-          <span style={{ ...headerStyle, textAlign: 'center' }}>Part.</span>
+          <span style={headerStyle}>Player</span>
+          <span style={{ ...headerStyle, textAlign: 'right' }}>Pts</span>
+          <span style={{ ...headerStyle, textAlign: 'center' }}>Played</span>
           <span style={{ ...headerStyle, textAlign: 'center' }}>Win%</span>
           <span style={{ ...headerStyle, textAlign: 'center' }}>Game%</span>
         </div>
@@ -587,7 +587,7 @@ export default function BlitzRanking() {
                 }}>
                   <div>
                     <span style={{ fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
-                      Ultimo torneo
+                      Last tournament
                     </span>
                     <div style={{
                       fontFamily: fonts.mono, fontSize: 14, fontWeight: 700,
@@ -602,7 +602,7 @@ export default function BlitzRanking() {
                   </div>
                   <div>
                     <span style={{ fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
-                      Forma
+                      Form
                     </span>
                     <div style={{ fontFamily: fonts.mono, fontSize: 14, fontWeight: 800, color: formInfo.color }}>
                       {formInfo.symbol} <span style={{ fontFamily: fonts.sans, fontSize: 12, fontWeight: 600, color: colors.textSecondary }}>{formInfo.label}</span>
@@ -650,7 +650,7 @@ export default function BlitzRanking() {
                 )}
 
                 <p style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, margin: 0, marginBottom: spacing.sm }}>
-                  {rankFormat === 'fixed_pairs' ? 'Tornei a coppie che contano:' : 'Tournaments scoring (last 2 months):'}
+                  {rankFormat === 'fixed_pairs' ? 'Pairs tournaments scoring:' : 'Tournaments scoring (last 2 months):'}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                   {player.bestResults.length === 0 && (
@@ -691,7 +691,7 @@ export default function BlitzRanking() {
                               color: colors.muted,
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>
-                              con {br.partnerName}
+                              with {br.partnerName}
                             </span>
                           )}
                         </span>

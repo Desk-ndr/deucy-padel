@@ -76,8 +76,8 @@ function clusterWarning(
   if (!a || !b || !a.playerId || !b.playerId) return null;
   const bothIn = (cluster: readonly string[]) =>
     cluster.includes(a.playerId!) && cluster.includes(b.playerId!);
-  if (bothIn(STRONG_TRIPLE_PLAYER_IDS)) return 'Due giocatori forti insieme';
-  if (bothIn(WEAK_TRIPLE_PLAYER_IDS)) return 'Due giocatori meno forti insieme';
+  if (bothIn(STRONG_TRIPLE_PLAYER_IDS)) return 'Two strong players together';
+  if (bothIn(WEAK_TRIPLE_PLAYER_IDS)) return 'Two weaker players together';
   return null;
 }
 
@@ -127,7 +127,7 @@ export function assessPairs(
       pairs: infos,
       unpaired,
       verdict: 'unknown',
-      label: 'Nessuno storico: equilibrio non valutabile',
+      label: 'No history yet — balance cannot be judged',
       spread,
       warnings,
     };
@@ -137,13 +137,13 @@ export function assessPairs(
   let label: string;
   if (spread <= BALANCED_MAX_SPREAD) {
     verdict = 'balanced';
-    label = 'Coppie equilibrate';
+    label = 'Balanced pairs';
   } else if (spread <= SLIGHTLY_OFF_MAX_SPREAD) {
     verdict = 'slightly-off';
-    label = 'Coppie quasi equilibrate';
+    label = 'Nearly balanced';
   } else {
     verdict = 'unbalanced';
-    label = 'Una coppia è nettamente più forte';
+    label = 'One pair is clearly stronger';
   }
 
   return { pairs: infos, unpaired, verdict, label, spread, warnings };
